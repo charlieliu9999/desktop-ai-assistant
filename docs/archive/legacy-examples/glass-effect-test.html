@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>玻璃效果测试页面</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+
+    .container {
+      max-width: 1200px;
+      width: 100%;
+    }
+
+    h1 {
+      color: white;
+      text-align: center;
+      margin-bottom: 40px;
+      font-size: 32px;
+      text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .test-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 30px;
+      margin-bottom: 40px;
+    }
+
+    .test-card {
+      padding: 30px;
+      border-radius: 20px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      min-height: 200px;
+    }
+
+    .test-card h2 {
+      margin-bottom: 15px;
+      font-size: 18px;
+      color: #333;
+    }
+
+    .test-card p {
+      color: #666;
+      line-height: 1.6;
+      margin-bottom: 15px;
+    }
+
+    /* 测试1: 强玻璃效果 */
+    .glass-strong {
+      background: rgba(255, 255, 255, 0.1);
+      -webkit-backdrop-filter: blur(30px) saturate(200%);
+      backdrop-filter: blur(30px) saturate(200%);
+    }
+
+    /* 测试2: 中等玻璃效果 */
+    .glass-medium {
+      background: rgba(255, 255, 255, 0.25);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      backdrop-filter: blur(20px) saturate(180%);
+    }
+
+    /* 测试3: 轻微玻璃效果 */
+    .glass-light {
+      background: rgba(255, 255, 255, 0.4);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+    }
+
+    /* 测试4: 无玻璃效果(对照组) */
+    .no-glass {
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    .status {
+      display: inline-block;
+      padding: 5px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: bold;
+      margin-top: 10px;
+    }
+
+    .status.supported {
+      background: #10b981;
+      color: white;
+    }
+
+    .status.not-supported {
+      background: #ef4444;
+      color: white;
+    }
+
+    .info-box {
+      background: rgba(255, 255, 255, 0.2);
+      -webkit-backdrop-filter: blur(20px);
+      backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 15px;
+      padding: 25px;
+      color: white;
+      margin-top: 30px;
+    }
+
+    .info-box h3 {
+      margin-bottom: 15px;
+      font-size: 20px;
+    }
+
+    .info-box ul {
+      list-style: none;
+      padding-left: 0;
+    }
+
+    .info-box li {
+      padding: 8px 0;
+      padding-left: 25px;
+      position: relative;
+    }
+
+    .info-box li:before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: #10b981;
+      font-weight: bold;
+    }
+
+    .browser-info {
+      background: rgba(0, 0, 0, 0.3);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      border-radius: 10px;
+      padding: 15px;
+      margin-top: 20px;
+      color: white;
+      font-size: 14px;
+    }
+
+    .code-block {
+      background: rgba(0, 0, 0, 0.5);
+      border-radius: 8px;
+      padding: 15px;
+      margin-top: 15px;
+      color: #10b981;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔍 玻璃效果 (Glassmorphism) 测试页面</h1>
+
+    <div class="test-grid">
+      <!-- 测试1 -->
+      <div class="test-card glass-strong">
+        <h2>强玻璃效果</h2>
+        <p>透明度: 10%<br>模糊: 30px<br>饱和度: 200%</p>
+        <div class="code-block">
+background: rgba(255,255,255,0.1);
+backdrop-filter: blur(30px) saturate(200%);
+        </div>
+        <span class="status" id="status1">检测中...</span>
+      </div>
+
+      <!-- 测试2 -->
+      <div class="test-card glass-medium">
+        <h2>中等玻璃效果</h2>
+        <p>透明度: 25%<br>模糊: 20px<br>饱和度: 180%</p>
+        <div class="code-block">
+background: rgba(255,255,255,0.25);
+backdrop-filter: blur(20px) saturate(180%);
+        </div>
+        <span class="status" id="status2">检测中...</span>
+      </div>
+
+      <!-- 测试3 -->
+      <div class="test-card glass-light">
+        <h2>轻微玻璃效果</h2>
+        <p>透明度: 40%<br>模糊: 10px<br>饱和度: 默认</p>
+        <div class="code-block">
+background: rgba(255,255,255,0.4);
+backdrop-filter: blur(10px);
+        </div>
+        <span class="status" id="status3">检测中...</span>
+      </div>
+
+      <!-- 测试4 -->
+      <div class="test-card no-glass">
+        <h2>无玻璃效果(对照组)</h2>
+        <p>透明度: 90%<br>模糊: 无<br>饱和度: 默认</p>
+        <div class="code-block">
+background: rgba(255,255,255,0.9);
+/* 无 backdrop-filter */
+        </div>
+        <span class="status" id="status4">N/A</span>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <h3>📋 如何判断玻璃效果是否生效?</h3>
+      <ul>
+        <li>卡片背景应该是<strong>半透明</strong>的,能看到背后的渐变色</li>
+        <li>背景应该有<strong>模糊效果</strong>,不是清晰的渐变色</li>
+        <li>颜色应该比对照组更<strong>鲜艳</strong>(饱和度增强)</li>
+        <li>移动卡片时,背后的背景应该<strong>跟随模糊</strong></li>
+      </ul>
+
+      <div class="browser-info">
+        <strong>浏览器信息:</strong><br>
+        <span id="browserInfo">检测中...</span>
+      </div>
+
+      <div class="browser-info" style="margin-top: 10px;">
+        <strong>backdrop-filter 支持情况:</strong><br>
+        <span id="supportInfo">检测中...</span>
+      </div>
+    </div>
+
+    <div class="info-box" style="margin-top: 20px;">
+      <h3>💡 浏览器兼容性</h3>
+      <ul>
+        <li><strong>Chrome/Edge 76+</strong>: 完全支持</li>
+        <li><strong>Safari 9+</strong>: 需要 -webkit- 前缀</li>
+        <li><strong>Firefox 103+</strong>: 完全支持</li>
+        <li><strong>Firefox 70-102</strong>: 需要在 about:config 中启用</li>
+      </ul>
+      <p style="margin-top: 15px; color: #fbbf24;">
+        ⚠️ 如果看不到玻璃效果,请尝试:
+      </p>
+      <ul style="margin-top: 10px;">
+        <li>更新浏览器到最新版本</li>
+        <li>使用 Chrome、Edge 或 Safari</li>
+        <li>检查浏览器是否启用了硬件加速</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    // 检测浏览器信息
+    const userAgent = navigator.userAgent;
+    let browserName = 'Unknown';
+    
+    if (userAgent.indexOf('Chrome') > -1 && userAgent.indexOf('Edg') === -1) {
+      browserName = 'Chrome';
+    } else if (userAgent.indexOf('Edg') > -1) {
+      browserName = 'Edge';
+    } else if (userAgent.indexOf('Safari') > -1 && userAgent.indexOf('Chrome') === -1) {
+      browserName = 'Safari';
+    } else if (userAgent.indexOf('Firefox') > -1) {
+      browserName = 'Firefox';
+    }
+    
+    document.getElementById('browserInfo').textContent = `${browserName} - ${userAgent}`;
+
+    // 检测 backdrop-filter 支持
+    function checkBackdropFilterSupport() {
+      const testElement = document.createElement('div');
+      testElement.style.cssText = '-webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);';
+      document.body.appendChild(testElement);
+      
+      const computedStyle = window.getComputedStyle(testElement);
+      const webkitSupported = computedStyle.webkitBackdropFilter !== '';
+      const standardSupported = computedStyle.backdropFilter !== '';
+      const supported = webkitSupported || standardSupported;
+      
+      document.body.removeChild(testElement);
+      
+      let supportText = '';
+      if (standardSupported && webkitSupported) {
+        supportText = '✅ 完全支持 (标准语法 + -webkit- 前缀)';
+      } else if (standardSupported) {
+        supportText = '✅ 支持 (标准语法)';
+      } else if (webkitSupported) {
+        supportText = '✅ 支持 (-webkit- 前缀)';
+      } else {
+        supportText = '❌ 不支持 - 建议更新浏览器或使用 Chrome/Edge/Safari';
+      }
+      
+      document.getElementById('supportInfo').textContent = supportText;
+      
+      // 更新状态标签
+      const statusClass = supported ? 'supported' : 'not-supported';
+      const statusText = supported ? '✓ 支持' : '✗ 不支持';
+      
+      for (let i = 1; i <= 3; i++) {
+        const statusEl = document.getElementById(`status${i}`);
+        statusEl.className = `status ${statusClass}`;
+        statusEl.textContent = statusText;
+      }
+      
+      const status4 = document.getElementById('status4');
+      status4.className = 'status';
+      status4.style.background = '#6b7280';
+      status4.style.color = 'white';
+      status4.textContent = '对照组';
+      
+      return supported;
+    }
+
+    // 执行检测
+    setTimeout(() => {
+      checkBackdropFilterSupport();
+    }, 100);
+  </script>
+</body>
+</html>
+

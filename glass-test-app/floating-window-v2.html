@@ -1,0 +1,1213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI医疗助手</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      /* 玻璃态效果参数 */
+      --glass-opacity: 0.15;
+      --glass-blur: 40px;
+      --glass-saturation: 200%;
+      --glass-bg-r: 255;
+      --glass-bg-g: 255;
+      --glass-bg-b: 255;
+      
+      /* 主题颜色变量 - 默认透明主题 */
+      --bg-primary: transparent;
+      --bg-secondary: rgba(255, 255, 255, 0.1);
+      --bg-card: rgba(255, 255, 255, 0.15);
+      --text-primary: #1f2937;
+      --text-secondary: #6b7280;
+      --text-inverse: #ffffff;
+      --border-color: rgba(255, 255, 255, 0.3);
+      --accent-color: #3b82f6;
+      --accent-hover: #2563eb;
+    }
+
+    /* 亮色主题 */
+    body.theme-light {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f3f4f6;
+      --bg-card: #ffffff;
+      --text-primary: #1f2937;
+      --text-secondary: #6b7280;
+      --text-inverse: #ffffff;
+      --border-color: #e5e7eb;
+      --accent-color: #3b82f6;
+      --accent-hover: #2563eb;
+      --glass-opacity: 1;
+      --glass-blur: 0px;
+    }
+
+    /* 暗色主题 */
+    body.theme-dark {
+      --bg-primary: #1f2937;
+      --bg-secondary: #111827;
+      --bg-card: #374151;
+      --text-primary: #f9fafb;
+      --text-secondary: #d1d5db;
+      --text-inverse: #1f2937;
+      --border-color: #4b5563;
+      --accent-color: #60a5fa;
+      --accent-hover: #3b82f6;
+      --glass-opacity: 1;
+      --glass-blur: 0px;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg-primary);
+      overflow: hidden;
+      -webkit-user-select: none;
+      user-select: none;
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* 确保所有交互元素可点击 */
+    button, input, textarea, select, a, label {
+      -webkit-app-region: no-drag !important;
+      cursor: pointer;
+    }
+
+    /* 主窗口 */
+    .expanded-window {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* 玻璃卡片 */
+    .glass-card {
+      background: rgba(var(--glass-bg-r), var(--glass-bg-g), var(--glass-bg-b), var(--glass-opacity));
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+      backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+      border-radius: 16px;
+      border: 1px solid var(--border-color);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Tab导航栏 - 可拖拽 */
+    .tab-nav {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.9) 0%, rgba(139, 92, 246, 0.9) 100%);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      -webkit-app-region: drag;
+    }
+
+    .tab-list {
+      display: flex;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .tab-button {
+      padding: 8px 16px;
+      background: rgba(255, 255, 255, 0.2);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      border-radius: 8px;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      -webkit-app-region: no-drag !important;
+    }
+
+    .tab-button:hover {
+      background: rgba(255, 255, 255, 0.3);
+      color: white;
+    }
+
+    .tab-button.active {
+      background: rgba(255, 255, 255, 0.4);
+      color: white;
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+
+    .window-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .control-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      -webkit-app-region: no-drag !important;
+    }
+
+    .control-btn:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .control-btn.close {
+      background: rgba(239, 68, 68, 0.8);
+    }
+
+    .control-btn.close:hover {
+      background: rgba(220, 38, 38, 0.9);
+    }
+
+    /* Tab内容区域 */
+    .tab-content {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      background: var(--bg-secondary);
+    }
+
+    .tab-pane {
+      display: none;
+      padding: 16px;
+      height: 100%;
+      overflow-y: auto;
+    }
+
+    .tab-pane.active {
+      display: block;
+    }
+
+    /* 区块样式 */
+    .section {
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .section-content {
+      background: var(--bg-card);
+      -webkit-backdrop-filter: blur(15px);
+      backdrop-filter: blur(15px);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    /* 按钮样式 */
+    .btn-primary {
+      padding: 8px 16px;
+      background: var(--accent-color);
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+      -webkit-app-region: no-drag !important;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-secondary {
+      padding: 8px 16px;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      transition: all 0.2s;
+      -webkit-app-region: no-drag !important;
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-secondary);
+    }
+
+    /* 输入框样式 */
+    .input-field {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      font-size: 13px;
+      -webkit-app-region: no-drag !important;
+    }
+
+    .input-field:focus {
+      outline: none;
+      border-color: var(--accent-color);
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    }
+
+    /* 语音输入按钮 */
+    .voice-btn {
+      width: 40px;
+      height: 40px;
+      background: var(--accent-color);
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      transition: all 0.2s;
+      -webkit-app-region: no-drag !important;
+    }
+
+    .voice-btn:hover {
+      background: var(--accent-hover);
+    }
+
+    .voice-btn.recording {
+      background: #ef4444;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* 功能按钮网格 */
+    .action-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .action-btn {
+      padding: 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text-primary);
+      transition: all 0.2s;
+      -webkit-app-region: no-drag !important;
+    }
+
+    .action-btn:hover {
+      background: var(--bg-secondary);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    /* 设置面板 */
+    .settings-panel {
+      position: fixed;
+      top: 0;
+      right: -350px;
+      width: 350px;
+      height: 100%;
+      background: var(--bg-card);
+      border-left: 1px solid var(--border-color);
+      box-shadow: -4px 0 20px rgba(0, 0, 0, 0.2);
+      transition: right 0.3s ease;
+      z-index: 1000;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .settings-panel.open {
+      right: 0;
+    }
+
+    .settings-header {
+      padding: 16px;
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.9) 0%, rgba(139, 92, 246, 0.9) 100%);
+      color: white;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      -webkit-app-region: drag;
+    }
+
+    .settings-title {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .settings-close {
+      width: 28px;
+      height: 28px;
+      background: rgba(255, 255, 255, 0.2);
+      border: none;
+      border-radius: 6px;
+      color: white;
+      cursor: pointer;
+      font-size: 18px;
+      -webkit-app-region: no-drag !important;
+    }
+
+    .settings-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+
+    .control-group {
+      margin-bottom: 20px;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 13px;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .control-value {
+      color: var(--accent-color);
+    }
+
+    .slider {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--bg-secondary);
+      outline: none;
+      -webkit-app-region: no-drag !important;
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--accent-color);
+      cursor: pointer;
+    }
+
+    .theme-selector {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .theme-option {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid var(--border-color);
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: var(--bg-card);
+      color: var(--text-primary);
+      font-size: 12px;
+      -webkit-app-region: no-drag !important;
+    }
+
+    .theme-option:hover {
+      border-color: var(--accent-color);
+    }
+
+    .theme-option.active {
+      border-color: var(--accent-color);
+      background: var(--accent-color);
+      color: white;
+    }
+
+    /* 推荐卡片 */
+    .recommendation-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .recommendation-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .recommendation-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .priority-badge {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+
+    .priority-high {
+      background: #fee2e2;
+      color: #dc2626;
+    }
+
+    .priority-medium {
+      background: #fef3c7;
+      color: #d97706;
+    }
+
+    .priority-low {
+      background: #dcfce7;
+      color: #16a34a;
+    }
+
+    .recommendation-body {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* 加载动画 */
+    .loading-spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border-color);
+      border-top-color: var(--accent-color);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <!-- 主窗口 -->
+  <div class="expanded-window">
+    <div class="glass-card">
+      <!-- Tab导航栏 -->
+      <div class="tab-nav">
+        <div class="tab-list">
+          <button type="button" class="tab-button active" onclick="switchTab('clinical')">
+            👨‍⚕️ 临床医生
+          </button>
+          <button type="button" class="tab-button" onclick="switchTab('radiology')">
+            🔬 影像科医生
+          </button>
+        </div>
+        <div class="window-controls">
+          <button type="button" class="control-btn" onclick="toggleSettings()" title="设置">
+            ⚙️
+          </button>
+          <button type="button" class="control-btn close" onclick="window.close()" title="关闭">
+            ×
+          </button>
+        </div>
+      </div>
+
+      <!-- Tab内容区域 -->
+      <div class="tab-content">
+        <!-- 临床医生 Tab -->
+        <div class="tab-pane active" id="clinicalTab">
+          <!-- 推荐影像检查项目 -->
+          <div class="section">
+            <div class="section-title">
+              <span>📋 推荐影像检查项目</span>
+              <button type="button" class="btn-primary" onclick="refreshRecommendations()">
+                🔄 刷新推荐
+              </button>
+            </div>
+
+            <!-- 患者信息 -->
+            <div class="section-content" style="margin-bottom: 12px;">
+              <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">患者信息</div>
+              <div id="patientInfoContent" style="color: var(--text-secondary); font-size: 12px; line-height: 1.6;">
+                <div>姓名: <span id="patientName">-</span> | 性别: <span id="patientGender">-</span> | 年龄: <span id="patientAge">-</span></div>
+                <div style="margin-top: 4px;">主诉: <span id="patientChiefComplaint">-</span></div>
+                <div style="margin-top: 4px;">病史: <span id="patientHistory">-</span></div>
+              </div>
+            </div>
+
+            <!-- 检查项目推荐 -->
+            <div class="section-content">
+              <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 6px;">
+                <span>🔍 检查项目推荐</span>
+                <span id="loadingIndicator" style="display: none;">
+                  <span class="loading-spinner"></span>
+                  <span style="font-size: 11px; color: var(--text-secondary); margin-left: 6px;">AI分析中,预计需要60秒...</span>
+                </span>
+              </div>
+
+              <div id="recommendationsList">
+                <div style="text-align: center; padding: 20px; color: var(--text-secondary); font-size: 13px;">
+                  点击"刷新推荐"按钮获取智能推荐
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- AI助手输入 -->
+          <div class="section">
+            <div class="section-title">🤖 AI助手</div>
+            <div class="section-content">
+              <div style="display: flex; gap: 8px; align-items: center;">
+                <button type="button" class="voice-btn" onclick="toggleVoiceInput()" title="语音输入">
+                  🎤
+                </button>
+                <input type="text" id="aiQuestionInput" class="input-field" placeholder="询问影像检查相关问题..." style="flex: 1;">
+                <button type="button" class="btn-primary" onclick="askAIQuestion()">发送</button>
+              </div>
+              <div id="aiResponse" style="margin-top: 12px; display: none; padding: 12px; background: var(--bg-secondary); border-radius: 8px; font-size: 12px; color: var(--text-primary);"></div>
+            </div>
+          </div>
+
+          <!-- 功能按钮 -->
+          <div class="action-buttons">
+            <button type="button" class="action-btn" onclick="alert('开处方功能开发中')">📝 开处方</button>
+            <button type="button" class="action-btn" onclick="alert('查看病历功能开发中')">🩺 查看病历</button>
+            <button type="button" class="action-btn" onclick="alert('检验结果功能开发中')">🧪 检验结果</button>
+            <button type="button" class="action-btn" onclick="alert('用药建议功能开发中')">💊 用药建议</button>
+          </div>
+        </div>
+
+        <!-- 影像科医生 Tab -->
+        <div class="tab-pane" id="radiologyTab">
+          <div class="section">
+            <div class="section-title">🔬 影像分析</div>
+            <div class="section-content">
+              <p style="font-size: 13px; color: var(--text-secondary); margin-bottom: 12px;">选择影像类型进行分析</p>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                <button type="button" class="action-btn">📸 X光片</button>
+                <button type="button" class="action-btn">🧠 CT扫描</button>
+                <button type="button" class="action-btn">🫀 MRI</button>
+                <button type="button" class="action-btn">🩻 超声</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 设置面板 -->
+  <div class="settings-panel" id="settingsPanel">
+    <div class="settings-header">
+      <span class="settings-title">⚙️ 设置</span>
+      <button type="button" class="settings-close" onclick="toggleSettings()">×</button>
+    </div>
+
+    <div class="settings-body">
+      <!-- 主题选择 -->
+      <div class="control-group">
+        <div class="control-label">
+          <span>🎨 主题</span>
+        </div>
+        <div class="theme-selector">
+          <div class="theme-option active" onclick="setTheme('glass')" data-theme="glass">
+            <div style="margin-bottom: 4px;">✨</div>
+            <div>透明</div>
+          </div>
+          <div class="theme-option" onclick="setTheme('light')" data-theme="light">
+            <div style="margin-bottom: 4px;">☀️</div>
+            <div>亮色</div>
+          </div>
+          <div class="theme-option" onclick="setTheme('dark')" data-theme="dark">
+            <div style="margin-bottom: 4px;">🌙</div>
+            <div>暗色</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 玻璃效果设置 (仅透明主题可用) -->
+      <div id="glassSettings">
+        <div class="control-group">
+          <div class="control-label">
+            <span>透明度</span>
+            <span class="control-value" id="opacityValue">0.15</span>
+          </div>
+          <input type="range" class="slider" id="opacitySlider"
+                 min="0.05" max="0.5" step="0.01" value="0.15"
+                 oninput="updateOpacity(this.value)">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>模糊强度</span>
+            <span class="control-value" id="blurValue">40px</span>
+          </div>
+          <input type="range" class="slider" id="blurSlider"
+                 min="0" max="100" step="5" value="40"
+                 oninput="updateBlur(this.value)">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>饱和度</span>
+            <span class="control-value" id="saturationValue">200%</span>
+          </div>
+          <input type="range" class="slider" id="saturationSlider"
+                 min="100" max="300" step="10" value="200"
+                 oninput="updateSaturation(this.value)">
+        </div>
+      </div>
+
+      <div class="control-group">
+        <button type="button" class="btn-secondary" onclick="resetSettings()" style="width: 100%;">重置设置</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==================== 初始化 ====================
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('AI医疗助手已启动');
+
+      // 加载保存的主题
+      const savedTheme = localStorage.getItem('theme') || 'glass';
+      setTheme(savedTheme, false);
+
+      // 加载保存的玻璃效果设置
+      const savedOpacity = localStorage.getItem('glass-opacity') || '0.15';
+      const savedBlur = localStorage.getItem('glass-blur') || '40';
+      const savedSaturation = localStorage.getItem('glass-saturation') || '200';
+
+      document.getElementById('opacitySlider').value = savedOpacity;
+      document.getElementById('blurSlider').value = savedBlur;
+      document.getElementById('saturationSlider').value = savedSaturation;
+
+      updateOpacity(savedOpacity);
+      updateBlur(savedBlur);
+      updateSaturation(savedSaturation);
+
+      // 模拟患者数据(用于测试)
+      updatePatientInfo({
+        name: '张三',
+        gender: '女',
+        age: 45,
+        chiefComplaint: '持续性头痛3天,伴恶心呕吐',
+        history: '高血压5年'
+      });
+    });
+
+    // ==================== Tab切换 ====================
+    function switchTab(tabName) {
+      // 移除所有active类
+      document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.querySelectorAll('.tab-pane').forEach(pane => {
+        pane.classList.remove('active');
+      });
+
+      // 添加active类到选中的tab
+      event.target.classList.add('active');
+      if (tabName === 'clinical') {
+        document.getElementById('clinicalTab').classList.add('active');
+      } else if (tabName === 'radiology') {
+        document.getElementById('radiologyTab').classList.add('active');
+      }
+    }
+
+    // ==================== 设置面板 ====================
+    function toggleSettings() {
+      const panel = document.getElementById('settingsPanel');
+      panel.classList.toggle('open');
+    }
+
+    // ==================== 主题切换 ====================
+    function setTheme(theme, save = true) {
+      const body = document.body;
+      const themeOptions = document.querySelectorAll('.theme-option');
+      const glassSettings = document.getElementById('glassSettings');
+
+      // 移除所有主题类
+      body.classList.remove('theme-light', 'theme-dark');
+
+      // 应用新主题
+      if (theme === 'light') {
+        body.classList.add('theme-light');
+        glassSettings.style.display = 'none';
+      } else if (theme === 'dark') {
+        body.classList.add('theme-dark');
+        glassSettings.style.display = 'none';
+      } else {
+        // 透明主题
+        glassSettings.style.display = 'block';
+      }
+
+      // 更新主题选择器UI
+      themeOptions.forEach(option => {
+        option.classList.remove('active');
+        if (option.dataset.theme === theme) {
+          option.classList.add('active');
+        }
+      });
+
+      // 保存主题设置
+      if (save) {
+        localStorage.setItem('theme', theme);
+      }
+    }
+
+    // ==================== 玻璃效果调整 ====================
+    function updateOpacity(value) {
+      document.documentElement.style.setProperty('--glass-opacity', value);
+      document.getElementById('opacityValue').textContent = value;
+      localStorage.setItem('glass-opacity', value);
+    }
+
+    function updateBlur(value) {
+      document.documentElement.style.setProperty('--glass-blur', value + 'px');
+      document.getElementById('blurValue').textContent = value + 'px';
+      localStorage.setItem('glass-blur', value);
+    }
+
+    function updateSaturation(value) {
+      document.documentElement.style.setProperty('--glass-saturation', value + '%');
+      document.getElementById('saturationValue').textContent = value + '%';
+      localStorage.setItem('glass-saturation', value);
+    }
+
+    function resetSettings() {
+      updateOpacity(0.15);
+      updateBlur(40);
+      updateSaturation(200);
+      document.getElementById('opacitySlider').value = 0.15;
+      document.getElementById('blurSlider').value = 40;
+      document.getElementById('saturationSlider').value = 200;
+      setTheme('glass');
+    }
+
+    // ==================== 患者信息更新 ====================
+    function updatePatientInfo(info) {
+      document.getElementById('patientName').textContent = info.name || '-';
+      document.getElementById('patientGender').textContent = info.gender || '-';
+      document.getElementById('patientAge').textContent = info.age || '-';
+      document.getElementById('patientChiefComplaint').textContent = info.chiefComplaint || '-';
+      document.getElementById('patientHistory').textContent = info.history || '-';
+    }
+
+    // ==================== 从RIS系统读取患者信息 ====================
+    async function fetchPatientInfoFromRIS() {
+      try {
+        console.log('正在从RIS系统读取患者信息...');
+
+        // 使用fetch读取外部页面
+        const response = await fetch('http://192.168.1.44:9527/', {
+          mode: 'cors',
+          credentials: 'omit'
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP错误: ${response.status}`);
+        }
+
+        const html = await response.text();
+
+        // 解析HTML提取患者信息
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+
+        // 这里需要根据实际页面结构调整选择器
+        const patientInfo = {
+          name: doc.querySelector('.patient-name')?.textContent?.trim() || '未知',
+          gender: doc.querySelector('.patient-gender')?.textContent?.trim() || '未知',
+          age: doc.querySelector('.patient-age')?.textContent?.trim() || '未知',
+          chiefComplaint: doc.querySelector('.chief-complaint')?.textContent?.trim() || '未知',
+          history: doc.querySelector('.medical-history')?.textContent?.trim() || '无'
+        };
+
+        console.log('读取到的患者信息:', patientInfo);
+        updatePatientInfo(patientInfo);
+
+        return patientInfo;
+      } catch (error) {
+        console.error('读取患者信息失败:', error);
+
+        // 如果读取失败,使用模拟数据
+        console.warn('使用模拟患者数据');
+        const mockInfo = {
+          name: '张三',
+          gender: '女',
+          age: 45,
+          chiefComplaint: '持续性头痛3天,伴恶心呕吐',
+          history: '高血压5年'
+        };
+        updatePatientInfo(mockInfo);
+        return mockInfo;
+      }
+    }
+
+    // ==================== 刷新推荐 ====================
+    async function refreshRecommendations() {
+      const loadingIndicator = document.getElementById('loadingIndicator');
+      const recommendationsList = document.getElementById('recommendationsList');
+
+      try {
+        // 显示加载状态
+        loadingIndicator.style.display = 'flex';
+        recommendationsList.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-secondary);">正在分析患者信息...</div>';
+
+        // 1. 从RIS系统读取患者信息
+        const patientInfo = await fetchPatientInfoFromRIS();
+
+        // 2. 调用ACRAC服务获取推荐
+        const recommendations = await getAIRecommendations(patientInfo);
+
+        // 3. 显示推荐结果
+        displayRecommendations(recommendations);
+
+      } catch (error) {
+        console.error('刷新推荐失败:', error);
+        recommendationsList.innerHTML = `
+          <div style="text-align: center; padding: 20px; color: #ef4444;">
+            <div style="font-size: 24px; margin-bottom: 8px;">⚠️</div>
+            <div>获取推荐失败: ${error.message}</div>
+            <button type="button" class="btn-primary" onclick="refreshRecommendations()" style="margin-top: 12px;">重试</button>
+          </div>
+        `;
+      } finally {
+        loadingIndicator.style.display = 'none';
+      }
+    }
+
+    // ==================== 调用ACRAC服务 ====================
+    async function getAIRecommendations(patientInfo) {
+      try {
+        // 构建临床查询
+        let clinicalQuery = patientInfo.chiefComplaint || '常规体检';
+
+        if (patientInfo.history) {
+          clinicalQuery += `。病史:${patientInfo.history}`;
+        }
+
+        clinicalQuery += `。患者:${patientInfo.age}岁${patientInfo.gender}`;
+
+        console.log('临床查询:', clinicalQuery);
+
+        // 调用ACRAC服务
+        const response = await fetch('http://localhost:5173/api/v1/acrac/rag-llm/intelligent-recommendation', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            clinical_query: clinicalQuery,
+            show_reasoning: true,
+            top_scenarios: 3,
+            top_recommendations_per_scenario: 5,
+            similarity_threshold: 0.3,
+            include_raw_data: false,
+            debug_mode: false
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`ACRAC服务响应错误: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.message || '推荐生成失败');
+        }
+
+        console.log('ACRAC响应:', data);
+
+        // 转换ACRAC响应为前端格式
+        return convertACRACResponse(data);
+
+      } catch (error) {
+        console.error('调用ACRAC服务失败:', error);
+
+        // 如果ACRAC服务不可用,返回模拟数据
+        console.warn('使用模拟推荐数据');
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        return [
+          {
+            id: 1,
+            title: '头颅CT平扫',
+            priority: 'high',
+            reason: '患者主诉持续性头痛伴恶心呕吐,需排除颅内占位性病变、出血等急性病变',
+            examType: 'CT',
+            bodyPart: '头颅',
+            urgency: '急诊',
+            estimatedCost: '300-500元',
+            aiConfidence: 0.9
+          },
+          {
+            id: 2,
+            title: 'MR颅脑平扫+增强',
+            priority: 'high',
+            reason: '进一步明确病变性质,MRI对软组织分辨率更高',
+            examType: 'MRI',
+            bodyPart: '头颅',
+            urgency: '择期',
+            estimatedCost: '800-1200元',
+            aiConfidence: 0.85
+          },
+          {
+            id: 3,
+            title: '头颅CTA',
+            priority: 'medium',
+            reason: '如怀疑血管性病变,可进行CTA检查',
+            examType: 'CTA',
+            bodyPart: '头颅',
+            urgency: '择期',
+            estimatedCost: '600-800元',
+            aiConfidence: 0.7
+          }
+        ];
+      }
+    }
+
+    // ==================== 转换ACRAC响应 ====================
+    function convertACRACResponse(acracData) {
+      const recommendations = [];
+
+      // 从LLM推荐中提取
+      if (acracData.llm_recommendations && acracData.llm_recommendations.recommendations) {
+        acracData.llm_recommendations.recommendations.forEach((rec, index) => {
+          // 解析评分
+          let numericRating = 5;
+          if (rec.appropriateness_rating) {
+            if (typeof rec.appropriateness_rating === 'string' && rec.appropriateness_rating.includes('/')) {
+              numericRating = parseInt(rec.appropriateness_rating.split('/')[0]);
+            } else {
+              numericRating = parseInt(rec.appropriateness_rating);
+            }
+          }
+
+          recommendations.push({
+            id: index + 1,
+            title: rec.procedure_name || rec.name_zh || '未知检查',
+            examType: rec.modality || '未知',
+            bodyPart: rec.body_part || '未知',
+            priority: getPriorityFromRating(rec.appropriateness_rating),
+            reason: rec.recommendation_reason || rec.reasoning_zh || rec.reason || rec.clinical_considerations || '暂无说明',
+            urgency: getUrgencyFromCategory(rec.appropriateness_category_zh, rec.appropriateness_rating),
+            estimatedCost: rec.estimated_cost || '待定',
+            aiConfidence: numericRating / 10,
+            evidenceLevel: rec.evidence_level,
+            radiationLevel: rec.radiation_level || rec.adult_radiation_dose
+          });
+        });
+      }
+
+      return recommendations;
+    }
+
+    // 根据适当性评分确定优先级
+    function getPriorityFromRating(rating) {
+      if (!rating) return 'medium';
+
+      let numericRating = rating;
+      if (typeof rating === 'string' && rating.includes('/')) {
+        numericRating = parseInt(rating.split('/')[0]);
+      }
+
+      if (numericRating >= 7) return 'high';
+      if (numericRating >= 4) return 'medium';
+      return 'low';
+    }
+
+    // 根据适当性类别和评分确定紧急程度
+    function getUrgencyFromCategory(category, rating) {
+      if (category) {
+        if (category.includes('通常适用') || category.includes('Usually Appropriate')) {
+          return '急诊';
+        }
+        if (category.includes('可能适用') || category.includes('May Be Appropriate')) {
+          return '择期';
+        }
+        if (category.includes('通常不适用') || category.includes('Usually Not Appropriate')) {
+          return '不推荐';
+        }
+      }
+
+      let numericRating = rating;
+      if (typeof rating === 'string' && rating.includes('/')) {
+        numericRating = parseInt(rating.split('/')[0]);
+      }
+
+      if (numericRating && numericRating >= 7) return '急诊';
+      if (numericRating && numericRating >= 4) return '择期';
+      return '择期';
+    }
+
+    // ==================== 显示推荐结果 ====================
+    function displayRecommendations(recommendations) {
+      const recommendationsList = document.getElementById('recommendationsList');
+
+      if (!recommendations || recommendations.length === 0) {
+        recommendationsList.innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-secondary);">暂无推荐</div>';
+        return;
+      }
+
+      let html = '';
+      recommendations.forEach(rec => {
+        const priorityClass = `priority-${rec.priority}`;
+        const priorityText = rec.priority === 'high' ? '高' : rec.priority === 'medium' ? '中' : '低';
+
+        html += `
+          <div class="recommendation-item">
+            <div class="recommendation-header">
+              <div class="recommendation-title">${rec.title}</div>
+              <div class="priority-badge ${priorityClass}">${priorityText}</div>
+            </div>
+            <div class="recommendation-body">
+              <div style="margin-bottom: 8px;">
+                <strong>检查类型:</strong> ${rec.examType} |
+                <strong>紧急程度:</strong> ${rec.urgency} |
+                <strong>预估费用:</strong> ${rec.estimatedCost}
+              </div>
+              <div style="margin-bottom: 8px;">
+                <strong>推荐理由:</strong> ${rec.reason}
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-secondary);">
+                <span>AI置信度: ${(rec.aiConfidence * 100).toFixed(0)}%</span>
+                <div style="display: flex; gap: 8px;">
+                  <button type="button" class="btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="alert('反馈功能开发中')">👍 有帮助</button>
+                  <button type="button" class="btn-secondary" style="padding: 4px 8px; font-size: 11px;" onclick="alert('反馈功能开发中')">👎 无帮助</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      recommendationsList.innerHTML = html;
+    }
+
+    // ==================== 语音输入 ====================
+    let recognition = null;
+    let isRecording = false;
+
+    function toggleVoiceInput() {
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+        alert('您的浏览器不支持语音识别功能');
+        return;
+      }
+
+      if (isRecording) {
+        stopVoiceInput();
+      } else {
+        startVoiceInput();
+      }
+    }
+
+    function startVoiceInput() {
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+
+      recognition.lang = 'zh-CN';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      const voiceBtn = document.querySelector('.voice-btn');
+      const aiInput = document.getElementById('aiQuestionInput');
+
+      recognition.onstart = function() {
+        isRecording = true;
+        voiceBtn.classList.add('recording');
+        voiceBtn.textContent = '🔴';
+        aiInput.placeholder = '正在录音...';
+      };
+
+      recognition.onresult = function(event) {
+        const transcript = event.results[0][0].transcript;
+        aiInput.value = transcript;
+        console.log('识别结果:', transcript);
+      };
+
+      recognition.onerror = function(event) {
+        console.error('语音识别错误:', event.error);
+        alert('语音识别失败: ' + event.error);
+        stopVoiceInput();
+      };
+
+      recognition.onend = function() {
+        stopVoiceInput();
+      };
+
+      recognition.start();
+    }
+
+    function stopVoiceInput() {
+      if (recognition) {
+        recognition.stop();
+      }
+
+      isRecording = false;
+      const voiceBtn = document.querySelector('.voice-btn');
+      const aiInput = document.getElementById('aiQuestionInput');
+
+      voiceBtn.classList.remove('recording');
+      voiceBtn.textContent = '🎤';
+      aiInput.placeholder = '询问影像检查相关问题...';
+    }
+
+    // ==================== AI问答 ====================
+    async function askAIQuestion() {
+      const input = document.getElementById('aiQuestionInput');
+      const responseDiv = document.getElementById('aiResponse');
+      const question = input.value.trim();
+
+      if (!question) {
+        alert('请输入问题');
+        return;
+      }
+
+      try {
+        responseDiv.style.display = 'block';
+        responseDiv.innerHTML = '<div class="loading-spinner"></div> <span style="margin-left: 8px;">AI思考中...</span>';
+
+        // 这里可以调用实际的AI服务
+        // 暂时使用模拟响应
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        const mockResponse = `关于"${question}"的回答:\n\n这是一个模拟的AI回答。在实际应用中,这里会调用Deepseek或其他AI服务来生成专业的医疗建议。`;
+
+        responseDiv.innerHTML = mockResponse.replace(/\n/g, '<br>');
+
+      } catch (error) {
+        console.error('AI问答失败:', error);
+        responseDiv.innerHTML = `<span style="color: #ef4444;">AI服务暂时不可用: ${error.message}</span>`;
+      }
+    }
+  </script>
+</body>
+</html>
+

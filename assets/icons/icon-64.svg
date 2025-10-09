@@ -1,0 +1,80 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="32" cy="32" r="30" fill="#3B82F6" stroke="#1E40AF" stroke-width="1"/>
+  
+  <!-- AI Brain/Circuit pattern -->
+  <g transform="translate(16, 16)">
+    <!-- Central core -->
+    <circle cx="16" cy="16" r="6" fill="#FFFFFF" opacity="0.9"/>
+    
+    <!-- Neural network connections -->
+    <g stroke="#FFFFFF" stroke-width="0.5" opacity="0.7">
+      <!-- Horizontal lines -->
+      <line x1="5" y1="8" x2="27" y2="8"/>
+      <line x1="5" y1="16" x2="10" y2="16"/>
+      <line x1="22" y1="16" x2="27" y2="16"/>
+      <line x1="5" y1="24" x2="27" y2="24"/>
+      
+      <!-- Vertical lines -->
+      <line x1="8" y1="5" x2="8" y2="27"/>
+      <line x1="16" y1="5" x2="16" y2="10"/>
+      <line x1="16" y1="22" x2="16" y2="27"/>
+      <line x1="24" y1="5" x2="24" y2="27"/>
+      
+      <!-- Diagonal connections -->
+      <line x1="8" y1="8" x2="14" y2="14"/>
+      <line x1="24" y1="8" x2="18" y2="14"/>
+      <line x1="8" y1="24" x2="14" y2="18"/>
+      <line x1="24" y1="24" x2="18" y2="18"/>
+    </g>
+    
+    <!-- Neural nodes -->
+    <g fill="#FFFFFF">
+      <circle cx="8" cy="8" r="1"/>
+      <circle cx="24" cy="8" r="1"/>
+      <circle cx="8" cy="24" r="1"/>
+      <circle cx="24" cy="24" r="1"/>
+      <circle cx="5" cy="16" r="0.75"/>
+      <circle cx="27" cy="16" r="0.75"/>
+      <circle cx="16" cy="5" r="0.75"/>
+      <circle cx="16" cy="27" r="0.75"/>
+    </g>
+    
+    <!-- Central AI symbol -->
+    <g transform="translate(16, 16)">
+      <!-- AI text -->
+      <text x="0" y="1.5" text-anchor="middle" fill="#3B82F6" font-family="Arial, sans-serif" font-size="4" font-weight="bold">AI</text>
+    </g>
+  </g>
+  
+  <!-- Desktop/Monitor outline -->
+  <g transform="translate(10, 45)">
+    <!-- Monitor screen -->
+    <rect x="0" y="0" width="44" height="28" rx="2" fill="none" stroke="#FFFFFF" stroke-width="0.75" opacity="0.8"/>
+    
+    <!-- Monitor stand -->
+    <rect x="19.5" y="28" width="5" height="5" fill="#FFFFFF" opacity="0.8"/>
+    <rect x="15" y="33" width="14" height="2" rx="1" fill="#FFFFFF" opacity="0.8"/>
+    
+    <!-- Screen content (simplified desktop) -->
+    <g opacity="0.6">
+      <!-- Window -->
+      <rect x="5" y="5" width="34" height="18" rx="1" fill="#FFFFFF" opacity="0.3"/>
+      <!-- Title bar -->
+      <rect x="5" y="5" width="34" height="4" rx="1" fill="#FFFFFF" opacity="0.5"/>
+      <!-- Window controls -->
+      <circle cx="7.5" cy="7" r="0.5" fill="#EF4444"/>
+      <circle cx="10.5" cy="7" r="0.5" fill="#F59E0B"/>
+      <circle cx="13.5" cy="7" r="0.5" fill="#10B981"/>
+    </g>
+  </g>
+  
+  <!-- Subtle glow effect -->
+  <defs>
+    <radialGradient id="glow64" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="#3B82F6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <circle cx="32" cy="32" r="32" fill="url(#glow64)"/>
+</svg>

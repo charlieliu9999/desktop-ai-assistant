@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="智能桌面AI助手 - 不打扰、隐身、谁叫谁出的设计理念" />
+    <meta name="keywords" content="AI助手,桌面助手,语音识别,OCR,医疗集成" />
+    <meta name="author" content="Desktop AI Assistant Team" />
+
+    <!-- Security headers -->
+    <!-- CSP 策略: 开发环境需要 unsafe-eval 用于 HMR, 生产环境应移除 -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; media-src 'self' data: blob:; connect-src 'self' https: http://localhost:* http://127.0.0.1:* ws://localhost:* ws://127.0.0.1:* wss://127.0.0.1:*; worker-src 'self' blob:; child-src 'self';" />
+    <meta http-equiv="X-Content-Type-Options" content="nosniff" />
+    <!-- X-Frame-Options 已移除 - 此头部只能通过 HTTP 响应头设置,不能在 meta 标签中使用 -->
+    <meta http-equiv="X-XSS-Protection" content="1; mode=block" />
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/assets/icons/favicon.svg" />
+    <link rel="icon" type="image/png" href="/assets/icons/favicon.png" />
+    <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png" />
+
+    <!-- Fonts: 使用系统字体栈，移除外网字体依赖 -->
+
+    <!-- Theme -->
+    <script>
+      // 防止闪烁的主题初始化
+      (function() {
+        const theme = localStorage.getItem('theme') || 'system';
+        if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+
+      // 开发环境安全警告抑制
+      if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'development') {
+        console.info('🔒 开发环境安全提示：当前运行在开发模式下，某些安全警告是正常的，不会影响应用功能。');
+        console.info('📦 生产环境构建时，这些警告将自动消失。');
+      }
+    </script>
+
+    <title>Desktop AI Assistant</title>
+  </head>
+  <body class="bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans antialiased">
+    <!-- 应用根节点 -->
+    <div id="root" class="min-h-screen"></div>
+
+    <!-- 加载指示器 -->
+    <div id="loading" class="fixed inset-0 bg-white dark:bg-gray-900 flex items-center justify-center z-50">
+      <div class="text-center">
+        <div class="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600 mb-4"></div>
+        <p class="text-sm text-gray-600 dark:text-gray-400">正在加载 Desktop AI Assistant...</p>
+      </div>
+    </div>
+
+    <!-- 错误边界 -->
+    <div id="error-boundary" class="hidden fixed inset-0 bg-red-50 dark:bg-red-900/20 flex items-center justify-center z-50">
+      <div class="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-lg max-w-md mx-4">
+        <div class="flex items-center mb-4">
+          <div class="flex-shrink-0">
+            <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+          </div>
+          <div class="ml-3">
+            <h3 class="text-sm font-medium text-red-800 dark:text-red-200">
+              应用程序错误
+            </h3>
+          </div>
+        </div>
+        <div class="text-sm text-red-700 dark:text-red-300 mb-4">
+          <p id="error-message">应用程序遇到了一个错误，请重新启动应用程序。</p>
+        </div>
+        <div class="flex justify-end space-x-3">
+          <button
+            id="reload-button"
+            class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+          >
+            重新加载
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 开发模式指示器 -->
+    <div id="dev-indicator" class="hidden fixed top-4 right-4 bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 px-3 py-1 rounded-full text-xs font-medium z-40">
+      开发模式
+    </div>
+
+    <!-- 脚本 -->
+    <script type="module" src="./index.tsx"></script>
+
+    <!-- 错误处理脚本 -->
+    <script>
+      // 全局错误处理
+      window.addEventListener('error', function(event) {
+        // Ignore benign browser errors such as meta security header restrictions that do not break functionality
+        const msg = event.error?.message || event.message || '';
+        if (msg.includes('X-Frame-Options may only be set via an HTTP header')) {
+          return; // skip triggering error UI for this known, non-fatal issue
+        }
+        console.error('Global error:', event.error);
+        showErrorBoundary(msg || '未知错误');
+      });
+
+      window.addEventListener('unhandledrejection', function(event) {
+        console.error('Unhandled promise rejection:', event.reason);
+        showErrorBoundary(event.reason?.message || '未处理的Promise拒绝');
+      });
+
+      function showErrorBoundary(message) {
+        const loading = document.getElementById('loading');
+        const errorBoundary = document.getElementById('error-boundary');
+        const errorMessage = document.getElementById('error-message');
+
+        if (loading) loading.style.display = 'none';
+        if (errorBoundary) errorBoundary.classList.remove('hidden');
+        if (errorMessage) errorMessage.textContent = message;
+      }
+
+      // 重新加载按钮
+      document.getElementById('reload-button')?.addEventListener('click', function() {
+        if (window.electronAPI?.app?.quit) {
+          window.electronAPI.app.quit();
+        } else {
+          window.location.reload();
+        }
+      });
+
+      // 开发模式指示器（浏览器预览下没有 process 对象）
+      if (typeof process !== 'undefined' && process.env && process.env.NODE_ENV === 'development') {
+        const devIndicator = document.getElementById('dev-indicator');
+        if (devIndicator) devIndicator.classList.remove('hidden');
+      }
+
+      // 隐藏加载指示器（当React应用加载完成时）
+      window.addEventListener('DOMContentLoaded', function() {
+        setTimeout(function() {
+          const loading = document.getElementById('loading');
+          if (loading && document.getElementById('root').children.length > 0) {
+            loading.style.display = 'none';
+          }
+        }, 1000);
+      });
+    </script>
+  </body>
+</html>

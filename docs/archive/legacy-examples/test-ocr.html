@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OCR功能测试页面</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            background: #fafafa;
+        }
+        .test-button {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+            transition: background 0.2s;
+        }
+        .test-button:hover {
+            background: #0056CC;
+        }
+        .test-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .result.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status.enabled {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.disabled {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 OCR功能测试页面</h1>
+        
+        <div class="instructions">
+            <h3>📋 使用说明</h3>
+            <p>这个页面用于测试桌面AI助手的OCR（光学字符识别）功能。请按照以下步骤进行测试：</p>
+            <ol>
+                <li>首先点击"检查配置"按钮，查看当前系统状态</li>
+                <li>如果桌面识别功能未启用，点击"启用桌面识别"按钮</li>
+                <li>点击"测试屏幕截图"按钮，测试截图功能</li>
+                <li>或者直接点击"运行完整测试"按钮，自动执行所有测试步骤</li>
+            </ol>
+            <p><strong>注意：</strong>此页面需要在桌面AI助手应用程序中打开才能正常工作。</p>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 配置检查</h3>
+            <p>检查当前应用程序的配置状态和API可用性。</p>
+            <button class="test-button" onclick="runConfigCheck()">检查配置</button>
+            <div id="config-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📋 桌面识别控制</h3>
+            <p>启用或禁用桌面识别功能。</p>
+            <button class="test-button" onclick="enableDesktopRecognition()">启用桌面识别</button>
+            <div id="enable-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📸 屏幕截图测试</h3>
+            <p>测试屏幕截图功能，验证是否能够正常捕获屏幕内容。</p>
+            <button class="test-button" onclick="testScreenCapture()">测试屏幕截图</button>
+            <div id="capture-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🚀 完整测试</h3>
+            <p>运行完整的OCR功能测试流程，包括配置检查、功能启用和截图测试。</p>
+            <button class="test-button" onclick="runFullTest()">运行完整测试</button>
+            <div id="full-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 系统状态</h3>
+            <div id="system-status">
+                <p>桌面识别: <span id="desktop-status" class="status disabled">未知</span></p>
+                <p>屏幕截图API: <span id="capture-status" class="status disabled">未知</span></p>
+                <p>配置存储: <span id="config-status" class="status disabled">未知</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 加载测试脚本
+        function loadTestScript() {
+            return fetch('./test-ocr.js')
+                .then(response => response.text())
+                .then(script => {
+                    eval(script);
+                    updateSystemStatus();
+                })
+                .catch(error => {
+                    console.error('加载测试脚本失败:', error);
+                    showResult('config-result', '❌ 无法加载测试脚本: ' + error.message, 'error');
+                });
+        }
+
+        // 更新系统状态显示
+        function updateSystemStatus() {
+            if (window.testOCR) {
+                // 检查桌面识别状态
+                const configStore = window.useConfigStore?.getState?.();
+                if (configStore) {
+                    const enabled = configStore.config.desktopRecognition?.enabled;
+                    updateStatus('desktop-status', enabled ? '已启用' : '已禁用', enabled);
+                    updateStatus('config-status', '可用', true);
+                } else {
+                    updateStatus('config-status', '不可用', false);
+                }
+
+                // 检查截图API状态
+                const captureAvailable = !!window.electronAPI?.screen?.capture;
+                updateStatus('capture-status', captureAvailable ? '可用' : '不可用', captureAvailable);
+            }
+        }
+
+        function updateStatus(elementId, text, isEnabled) {
+            const element = document.getElementById(elementId);
+            element.textContent = text;
+            element.className = `status ${isEnabled ? 'enabled' : 'disabled'}`;
+        }
+
+        function showResult(elementId, message, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result ${type}`;
+            element.style.display = 'block';
+        }
+
+        // 测试函数
+        async function runConfigCheck() {
+            if (!window.testOCR) {
+                showResult('config-result', '❌ 测试脚本未加载', 'error');
+                return;
+            }
+
+            try {
+                const result = window.testOCR.checkConfig();
+                showResult('config-result', result ? '✅ 配置检查完成，请查看浏览器控制台获取详细信息' : '❌ 配置检查失败', result ? 'success' : 'error');
+                updateSystemStatus();
+            } catch (error) {
+                showResult('config-result', '❌ 配置检查出错: ' + error.message, 'error');
+            }
+        }
+
+        async function enableDesktopRecognition() {
+            if (!window.testOCR) {
+                showResult('enable-result', '❌ 测试脚本未加载', 'error');
+                return;
+            }
+
+            try {
+                const result = window.testOCR.enableDesktopRecognition();
+                showResult('enable-result', result ? '✅ 桌面识别功能已启用' : '❌ 启用桌面识别失败', result ? 'success' : 'error');
+                updateSystemStatus();
+            } catch (error) {
+                showResult('enable-result', '❌ 启用桌面识别出错: ' + error.message, 'error');
+            }
+        }
+
+        async function testScreenCapture() {
+            if (!window.testOCR) {
+                showResult('capture-result', '❌ 测试脚本未加载', 'error');
+                return;
+            }
+
+            try {
+                showResult('capture-result', '🔄 正在进行屏幕截图测试...', 'info');
+                const result = await window.testOCR.testScreenCapture();
+                showResult('capture-result', result ? '✅ 屏幕截图测试成功，请查看浏览器控制台查看截图预览' : '❌ 屏幕截图测试失败', result ? 'success' : 'error');
+            } catch (error) {
+                showResult('capture-result', '❌ 屏幕截图测试出错: ' + error.message, 'error');
+            }
+        }
+
+        async function runFullTest() {
+            if (!window.testOCR) {
+                showResult('full-result', '❌ 测试脚本未加载', 'error');
+                return;
+            }
+
+            try {
+                showResult('full-result', '🚀 正在运行完整测试...', 'info');
+                const result = await window.testOCR.runFullTest();
+                showResult('full-result', result ? '🎉 完整测试成功完成！请查看浏览器控制台获取详细信息' : '❌ 完整测试失败', result ? 'success' : 'error');
+                updateSystemStatus();
+            } catch (error) {
+                showResult('full-result', '❌ 完整测试出错: ' + error.message, 'error');
+            }
+        }
+
+        // 页面加载时初始化
+        window.addEventListener('load', () => {
+            loadTestScript();
+        });
+    </script>
+</body>
+</html>

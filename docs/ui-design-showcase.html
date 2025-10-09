@@ -1,0 +1,659 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Desktop AI Assistant - UI设计图例</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              200: '#bfdbfe',
+              300: '#93c5fd',
+              400: '#60a5fa',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+            },
+            medical: {
+              50: '#f0f9ff',
+              100: '#e0f2fe',
+              200: '#bae6fd',
+              300: '#7dd3fc',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+            },
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+            mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'],
+          },
+          boxShadow: {
+            'soft': '0 2px 15px -3px rgba(0, 0, 0, 0.07), 0 10px 20px -2px rgba(0, 0, 0, 0.04)',
+            'medium': '0 4px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            'glow': '0 0 20px rgba(59, 130, 246, 0.15)',
+          },
+        }
+      },
+      darkMode: 'class',
+    }
+  </script>
+  <style>
+    .glass {
+      background: rgba(255, 255, 255, 0.25);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+    .glass-dark {
+      background: rgba(0, 0, 0, 0.25);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+    .section {
+      margin-bottom: 48px;
+    }
+    .section-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 24px;
+      color: #111827;
+      border-bottom: 2px solid #e5e7eb;
+      padding-bottom: 12px;
+    }
+    .dark .section-title {
+      color: #f9fafb;
+      border-bottom-color: #374151;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 transition-colors">
+  <!-- 主题切换按钮 -->
+  <button id="theme-toggle" class="fixed top-4 right-4 z-50 p-3 bg-white dark:bg-gray-800 rounded-full shadow-lg hover:shadow-xl transition-all">
+    <svg class="w-5 h-5 text-gray-800 dark:text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path>
+    </svg>
+  </button>
+
+  <div class="max-w-7xl mx-auto p-8">
+    <!-- 标题 -->
+    <header class="mb-12">
+      <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-3">Desktop AI Assistant</h1>
+      <p class="text-xl text-gray-600 dark:text-gray-400 mb-2">智能桌面AI助手 - UI设计规范</p>
+      <p class="text-sm text-gray-500 dark:text-gray-500">不打扰、隐身、谁叫谁出的设计理念</p>
+    </header>
+
+    <!-- 1. 设计理念 -->
+    <section class="section">
+      <h2 class="section-title">1. 设计理念与核心特性</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-soft hover:shadow-medium transition-shadow">
+          <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center mb-4">
+            <span class="text-2xl">🎤</span>
+          </div>
+          <h3 class="font-semibold text-gray-900 dark:text-white mb-2">语音激活</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400">支持语音唤醒和语音指令,解放双手</p>
+        </div>
+        
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-soft hover:shadow-medium transition-shadow">
+          <div class="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center mb-4">
+            <span class="text-2xl">👁️</span>
+          </div>
+          <h3 class="font-semibold text-gray-900 dark:text-white mb-2">桌面识别</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400">OCR文字识别和智能内容分析</p>
+        </div>
+        
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-soft hover:shadow-medium transition-shadow">
+          <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-lg flex items-center justify-center mb-4">
+            <span class="text-2xl">🏥</span>
+          </div>
+          <h3 class="font-semibold text-gray-900 dark:text-white mb-2">医疗集成</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400">与RIS/PACS系统无缝对接</p>
+        </div>
+        
+        <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-soft hover:shadow-medium transition-shadow">
+          <div class="w-12 h-12 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center mb-4">
+            <span class="text-2xl">🔒</span>
+          </div>
+          <h3 class="font-semibold text-gray-900 dark:text-white mb-2">隐私保护</h3>
+          <p class="text-sm text-gray-600 dark:text-gray-400">本地优先处理,保护患者隐私</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. 颜色系统 -->
+    <section class="section">
+      <h2 class="section-title">2. 颜色系统</h2>
+      <div class="bg-white dark:bg-gray-800 rounded-lg p-6 shadow-soft">
+        <h3 class="font-medium text-gray-900 dark:text-white mb-4">Primary (主色调)</h3>
+        <div class="grid grid-cols-5 gap-2 mb-6">
+          <div class="text-center">
+            <div class="h-16 rounded bg-blue-500"></div>
+            <p class="text-xs mt-1 text-gray-600 dark:text-gray-400">500</p>
+          </div>
+          <div class="text-center">
+            <div class="h-16 rounded bg-blue-600"></div>
+            <p class="text-xs mt-1 text-gray-600 dark:text-gray-400">600</p>
+          </div>
+          <div class="text-center">
+            <div class="h-16 rounded bg-blue-700"></div>
+            <p class="text-xs mt-1 text-gray-600 dark:text-gray-400">700</p>
+          </div>
+          <div class="text-center">
+            <div class="h-16 rounded bg-blue-100"></div>
+            <p class="text-xs mt-1 text-gray-600 dark:text-gray-400">100</p>
+          </div>
+          <div class="text-center">
+            <div class="h-16 rounded bg-blue-50"></div>
+            <p class="text-xs mt-1 text-gray-600 dark:text-gray-400">50</p>
+          </div>
+        </div>
+
+        <h3 class="font-medium text-gray-900 dark:text-white mb-4">Medical (医疗专用色)</h3>
+        <div class="grid grid-cols-5 gap-2 mb-6">
+          <div class="text-center">
+            <div class="h-16 rounded bg-sky-500"></div>
+            <p class="text-xs mt-1 text-gray-600 dark:text-gray-400">500</p>
+          </div>
+          <div class="text-center">
+            <div class="h-16 rounded bg-sky-600"></div>
+            <p class="text-xs mt-1 text-gray-600 dark:text-gray-400">600</p>
+          </div>
+          <div class="text-center">
+            <div class="h-16 rounded bg-sky-700"></div>
+            <p class="text-xs mt-1 text-gray-600 dark:text-gray-400">700</p>
+          </div>
+          <div class="text-center">
+            <div class="h-16 rounded bg-sky-100"></div>
+            <p class="text-xs mt-1 text-gray-600 dark:text-gray-400">100</p>
+          </div>
+          <div class="text-center">
+            <div class="h-16 rounded bg-sky-50"></div>
+            <p class="text-xs mt-1 text-gray-600 dark:text-gray-400">50</p>
+          </div>
+        </div>
+
+        <h3 class="font-medium text-gray-900 dark:text-white mb-4">Semantic Colors (语义色)</h3>
+        <div class="grid grid-cols-4 gap-4">
+          <div>
+            <div class="h-12 rounded bg-green-500 flex items-center justify-center text-white text-sm font-medium">Success</div>
+          </div>
+          <div>
+            <div class="h-12 rounded bg-amber-500 flex items-center justify-center text-white text-sm font-medium">Warning</div>
+          </div>
+          <div>
+            <div class="h-12 rounded bg-red-500 flex items-center justify-center text-white text-sm font-medium">Error</div>
+          </div>
+          <div>
+            <div class="h-12 rounded bg-gray-500 flex items-center justify-center text-white text-sm font-medium">Info</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. 浮动窗口设计 -->
+    <section class="section">
+      <h2 class="section-title">3. 浮动窗口 (Floating Window)</h2>
+      <div class="flex justify-center">
+        <div class="relative">
+          <!-- 收起状态 -->
+          <div class="mb-8">
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-3 text-center">收起状态 (Collapsed)</p>
+            <div class="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full shadow-glow flex items-center justify-center cursor-pointer hover:scale-110 transition-transform">
+              <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
+              </svg>
+            </div>
+          </div>
+
+          <!-- 展开状态 -->
+          <div>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-3 text-center">展开状态 (Expanded)</p>
+            <div class="w-80 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl overflow-hidden">
+              <!-- Header -->
+              <div class="bg-gradient-to-r from-blue-500 to-blue-600 p-4 text-white">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <div class="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                      <span class="text-sm">🤖</span>
+                    </div>
+                    <span class="font-medium">AI助手</span>
+                  </div>
+                  <button class="p-1 hover:bg-white/20 rounded">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Quick Actions -->
+              <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">快速操作</p>
+                <div class="grid grid-cols-2 gap-2">
+                  <button class="p-2 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded text-xs hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
+                    📸 分析屏幕
+                  </button>
+                  <button class="p-2 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded text-xs hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors">
+                    🔍 查询数据
+                  </button>
+                  <button class="p-2 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded text-xs hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors">
+                    📝 生成报告
+                  </button>
+                  <button class="p-2 bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 rounded text-xs hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors">
+                    ⏰ 设置提醒
+                  </button>
+                </div>
+              </div>
+
+              <!-- Input -->
+              <div class="p-4">
+                <div class="flex items-center space-x-2">
+                  <input type="text" placeholder="输入指令或问题..."
+                    class="flex-1 px-3 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
+                  <button class="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. 主窗口布局 -->
+    <section class="section">
+      <h2 class="section-title">4. 主窗口布局 (Main Window)</h2>
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-medium overflow-hidden" style="height: 600px;">
+        <div class="flex h-full">
+          <!-- Sidebar -->
+          <div class="w-64 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+            <!-- Logo -->
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+              <div class="flex items-center space-x-2">
+                <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                  <span class="text-white text-sm font-bold">AI</span>
+                </div>
+                <span class="font-semibold text-gray-900 dark:text-white">Desktop Assistant</span>
+              </div>
+            </div>
+
+            <!-- Navigation -->
+            <nav class="flex-1 p-3 space-y-1">
+              <a href="#" class="flex items-center space-x-3 px-3 py-2 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"></path>
+                </svg>
+                <span class="text-sm font-medium">智能对话</span>
+              </a>
+
+              <a href="#" class="flex items-center space-x-3 px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path>
+                </svg>
+                <span class="text-sm font-medium">桌面识别</span>
+              </a>
+
+              <a href="#" class="flex items-center space-x-3 px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                </svg>
+                <span class="text-sm font-medium">医疗系统</span>
+              </a>
+
+              <a href="#" class="flex items-center space-x-3 px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path>
+                </svg>
+                <span class="text-sm font-medium">语音控制</span>
+              </a>
+
+              <a href="#" class="flex items-center space-x-3 px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+                <span class="text-sm font-medium">系统状态</span>
+              </a>
+            </nav>
+
+            <!-- Settings -->
+            <div class="p-3 border-t border-gray-200 dark:border-gray-700">
+              <a href="#" class="flex items-center space-x-3 px-3 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+                <span class="text-sm font-medium">设置</span>
+              </a>
+            </div>
+          </div>
+
+          <!-- Main Content -->
+          <div class="flex-1 flex flex-col">
+            <!-- Header -->
+            <div class="p-6 border-b border-gray-200 dark:border-gray-700">
+              <h1 class="text-2xl font-semibold text-gray-900 dark:text-white">智能对话</h1>
+              <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">与您的智能助手交流</p>
+            </div>
+
+            <!-- Chat Area -->
+            <div class="flex-1 p-6 overflow-y-auto">
+              <div class="space-y-4 max-w-3xl">
+                <!-- AI Message -->
+                <div class="flex items-start space-x-3">
+                  <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span class="text-white text-xs">AI</span>
+                  </div>
+                  <div class="flex-1">
+                    <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-3">
+                      <p class="text-sm text-gray-900 dark:text-white">您好!我是您的智能桌面助手。我可以帮您分析屏幕内容、查询医疗数据、生成报告等。有什么我可以帮您的吗?</p>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">刚刚</p>
+                  </div>
+                </div>
+
+                <!-- User Message -->
+                <div class="flex items-start space-x-3 justify-end">
+                  <div class="flex-1 text-right">
+                    <div class="inline-block bg-blue-500 rounded-lg p-3">
+                      <p class="text-sm text-white">帮我分析一下当前屏幕上的患者信息</p>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">刚刚</p>
+                  </div>
+                  <div class="w-8 h-8 bg-gray-300 dark:bg-gray-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span class="text-gray-700 dark:text-gray-300 text-xs">👤</span>
+                  </div>
+                </div>
+
+                <!-- AI Message with Actions -->
+                <div class="flex items-start space-x-3">
+                  <div class="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center flex-shrink-0">
+                    <span class="text-white text-xs">AI</span>
+                  </div>
+                  <div class="flex-1">
+                    <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-3">
+                      <p class="text-sm text-gray-900 dark:text-white mb-3">我已经分析了当前屏幕,识别到以下患者信息:</p>
+                      <div class="bg-white dark:bg-gray-800 rounded p-3 text-sm space-y-1">
+                        <p class="text-gray-900 dark:text-white"><span class="font-medium">姓名:</span> 张三</p>
+                        <p class="text-gray-900 dark:text-white"><span class="font-medium">性别:</span> 男</p>
+                        <p class="text-gray-900 dark:text-white"><span class="font-medium">年龄:</span> 45岁</p>
+                        <p class="text-gray-900 dark:text-white"><span class="font-medium">检查号:</span> CT20240115001</p>
+                      </div>
+                      <div class="mt-3 flex gap-2">
+                        <button class="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">查看详情</button>
+                        <button class="px-3 py-1 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs rounded hover:bg-gray-300 dark:hover:bg-gray-500">复制信息</button>
+                      </div>
+                    </div>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">刚刚</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Input Area -->
+            <div class="p-4 border-t border-gray-200 dark:border-gray-700">
+              <div class="flex items-center space-x-2">
+                <button class="p-2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"></path>
+                  </svg>
+                </button>
+                <input type="text" placeholder="输入消息..."
+                  class="flex-1 px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
+                <button class="p-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 5. 医疗系统界面 -->
+    <section class="section">
+      <h2 class="section-title">5. 医疗系统界面 (Medical System)</h2>
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-soft p-6">
+        <!-- Tabs -->
+        <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
+          <nav class="flex space-x-6">
+            <button class="pb-3 px-1 border-b-2 border-blue-500 text-blue-600 dark:text-blue-400 font-medium text-sm">
+              患者列表
+            </button>
+            <button class="pb-3 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 text-sm">
+              预约管理
+            </button>
+            <button class="pb-3 px-1 border-b-2 border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 text-sm">
+              病历记录
+            </button>
+          </nav>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="mb-4">
+          <div class="flex items-center space-x-2">
+            <div class="flex-1 relative">
+              <input type="text" placeholder="搜索患者姓名、ID或检查号..."
+                class="w-full pl-10 pr-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 dark:text-white">
+              <svg class="w-5 h-5 absolute left-3 top-2.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+              </svg>
+            </div>
+            <button class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600">
+              搜索
+            </button>
+          </div>
+        </div>
+
+        <!-- Patient Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
+            <div class="flex items-start justify-between mb-3">
+              <div>
+                <h3 class="font-semibold text-gray-900 dark:text-white">张三</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400">男 | 45岁 | ID: P001234</p>
+              </div>
+              <span class="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs rounded">已完成</span>
+            </div>
+            <div class="space-y-1 text-sm">
+              <p class="text-gray-600 dark:text-gray-300"><span class="font-medium">检查类型:</span> CT检查</p>
+              <p class="text-gray-600 dark:text-gray-300"><span class="font-medium">检查日期:</span> 2024-01-15 10:30</p>
+              <p class="text-gray-600 dark:text-gray-300"><span class="font-medium">检查号:</span> CT20240115001</p>
+            </div>
+            <div class="mt-3 flex gap-2">
+              <button class="flex-1 px-3 py-1.5 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">查看详情</button>
+              <button class="px-3 py-1.5 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs rounded hover:bg-gray-300 dark:hover:bg-gray-500">打印报告</button>
+            </div>
+          </div>
+
+          <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer">
+            <div class="flex items-start justify-between mb-3">
+              <div>
+                <h3 class="font-semibold text-gray-900 dark:text-white">李四</h3>
+                <p class="text-sm text-gray-500 dark:text-gray-400">女 | 32岁 | ID: P001235</p>
+              </div>
+              <span class="px-2 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs rounded">进行中</span>
+            </div>
+            <div class="space-y-1 text-sm">
+              <p class="text-gray-600 dark:text-gray-300"><span class="font-medium">检查类型:</span> MRI检查</p>
+              <p class="text-gray-600 dark:text-gray-300"><span class="font-medium">检查日期:</span> 2024-01-15 14:00</p>
+              <p class="text-gray-600 dark:text-gray-300"><span class="font-medium">检查号:</span> MRI20240115002</p>
+            </div>
+            <div class="mt-3 flex gap-2">
+              <button class="flex-1 px-3 py-1.5 bg-blue-500 text-white text-xs rounded hover:bg-blue-600">查看详情</button>
+              <button class="px-3 py-1.5 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300 text-xs rounded hover:bg-gray-300 dark:hover:bg-gray-500">编辑报告</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. 桌面识别界面 -->
+    <section class="section">
+      <h2 class="section-title">6. 桌面识别界面 (Desktop Recognition)</h2>
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-soft p-6">
+        <!-- Control Bar -->
+        <div class="flex items-center justify-between mb-6">
+          <div class="flex items-center space-x-3">
+            <button class="px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600 flex items-center space-x-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path>
+              </svg>
+              <span>捕获屏幕</span>
+            </button>
+            <button class="px-4 py-2 bg-green-500 text-white rounded-lg text-sm hover:bg-green-600 flex items-center space-x-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path>
+              </svg>
+              <span>开始监控</span>
+            </button>
+          </div>
+          <div class="flex items-center space-x-2">
+            <label class="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400">
+              <input type="checkbox" class="rounded text-blue-500 focus:ring-blue-500">
+              <span>自动分析</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Screenshot Preview -->
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-gray-100 dark:bg-gray-700 rounded-lg p-4 aspect-video flex items-center justify-center">
+            <div class="text-center">
+              <svg class="w-16 h-16 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+              <p class="text-sm text-gray-500 dark:text-gray-400">点击"捕获屏幕"开始</p>
+            </div>
+          </div>
+
+          <div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+            <h3 class="font-medium text-gray-900 dark:text-white mb-3">识别结果</h3>
+            <div class="space-y-2 text-sm">
+              <div class="flex items-start space-x-2">
+                <span class="text-blue-500">📝</span>
+                <div class="flex-1">
+                  <p class="font-medium text-gray-900 dark:text-white">文本识别</p>
+                  <p class="text-gray-600 dark:text-gray-400 text-xs">识别到 15 个文本块</p>
+                </div>
+              </div>
+              <div class="flex items-start space-x-2">
+                <span class="text-green-500">🎯</span>
+                <div class="flex-1">
+                  <p class="font-medium text-gray-900 dark:text-white">UI元素</p>
+                  <p class="text-gray-600 dark:text-gray-400 text-xs">检测到 8 个可交互元素</p>
+                </div>
+              </div>
+              <div class="flex items-start space-x-2">
+                <span class="text-purple-500">💡</span>
+                <div class="flex-1">
+                  <p class="font-medium text-gray-900 dark:text-white">智能建议</p>
+                  <p class="text-gray-600 dark:text-gray-400 text-xs">生成 3 条操作建议</p>
+                </div>
+              </div>
+            </div>
+            <button class="w-full mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg text-sm hover:bg-blue-600">
+              查看详细分析
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. 组件库 -->
+    <section class="section">
+      <h2 class="section-title">7. 组件库 (Components)</h2>
+
+      <!-- Buttons -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-soft p-6 mb-6">
+        <h3 class="font-medium text-gray-900 dark:text-white mb-4">按钮 (Buttons)</h3>
+        <div class="flex flex-wrap gap-3">
+          <button class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">Primary</button>
+          <button class="px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">Success</button>
+          <button class="px-4 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 transition-colors">Warning</button>
+          <button class="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">Danger</button>
+          <button class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors">Secondary</button>
+          <button class="px-4 py-2 border-2 border-blue-500 text-blue-500 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors">Outline</button>
+          <button class="px-4 py-2 text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors">Ghost</button>
+        </div>
+      </div>
+
+      <!-- Badges -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-soft p-6 mb-6">
+        <h3 class="font-medium text-gray-900 dark:text-white mb-4">徽章 (Badges)</h3>
+        <div class="flex flex-wrap gap-2">
+          <span class="px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-sm rounded-full">Primary</span>
+          <span class="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-sm rounded-full">Success</span>
+          <span class="px-3 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-sm rounded-full">Warning</span>
+          <span class="px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-sm rounded-full">Error</span>
+          <span class="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm rounded-full">Default</span>
+          <span class="px-3 py-1 bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 text-sm rounded-full">Medical</span>
+        </div>
+      </div>
+
+      <!-- Alerts -->
+      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-soft p-6">
+        <h3 class="font-medium text-gray-900 dark:text-white mb-4">提示框 (Alerts)</h3>
+        <div class="space-y-3">
+          <div class="p-4 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 rounded">
+            <p class="text-sm font-medium text-blue-900 dark:text-blue-300">ℹ️ 信息提示</p>
+            <p class="text-sm text-blue-700 dark:text-blue-400 mt-1">这是一条普通的信息提示。</p>
+          </div>
+          <div class="p-4 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-500 rounded">
+            <p class="text-sm font-medium text-green-900 dark:text-green-300">✓ 成功提示</p>
+            <p class="text-sm text-green-700 dark:text-green-400 mt-1">操作已成功完成!</p>
+          </div>
+          <div class="p-4 bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 rounded">
+            <p class="text-sm font-medium text-amber-900 dark:text-amber-300">⚠️ 警告提示</p>
+            <p class="text-sm text-amber-700 dark:text-amber-400 mt-1">请注意检查相关信息。</p>
+          </div>
+          <div class="p-4 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 rounded">
+            <p class="text-sm font-medium text-red-900 dark:text-red-300">✕ 错误提示</p>
+            <p class="text-sm text-red-700 dark:text-red-400 mt-1">操作失败,请重试。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700 text-center">
+      <p class="text-sm text-gray-600 dark:text-gray-400">Desktop AI Assistant - UI设计规范 v1.0</p>
+      <p class="text-xs text-gray-500 dark:text-gray-500 mt-2">基于 Tailwind CSS 设计系统</p>
+    </footer>
+
+  </div>
+
+  <script>
+    // 主题切换
+    const themeToggle = document.getElementById('theme-toggle');
+    const html = document.documentElement;
+
+    themeToggle.addEventListener('click', () => {
+      html.classList.toggle('dark');
+      localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light');
+    });
+
+    // 初始化主题
+    if (localStorage.getItem('theme') === 'dark' ||
+        (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+      html.classList.add('dark');
+    }
+  </script>
+</body>
+</html>
+

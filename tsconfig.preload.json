@@ -1,0 +1,43 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM"],
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "noEmit": false,
+    "outDir": "./dist/preload",
+    "rootDir": "./src/preload",
+    "jsx": "preserve",
+    "allowJs": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "types": [
+      "node",
+      "electron"
+    ]
+  },
+  "include": [
+    "src/preload/**/*",
+    "src/shared/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    "release",
+    "src/main",
+    "src/renderer",
+    "tests",
+    "**/*.test.ts",
+    "**/*.spec.ts"
+  ]
+}

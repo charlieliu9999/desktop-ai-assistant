@@ -1,0 +1,144 @@
+<svg width="1920" height="1080" viewBox="0 0 1920 1080" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background gradient -->
+  <defs>
+    <linearGradient id="mainBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="25%" stop-color="#1E293B"/>
+      <stop offset="50%" stop-color="#334155"/>
+      <stop offset="75%" stop-color="#475569"/>
+      <stop offset="100%" stop-color="#64748B"/>
+    </linearGradient>
+    
+    <radialGradient id="centerLight" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#3B82F6" stop-opacity="0.1"/>
+      <stop offset="50%" stop-color="#1E40AF" stop-opacity="0.05"/>
+      <stop offset="100%" stop-color="#1E40AF" stop-opacity="0"/>
+    </radialGradient>
+    
+    <filter id="blur">
+      <feGaussianBlur stdDeviation="2"/>
+    </filter>
+  </defs>
+  
+  <!-- Main background -->
+  <rect width="1920" height="1080" fill="url(#mainBg)"/>
+  <rect width="1920" height="1080" fill="url(#centerLight)"/>
+  
+  <!-- Grid pattern -->
+  <g stroke="#475569" stroke-width="0.5" opacity="0.3">
+    <!-- Vertical lines -->
+    <g>
+      <line x1="0" y1="0" x2="0" y2="1080" opacity="0.5"/>
+      <line x1="96" y1="0" x2="96" y2="1080"/>
+      <line x1="192" y1="0" x2="192" y2="1080"/>
+      <line x1="288" y1="0" x2="288" y2="1080"/>
+      <line x1="384" y1="0" x2="384" y2="1080"/>
+      <line x1="480" y1="0" x2="480" y2="1080" opacity="0.7"/>
+      <line x1="576" y1="0" x2="576" y2="1080"/>
+      <line x1="672" y1="0" x2="672" y2="1080"/>
+      <line x1="768" y1="0" x2="768" y2="1080"/>
+      <line x1="864" y1="0" x2="864" y2="1080"/>
+      <line x1="960" y1="0" x2="960" y2="1080" opacity="0.8"/>
+      <line x1="1056" y1="0" x2="1056" y2="1080"/>
+      <line x1="1152" y1="0" x2="1152" y2="1080"/>
+      <line x1="1248" y1="0" x2="1248" y2="1080"/>
+      <line x1="1344" y1="0" x2="1344" y2="1080"/>
+      <line x1="1440" y1="0" x2="1440" y2="1080" opacity="0.7"/>
+      <line x1="1536" y1="0" x2="1536" y2="1080"/>
+      <line x1="1632" y1="0" x2="1632" y2="1080"/>
+      <line x1="1728" y1="0" x2="1728" y2="1080"/>
+      <line x1="1824" y1="0" x2="1824" y2="1080"/>
+      <line x1="1920" y1="0" x2="1920" y2="1080" opacity="0.5"/>
+    </g>
+    
+    <!-- Horizontal lines -->
+    <g>
+      <line x1="0" y1="0" x2="1920" y2="0" opacity="0.5"/>
+      <line x1="0" y1="54" x2="1920" y2="54"/>
+      <line x1="0" y1="108" x2="1920" y2="108"/>
+      <line x1="0" y1="162" x2="1920" y2="162"/>
+      <line x1="0" y1="216" x2="1920" y2="216"/>
+      <line x1="0" y1="270" x2="1920" y2="270" opacity="0.7"/>
+      <line x1="0" y1="324" x2="1920" y2="324"/>
+      <line x1="0" y1="378" x2="1920" y2="378"/>
+      <line x1="0" y1="432" x2="1920" y2="432"/>
+      <line x1="0" y1="486" x2="1920" y2="486"/>
+      <line x1="0" y1="540" x2="1920" y2="540" opacity="0.8"/>
+      <line x1="0" y1="594" x2="1920" y2="594"/>
+      <line x1="0" y1="648" x2="1920" y2="648"/>
+      <line x1="0" y1="702" x2="1920" y2="702"/>
+      <line x1="0" y1="756" x2="1920" y2="756"/>
+      <line x1="0" y1="810" x2="1920" y2="810" opacity="0.7"/>
+      <line x1="0" y1="864" x2="1920" y2="864"/>
+      <line x1="0" y1="918" x2="1920" y2="918"/>
+      <line x1="0" y1="972" x2="1920" y2="972"/>
+      <line x1="0" y1="1026" x2="1920" y2="1026"/>
+      <line x1="0" y1="1080" x2="1920" y2="1080" opacity="0.5"/>
+    </g>
+  </g>
+  
+  <!-- Floating geometric shapes -->
+  <g opacity="0.1" filter="url(#blur)">
+    <!-- Large circles -->
+    <circle cx="300" cy="200" r="80" fill="#3B82F6"/>
+    <circle cx="1600" cy="300" r="120" fill="#1E40AF"/>
+    <circle cx="200" cy="800" r="60" fill="#60A5FA"/>
+    <circle cx="1700" cy="900" r="90" fill="#3B82F6"/>
+    
+    <!-- Rectangles -->
+    <rect x="800" y="100" width="100" height="60" rx="10" fill="#1E40AF" transform="rotate(15 850 130)"/>
+    <rect x="1200" y="700" width="80" height="80" rx="8" fill="#3B82F6" transform="rotate(-20 1240 740)"/>
+    <rect x="400" y="500" width="120" height="40" rx="6" fill="#60A5FA" transform="rotate(30 460 520)"/>
+    
+    <!-- Triangles -->
+    <polygon points="600,400 650,350 700,400" fill="#1E40AF"/>
+    <polygon points="1400,600 1450,550 1500,600" fill="#3B82F6"/>
+    <polygon points="100,600 150,550 200,600" fill="#60A5FA"/>
+  </g>
+  
+  <!-- Neural network pattern overlay -->
+  <g stroke="#3B82F6" stroke-width="1" opacity="0.15" fill="none">
+    <!-- Connection lines -->
+    <path d="M100,100 Q300,200 500,150 T900,200 Q1200,250 1500,200 T1800,250"/>
+    <path d="M150,300 Q400,400 700,350 T1100,400 Q1400,450 1700,400"/>
+    <path d="M200,600 Q500,700 800,650 T1200,700 Q1500,750 1800,700"/>
+    <path d="M100,900 Q400,800 700,850 T1100,800 Q1400,750 1700,800"/>
+    
+    <!-- Vertical connections -->
+    <path d="M300,50 Q350,300 400,550 T450,850 Q500,1000 550,1050"/>
+    <path d="M800,80 Q850,350 900,620 T950,920 Q1000,1020 1050,1080"/>
+    <path d="M1400,60 Q1450,320 1500,580 T1550,880 Q1600,980 1650,1080"/>
+  </g>
+  
+  <!-- Node points -->
+  <g fill="#3B82F6" opacity="0.3">
+    <circle cx="100" cy="100" r="3"/>
+    <circle cx="500" cy="150" r="3"/>
+    <circle cx="900" cy="200" r="3"/>
+    <circle cx="1500" cy="200" r="3"/>
+    <circle cx="1800" cy="250" r="3"/>
+    
+    <circle cx="150" cy="300" r="3"/>
+    <circle cx="700" cy="350" r="3"/>
+    <circle cx="1100" cy="400" r="3"/>
+    <circle cx="1700" cy="400" r="3"/>
+    
+    <circle cx="200" cy="600" r="3"/>
+    <circle cx="800" cy="650" r="3"/>
+    <circle cx="1200" cy="700" r="3"/>
+    <circle cx="1800" cy="700" r="3"/>
+    
+    <circle cx="100" cy="900" r="3"/>
+    <circle cx="700" cy="850" r="3"/>
+    <circle cx="1100" cy="800" r="3"/>
+    <circle cx="1700" cy="800" r="3"/>
+  </g>
+  
+  <!-- Subtle light rays -->
+  <g opacity="0.05">
+    <path d="M960,0 L960,1080" stroke="#FFFFFF" stroke-width="2"/>
+    <path d="M0,540 L1920,540" stroke="#FFFFFF" stroke-width="2"/>
+    <path d="M0,0 L1920,1080" stroke="#FFFFFF" stroke-width="1"/>
+    <path d="M1920,0 L0,1080" stroke="#FFFFFF" stroke-width="1"/>
+  </g>
+</svg>

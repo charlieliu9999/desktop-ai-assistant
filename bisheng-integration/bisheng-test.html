@@ -1,0 +1,1364 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bisheng 智能体测试页面</title>
+    <!-- 引入 Markdown 渲染库 -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+    <!-- 引入代码高亮库 -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/highlight.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            width: 100%;
+            max-width: 1200px;
+            height: 80vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+        }
+
+        .content {
+            flex: 1;
+            display: flex;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: #f8fafc;
+            border-right: 1px solid #e2e8f0;
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+        }
+
+        .chat-area {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: #fafafa;
+        }
+
+        .input-area {
+            padding: 20px;
+            border-top: 1px solid #e2e8f0;
+            background: white;
+        }
+
+        .workflow-list {
+            margin-bottom: 20px;
+        }
+
+        .workflow-item {
+            padding: 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .workflow-item:hover {
+            border-color: #4f46e5;
+            background: #f0f9ff;
+        }
+
+        .workflow-item.selected {
+            border-color: #4f46e5;
+            background: #e0f2fe;
+        }
+
+        .workflow-name {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+
+        .workflow-id {
+            font-size: 12px;
+            color: #6b7280;
+            font-family: monospace;
+        }
+
+        .message {
+            margin-bottom: 16px;
+            display: flex;
+            align-items: flex-start;
+        }
+
+        .message.user {
+            justify-content: flex-end;
+        }
+
+        .message-content {
+            max-width: 70%;
+            padding: 12px 16px;
+            border-radius: 18px;
+            word-wrap: break-word;
+        }
+
+        .message.user .message-content {
+            background: #4f46e5;
+            color: white;
+        }
+
+        .message.assistant .message-content {
+            background: white;
+            border: 1px solid #e2e8f0;
+            color: #1f2937;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        .input-field {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 24px;
+            outline: none;
+            font-size: 14px;
+        }
+
+        .input-field:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .send-button {
+            padding: 12px 24px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 24px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+        }
+
+        .send-button:hover {
+            background: #4338ca;
+        }
+
+        .send-button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .status {
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            margin-bottom: 16px;
+        }
+
+        .status.success {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .status.error {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+
+        .status.loading {
+            background: #fef3c7;
+            color: #d97706;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #6b7280;
+        }
+
+        .empty-state h3 {
+            margin-bottom: 8px;
+            color: #374151;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f4f6;
+            border-top: 2px solid #4f46e5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Markdown 样式 */
+        .message-content h1,
+        .message-content h2,
+        .message-content h3 {
+            margin-top: 16px;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .message-content h1 { font-size: 1.5em; }
+        .message-content h2 { font-size: 1.3em; }
+        .message-content h3 { font-size: 1.1em; }
+
+        .message-content p {
+            margin-bottom: 12px;
+            line-height: 1.6;
+        }
+
+        .message-content ul,
+        .message-content ol {
+            margin-left: 20px;
+            margin-bottom: 12px;
+        }
+
+        .message-content li {
+            margin-bottom: 6px;
+            line-height: 1.6;
+        }
+
+        .message-content code {
+            background: #f3f4f6;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+
+        .message-content pre {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin-bottom: 12px;
+        }
+
+        .message-content pre code {
+            background: none;
+            padding: 0;
+            color: inherit;
+        }
+
+        .message-content blockquote {
+            border-left: 4px solid #4f46e5;
+            padding-left: 16px;
+            margin: 12px 0;
+            color: #64748b;
+            font-style: italic;
+        }
+
+        .message-content strong {
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .message-content a {
+            color: #4f46e5;
+            text-decoration: none;
+        }
+
+        .message-content a:hover {
+            text-decoration: underline;
+        }
+
+        .message-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 12px;
+        }
+
+        .message-content table th,
+        .message-content table td {
+            border: 1px solid #e2e8f0;
+            padding: 8px 12px;
+            text-align: left;
+        }
+
+        .message-content table th {
+            background: #f8fafc;
+            font-weight: 600;
+        }
+
+        /* 流式显示动画 */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .streaming-message {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        .refresh-button {
+            background: #f3f4f6;
+            border: 1px solid #d1d5db;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-bottom: 16px;
+            transition: all 0.2s;
+        }
+
+        .refresh-button:hover {
+            background: #e5e7eb;
+        }
+
+        .status {
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-bottom: 10px;
+        }
+
+        .status.success {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #10b981;
+        }
+
+        .status.error {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #ef4444;
+        }
+
+        .status.loading {
+            background: #fef3c7;
+            color: #d97706;
+            border: 1px solid #f59e0b;
+        }
+
+        .chat-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .chat-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #fafafa;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 12px 16px;
+            border-radius: 8px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+
+        .message.user {
+            background: #e0e7ff;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .message.assistant {
+            background: white;
+            border: 1px solid #e5e7eb;
+            margin-right: auto;
+        }
+
+        .input-area {
+            padding: 20px;
+            background: white;
+            border-top: 1px solid #e5e7eb;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .input-field {
+            flex: 1;
+            padding: 12px 16px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .input-field:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+
+        .send-button {
+            padding: 12px 24px;
+            background: #4f46e5;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        .send-button:hover:not(:disabled) {
+            background: #4338ca;
+        }
+
+        .send-button:disabled {
+            background: #9ca3af;
+            cursor: not-allowed;
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f4f6;
+            border-top: 2px solid #4f46e5;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Bisheng 智能体测试平台</h1>
+            <p>与 Bisheng 平台智能体进行交互测试</p>
+        </div>
+        
+        <div class="content">
+        <div class="sidebar">
+            <div class="config-section" style="margin-bottom: 20px; padding: 16px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                <h3 style="margin-bottom: 12px; color: #374151; font-size: 14px;">认证配置</h3>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; margin-bottom: 4px; font-size: 12px; color: #6b7280;">用户名</label>
+                    <input 
+                        type="text" 
+                        id="username" 
+                        value="lzhy9999@163.com"
+                        readonly
+                        style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; background: #f9fafb;"
+                    />
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; margin-bottom: 4px; font-size: 12px; color: #6b7280;">密码</label>
+                    <input 
+                        type="password" 
+                        id="password" 
+                        value="Moto@9999"
+                        readonly
+                        style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; background: #f9fafb;"
+                    />
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; margin-bottom: 4px; font-size: 12px; color: #6b7280;">访问令牌</label>
+                    <input 
+                        type="password" 
+                        id="authToken" 
+                        placeholder="登录后自动获取"
+                        readonly
+                        style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px; background: #f9fafb;"
+                    />
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; margin-bottom: 4px; font-size: 12px; color: #6b7280;">服务地址</label>
+                    <input 
+                        type="text" 
+                        id="baseUrl" 
+                        value="http://localhost:7860"
+                        style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;"
+                    />
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display: block; margin-bottom: 4px; font-size: 12px; color: #6b7280;">
+                        显示模式
+                        <span style="color: #ef4444; font-size: 11px;">(推荐使用自定义模式)</span>
+                    </label>
+                    <select id="displayMode" style="width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 4px; font-size: 12px;">
+                        <option value="custom">✅ 自定义聊天界面（流式+Markdown）</option>
+                        <option value="iframe">⚠️ iframe 嵌入（受 X-Frame-Options 限制）</option>
+                    </select>
+                    <p style="margin: 4px 0 0 0; font-size: 11px; color: #6b7280;">
+                        💡 iframe 模式由于服务器安全策略，需在新窗口打开
+                    </p>
+                </div>
+                <button onclick="loginAndLoadWorkflows()" style="width: 100%; padding: 8px; background: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-bottom: 8px;">
+                    🔐 登录并加载工作流
+                </button>
+                <button class="refresh-button" onclick="loadWorkflows()" style="width: 100%; margin-bottom: 8px;">
+                    🔄 刷新工作流列表
+                </button>
+                <button onclick="refreshChat()" style="width: 100%; padding: 8px; background: #f59e0b; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px; margin-bottom: 0;">
+                    🔄 刷新聊天界面
+                </button>
+            </div>
+            
+            <div id="statusArea" style="margin-bottom: 15px;"></div>
+            
+            <div class="workflow-list">
+                <h3 style="margin-bottom: 12px; color: #374151;">工作流列表</h3>
+                <div id="workflowList">
+                    <div class="empty-state">
+                        <p>配置认证信息后点击刷新按钮</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+            
+            <div class="main-content">
+                <div class="chat-container">
+                    <div id="chatArea" class="chat-area">
+                        <div class="empty-state">
+                            <h3>开始对话</h3>
+                            <p>选择一个工作流，然后输入消息开始与智能体对话</p>
+                        </div>
+                    </div>
+                    
+                    <div class="input-area">
+                        <div class="input-group">
+                            <input 
+                                type="text" 
+                                class="input-field" 
+                                id="messageInput" 
+                                placeholder="输入消息..." 
+                                disabled
+                            />
+                            <button class="send-button" id="sendButton" onclick="sendMessage()" disabled>
+                                发送
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 配置 marked.js
+        if (typeof marked !== 'undefined') {
+            marked.setOptions({
+                breaks: true,        // 支持 GitHub 风格的换行
+                gfm: true,           // 启用 GitHub Flavored Markdown
+                headerIds: false,    // 禁用标题 ID
+                mangle: false        // 禁用邮箱混淆
+            });
+        }
+        
+        let selectedWorkflow = null;
+        let sessionId = '';
+        let messageId = 0;
+        let lastMessage = '';
+
+        // 登录函数
+        async function login() {
+            const baseUrl = document.getElementById('baseUrl').value || 'http://localhost:7860';
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const statusArea = document.getElementById('statusArea');
+            
+            if (!username || !password) {
+                statusArea.innerHTML = '<div class="status error">❌ 请填写用户名和密码</div>';
+                return null;
+            }
+            
+            statusArea.innerHTML = '<div class="status loading">🔐 正在登录...</div>';
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/v1/user/login`, {
+                    method: 'POST',
+                    headers: {
+                        'accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_name: username,
+                        password: password
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`登录失败: ${response.status} ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('登录响应:', data);
+                
+                // 从响应中提取 token
+                let token = null;
+                if (data.data && data.data.access_token) {
+                    token = data.data.access_token;
+                } else if (data.access_token) {
+                    token = data.access_token;
+                } else if (data.token) {
+                    token = data.token;
+                }
+                
+                if (token) {
+                    // 将 token 保存到输入框
+                    document.getElementById('authToken').value = token;
+                    statusArea.innerHTML = '<div class="status success">✅ 登录成功！</div>';
+                    console.log('获取到访问令牌:', token.substring(0, 20) + '...');
+                    return token;
+                } else {
+                    throw new Error('登录响应中未找到访问令牌');
+                }
+                
+            } catch (error) {
+                console.error('登录失败:', error);
+                statusArea.innerHTML = `<div class="status error">❌ 登录失败: ${error.message}</div>`;
+                return null;
+            }
+        }
+
+        // 登录并加载工作流
+        async function loginAndLoadWorkflows() {
+            const token = await login();
+            if (token) {
+                // 登录成功后加载工作流
+                setTimeout(() => {
+                    loadWorkflows();
+                }, 1000);
+            }
+        }
+
+        // 获取配置信息
+        function getConfig() {
+            const baseUrl = document.getElementById('baseUrl').value || 'http://localhost:7860';
+            const authToken = document.getElementById('authToken').value;
+            
+            const headers = {
+                'accept': 'application/json',
+                'Content-Type': 'application/json',
+            };
+            
+            if (authToken) {
+                // 优先使用 Authorization 头，避免 CORS 问题
+                headers['Authorization'] = `Bearer ${authToken}`;
+                console.log('使用 Authorization 头认证:', authToken.substring(0, 20) + '...');
+            } else {
+                console.log('未设置认证令牌');
+            }
+            
+            console.log('请求配置:', { baseUrl, headers });
+            return { baseUrl, headers };
+        }
+
+        // 加载工作流列表
+        async function loadWorkflows() {
+            const statusArea = document.getElementById('statusArea');
+            const workflowList = document.getElementById('workflowList');
+            const { baseUrl, headers } = getConfig();
+            
+            statusArea.innerHTML = '<div class="status loading">🔄 正在加载工作流列表...</div>';
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/v1/workflow/list?page_size=10&page_num=1`, {
+                    method: 'GET',
+                    headers: headers,
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                // 处理不同的响应格式
+                let workflows = [];
+                if (data.data && data.data.data && Array.isArray(data.data.data)) {
+                    workflows = data.data.data;
+                } else if (data.data && data.data.items) {
+                    workflows = data.data.items;
+                } else if (Array.isArray(data.data)) {
+                    workflows = data.data;
+                } else if (Array.isArray(data)) {
+                    workflows = data;
+                }
+                
+                workflowList.innerHTML = '';
+                
+                if (workflows.length === 0) {
+                    workflowList.innerHTML = '<div class="empty-state"><p>暂无工作流</p></div>';
+                } else {
+                    workflows.forEach(workflow => {
+                        const workflowDiv = document.createElement('div');
+                        workflowDiv.className = 'workflow-item';
+                        workflowDiv.innerHTML = `
+                            <div class="workflow-name">${workflow.name || '未命名工作流'}</div>
+                            <div class="workflow-id">${workflow.id}</div>
+                            <div class="workflow-desc">${workflow.description || ''}</div>
+                            <div class="workflow-actions" style="margin-top: 8px;">
+                                <button onclick="event.stopPropagation(); openWorkflowInNewWindow(${JSON.stringify(workflow)})" 
+                                        style="padding: 4px 8px; font-size: 12px; background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 4px; cursor: pointer;">
+                                    在新窗口打开
+                                </button>
+                            </div>
+                        `;
+                        workflowDiv.onclick = () => selectWorkflow(workflow, workflowDiv);
+                        workflowList.appendChild(workflowDiv);
+                    });
+                }
+                
+                statusArea.innerHTML = '<div class="status success">✅ 工作流列表加载成功</div>';
+                setTimeout(() => statusArea.innerHTML = '', 3000);
+            } catch (error) {
+                console.error('加载工作流失败:', error);
+                
+                let errorMessage = error.message;
+                if (error.message.includes('401')) {
+                    errorMessage = '认证失败 (401) - 请检查访问令牌是否正确';
+                } else if (error.message.includes('404')) {
+                    errorMessage = '接口不存在 (404) - 请检查服务地址';
+                } else if (error.message.includes('500')) {
+                    errorMessage = '服务器错误 (500) - 请检查 Bisheng 服务状态';
+                }
+                
+                statusArea.innerHTML = `<div class="status error">❌ 加载失败: ${errorMessage}</div>`;
+                workflowList.innerHTML = `
+                    <div class="empty-state">
+                        <p>加载失败，请检查：</p>
+                        <ul style="text-align: left; margin-top: 10px;">
+                            <li>Bisheng 服务是否运行在 ${baseUrl}</li>
+                            <li>访问令牌是否正确设置</li>
+                            <li>网络连接是否正常</li>
+                        </ul>
+                        <button onclick="loadWorkflows()" style="margin-top: 10px; padding: 8px 16px; background: #4f46e5; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                            重试
+                        </button>
+                    </div>
+                `;
+            }
+        }
+
+        // 选择工作流
+        function selectWorkflow(workflow, element) {
+            // 移除其他选中状态
+            document.querySelectorAll('.workflow-item').forEach(item => {
+                item.classList.remove('selected');
+            });
+            
+            // 设置当前选中
+            element.classList.add('selected');
+            selectedWorkflow = workflow;
+            
+            console.log('选择工作流:', workflow.name, workflow.id);
+            
+            // 获取显示模式
+            const displayMode = document.getElementById('displayMode').value;
+            const chatArea = document.getElementById('chatArea');
+            const inputArea = document.querySelector('.input-area');
+            
+            if (displayMode === 'iframe') {
+                // iframe 模式：嵌入原生聊天界面
+                console.log('🖼️ 使用 iframe 模式');
+                
+                // 隐藏输入框
+                inputArea.style.display = 'none';
+                
+                // 检测基础URL的端口，推断前端服务端口
+                const baseUrl = document.getElementById('baseUrl').value;
+                let frontendPort = '3002'; // 使用代理端口，避免 X-Frame-Options 限制
+                
+                // 如果是 localhost:7860，使用代理端口 3002（绕过 X-Frame-Options）
+                // 代理服务器会自动转发到 3001 并移除限制响应头
+                if (baseUrl.includes('localhost:7860') || baseUrl.includes('127.0.0.1:7860')) {
+                    frontendPort = '3002';
+                }
+                
+                const iframeUrl = `http://localhost:${frontendPort}/chat/flow/auth/${workflow.id}`;
+                console.log('📍 iframe URL (通过代理):', iframeUrl);
+                
+                // 先显示加载状态和 iframe
+                chatArea.innerHTML = `
+                    <div style="width: 100%; height: 100%; display: flex; flex-direction: column;">
+                        <div style="padding: 12px; background: #f0f9ff; border-bottom: 1px solid #e0f2fe; display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <strong>🖼️ iframe 嵌入模式</strong>
+                                <span style="color: #6b7280; margin-left: 8px;">工作流: ${workflow.name}</span>
+                            </div>
+                            <button onclick="switchToCustomMode()" style="padding: 6px 12px; background: #4f46e5; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 12px;">
+                                切换到自定义模式
+                            </button>
+                        </div>
+                        <div id="iframeContainer" style="flex: 1; position: relative; background: #fafafa;">
+                            <div id="iframeLoading" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
+                                <div style="font-size: 48px; margin-bottom: 16px;">⏳</div>
+                                <div style="color: #6b7280;">正在加载 Bisheng 原生界面...</div>
+                            </div>
+                            <iframe 
+                                id="bishengIframe"
+                                src="${iframeUrl}"
+                                style="width: 100%; height: 100%; border: none; display: none;"
+                                frameborder="0"
+                                allow="fullscreen;clipboard-write">
+                            </iframe>
+                        </div>
+                        <div id="iframeError" style="display: none; padding: 20px; background: #fef2f2; border-top: 1px solid #fecaca;">
+                            <div style="display: flex; align-items: center; margin-bottom: 12px;">
+                                <span style="font-size: 24px; margin-right: 12px;">⚠️</span>
+                                <div style="flex: 1;">
+                                    <strong style="color: #dc2626;">iframe 加载失败</strong>
+                                    <p style="margin: 4px 0 0 0; font-size: 14px; color: #991b1b;">
+                                        可能是服务器设置了 X-Frame-Options 或其他安全策略。
+                                    </p>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button onclick="switchToCustomMode()" style="flex: 1; padding: 8px; background: #10b981; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
+                                    ✅ 切换到自定义模式
+                                </button>
+                                <button onclick="openInNewWindow('${iframeUrl}')" style="flex: 1; padding: 8px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px;">
+                                    🔗 在新窗口打开
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                
+                // 监听 iframe 加载事件
+                const iframe = document.getElementById('bishengIframe');
+                const loading = document.getElementById('iframeLoading');
+                const errorDiv = document.getElementById('iframeError');
+                
+                // iframe 加载成功
+                iframe.onload = function() {
+                    console.log('✅ iframe 加载成功');
+                    loading.style.display = 'none';
+                    iframe.style.display = 'block';
+                };
+                
+                // iframe 加载失败
+                iframe.onerror = function() {
+                    console.error('❌ iframe 加载失败');
+                    loading.style.display = 'none';
+                    errorDiv.style.display = 'block';
+                };
+                
+                // 超时检测（10秒后如果还在加载，认为失败）
+                setTimeout(() => {
+                    if (loading.style.display !== 'none') {
+                        console.warn('⏰ iframe 加载超时');
+                        loading.style.display = 'none';
+                        errorDiv.style.display = 'block';
+                    }
+                }, 10000);
+                
+            } else {
+                // 自定义模式：使用 API 调用
+                console.log('💬 使用自定义聊天模式');
+                
+                // 显示输入框
+                inputArea.style.display = 'block';
+                
+                // 启用聊天输入
+                document.getElementById('messageInput').disabled = false;
+                document.getElementById('sendButton').disabled = false;
+                
+                // 清空聊天区域并显示欢迎消息
+                chatArea.innerHTML = `
+                    <div class="message assistant">
+                        <div class="message-content">
+                            <strong>🤖 ${workflow.name}</strong><br>
+                            您好！我是您的智能助手，有什么可以帮助您的吗？
+                        </div>
+                    </div>
+                `;
+                
+                // 聚焦到输入框
+                document.getElementById('messageInput').focus();
+            }
+        }
+        
+        // 切换到自定义模式
+        function switchToCustomMode() {
+            document.getElementById('displayMode').value = 'custom';
+            if (selectedWorkflow) {
+                const selectedElement = document.querySelector('.workflow-item.selected');
+                if (selectedElement) {
+                    selectWorkflow(selectedWorkflow, selectedElement);
+                }
+            }
+        }
+        
+        // 在新窗口打开
+        function openInNewWindow(url) {
+            console.log('🔗 在新窗口打开:', url);
+            const newWindow = window.open(url, '_blank', 'width=1200,height=800');
+            if (!newWindow) {
+                alert('⚠️ 弹窗被阻止，请允许浏览器打开弹窗，或者手动访问：\n' + url);
+            }
+        }
+
+        // 发送消息
+        async function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const sendButton = document.getElementById('sendButton');
+            const chatArea = document.getElementById('chatArea');
+            const { baseUrl, headers } = getConfig();
+            
+            const message = messageInput.value.trim();
+            if (!message || !selectedWorkflow) return;
+            
+            // 保存最后一条消息用于重试
+            lastMessage = message;
+            
+            // 禁用输入
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            
+            // 添加用户消息到聊天区域
+            addMessage('user', message);
+            messageInput.value = '';
+            
+            // 显示加载状态
+            const loadingId = addMessage('assistant', '<div class="loading-spinner"></div> 正在思考...');
+            
+            try {
+                // 第一次调用：启动工作流
+                const response = await fetch(`${baseUrl}/api/v2/workflow/invoke`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify({
+                        workflow_id: selectedWorkflow.id,
+                        stream: false, // 使用非流式获取完整事件列表
+                    }),
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const responseData = await response.json();
+                console.log('工作流响应:', responseData);
+                
+                // 移除加载消息
+                removeMessage(loadingId);
+                
+                if (responseData.status_code === 200 && responseData.data) {
+                    const sessionId = responseData.data.session_id;
+                    const events = responseData.data.events || [];
+                    
+                    console.log('会话ID:', sessionId);
+                    console.log('事件列表:', events);
+                    
+                    // 处理事件
+                    await processWorkflowEvents(events, sessionId, message);
+                } else {
+                    throw new Error(responseData.status_message || '工作流执行失败');
+                }
+            } catch (error) {
+                console.error('发送消息失败:', error);
+                removeMessage(loadingId);
+                addMessage('assistant', '❌ 发送失败: ' + error.message);
+            } finally {
+                // 重新启用输入
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+                messageInput.focus();
+            }
+        }
+
+        // 添加消息到聊天区域
+        function addMessage(type, content, isMarkdown = false) {
+            const chatArea = document.getElementById('chatArea');
+            
+            // 如果是第一条消息，清空空状态
+            if (chatArea.querySelector('.empty-state')) {
+                chatArea.innerHTML = '';
+            }
+            
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type} streaming-message`;
+            
+            // 根据类型决定是否使用 Markdown 渲染
+            let renderedContent = content;
+            if (isMarkdown && type === 'assistant' && typeof marked !== 'undefined') {
+                try {
+                    renderedContent = marked.parse(content);
+                } catch (e) {
+                    console.warn('Markdown 解析失败，使用原始内容:', e);
+                }
+            }
+            
+            messageDiv.innerHTML = `
+                <div class="message-content">${renderedContent}</div>
+            `;
+            
+            chatArea.appendChild(messageDiv);
+            chatArea.scrollTop = chatArea.scrollHeight;
+            
+            // 代码高亮
+            if (typeof hljs !== 'undefined') {
+                messageDiv.querySelectorAll('pre code').forEach((block) => {
+                    hljs.highlightElement(block);
+                });
+            }
+            
+            return messageDiv;
+        }
+
+        // 更新消息内容（用于流式显示）
+        function updateMessage(messageDiv, content, isMarkdown = false) {
+            if (!messageDiv) return;
+            
+            let renderedContent = content;
+            if (isMarkdown && messageDiv.classList.contains('assistant') && typeof marked !== 'undefined') {
+                try {
+                    renderedContent = marked.parse(content);
+                } catch (e) {
+                    console.warn('Markdown 解析失败，使用原始内容:', e);
+                }
+            }
+            
+            const contentDiv = messageDiv.querySelector('.message-content');
+            if (contentDiv) {
+                contentDiv.innerHTML = renderedContent;
+                
+                // 代码高亮
+                if (typeof hljs !== 'undefined') {
+                    contentDiv.querySelectorAll('pre code').forEach((block) => {
+                        hljs.highlightElement(block);
+                    });
+                }
+            }
+            
+            // 自动滚动到底部
+            const chatArea = document.getElementById('chatArea');
+            chatArea.scrollTop = chatArea.scrollHeight;
+        }
+
+        // 移除消息
+        function removeMessage(messageElement) {
+            if (messageElement && messageElement.parentNode) {
+                messageElement.parentNode.removeChild(messageElement);
+            }
+        }
+
+        // 打开工作流在新窗口（备用方案）
+        function openWorkflowInNewWindow(workflow) {
+            const url = `http://localhost:3001/chat/flow/${workflow.id}`;
+            window.open(url, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+        }
+
+        // 复制 URL 到剪贴板
+        function copyUrl() {
+            const directUrlElement = document.getElementById('directUrl');
+            if (directUrlElement && directUrlElement.textContent) {
+                navigator.clipboard.writeText(directUrlElement.textContent).then(() => {
+                    // 临时改变文本显示复制成功
+                    const originalText = directUrlElement.textContent;
+                    directUrlElement.textContent = '已复制！';
+                    directUrlElement.style.background = '#d1fae5';
+                    setTimeout(() => {
+                        directUrlElement.textContent = originalText;
+                        directUrlElement.style.background = '#f3f4f6';
+                    }, 2000);
+                }).catch(err => {
+                    console.error('复制失败:', err);
+                    alert('复制失败，请手动复制：' + directUrlElement.textContent);
+                });
+            }
+        }
+
+        // 重试最后一条消息
+        function retryLastMessage() {
+            if (lastMessage && selectedWorkflow) {
+                // 将最后一条消息填入输入框
+                document.getElementById('messageInput').value = lastMessage;
+                // 发送消息
+                sendMessage();
+            }
+        }
+
+        // 处理工作流事件（改进为流式显示）
+        async function processWorkflowEvents(events, sessionId, userMessage, streamingMessageDiv = null) {
+            console.log('📋 处理工作流事件:', events);
+            console.log('📊 事件数量:', events.length);
+            
+            let hasOutput = false;
+            let inputNodeId = null;
+            let messageId = null;
+            let accumulatedMessage = ''; // 累积消息内容
+            let currentMessageDiv = streamingMessageDiv;
+            
+            for (let i = 0; i < events.length; i++) {
+                const event = events[i];
+                console.log(`🔍 处理事件 ${i + 1}/${events.length}:`, event);
+                console.log(`   - 事件类型: ${event.event}`);
+                console.log(`   - 节点ID: ${event.node_id}`);
+                console.log(`   - 节点名称: ${event.node_name}`);
+                console.log(`   - 状态: ${event.status}`);
+                
+                if (event.event === 'guide_word' || event.event === 'output_msg' || event.event === 'output_with_input_msg' || event.event === 'stream_msg') {
+                    console.log('📤 处理输出事件:', event.event);
+                    // 收集输出消息
+                    if (event.output_schema?.message) {
+                        const message = Array.isArray(event.output_schema.message) 
+                            ? event.output_schema.message.join('') 
+                            : event.output_schema.message;
+                        console.log('💬 提取的消息片段:', message.substring(0, 50) + '...');
+                        if (message.trim()) {
+                            accumulatedMessage += message;
+                            hasOutput = true;
+                            
+                            // 流式更新：实时显示累积的内容
+                            if (!currentMessageDiv) {
+                                currentMessageDiv = addMessage('assistant', accumulatedMessage, true);
+                            } else {
+                                updateMessage(currentMessageDiv, accumulatedMessage, true);
+                            }
+                        } else {
+                            console.log('⚠️ 消息为空，跳过');
+                        }
+                    } else {
+                        console.log('⚠️ 没有 output_schema.message');
+                    }
+                }
+                
+                if (event.event === 'input' || event.event === 'output_with_input_msg') {
+                    console.log('📥 处理输入事件');
+                    // 记录输入节点信息
+                    inputNodeId = event.node_id;
+                    messageId = event.message_id;
+                    console.log('🔑 需要用户输入，节点ID:', inputNodeId, '消息ID:', messageId);
+                }
+                
+                // 检查其他可能的事件类型
+                if (event.event === 'close' || event.event === 'end') {
+                    console.log('🏁 工作流结束事件');
+                }
+            }
+            
+            console.log('📊 事件处理结果:');
+            console.log('- 有输出:', hasOutput);
+            console.log('- 累积消息长度:', accumulatedMessage.length);
+            console.log('- 输入节点ID:', inputNodeId);
+            console.log('- 消息ID:', messageId);
+            
+            // 如果有输入节点，需要继续发送用户输入
+            if (inputNodeId && messageId) {
+                console.log('🔄 继续工作流，发送用户输入...');
+                await continueWorkflow(sessionId, messageId, inputNodeId, userMessage, currentMessageDiv);
+            } else if (!hasOutput) {
+                console.log('⚠️ 没有输出也没有输入节点，显示默认消息');
+                if (!currentMessageDiv) {
+                    addMessage('assistant', '工作流执行完成，但没有返回具体内容。', false);
+                }
+            } else {
+                console.log('✅ 工作流处理完成，有输出内容');
+            }
+            
+            return currentMessageDiv;
+        }
+
+        // 继续工作流执行
+        async function continueWorkflow(sessionId, messageId, inputNodeId, userMessage, streamingMessageDiv = null) {
+            const { baseUrl, headers } = getConfig();
+            
+            console.log('🔄 继续工作流参数:');
+            console.log('- 会话ID:', sessionId);
+            console.log('- 消息ID:', messageId);
+            console.log('- 输入节点ID:', inputNodeId);
+            console.log('- 用户消息:', userMessage);
+            console.log('- 工作流ID:', selectedWorkflow.id);
+            
+            try {
+                const requestBody = {
+                    workflow_id: selectedWorkflow.id,
+                    stream: true, // 使用流式请求以获得更快的响应
+                    input: {
+                        [inputNodeId]: {
+                            user_input: userMessage
+                        }
+                    },
+                    message_id: messageId,
+                    session_id: sessionId
+                };
+                
+                console.log('📤 继续工作流请求体:', requestBody);
+                
+                // 添加超时处理
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => {
+                    controller.abort();
+                    console.error('⏰ 继续工作流请求超时（2分钟）');
+                }, 120000); // 120秒（2分钟）超时
+                
+                console.log('🚀 开始发送继续工作流请求...');
+                const response = await fetch(`${baseUrl}/api/v2/workflow/invoke`, {
+                    method: 'POST',
+                    headers: headers,
+                    body: JSON.stringify(requestBody),
+                    signal: controller.signal
+                });
+                
+                clearTimeout(timeoutId);
+                console.log('✅ 继续工作流请求完成');
+
+                console.log('📊 继续工作流响应状态:', response.status);
+                console.log('📋 继续工作流响应头:', response.headers);
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('❌ 继续工作流HTTP错误:', response.status, errorText);
+                    throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+                }
+
+                console.log('📄 开始流式读取响应...');
+                
+                // 使用 ReadableStream 进行真正的流式处理
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let currentMessageDiv = streamingMessageDiv;
+                let accumulatedMessage = '';
+                
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        
+                        if (done) {
+                            console.log('✅ 流式读取完成');
+                            break;
+                        }
+                        
+                        // 解码数据块
+                        buffer += decoder.decode(value, { stream: true });
+                        
+                        // 按行处理
+                        const lines = buffer.split('\n');
+                        buffer = lines.pop() || ''; // 保留未完成的行
+                        
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const jsonData = JSON.parse(line.substring(6));
+                                    console.log('📦 收到事件:', jsonData.data?.event);
+                                    
+                                    if (jsonData.data) {
+                                        const event = jsonData.data;
+                                        
+                                        // 实时处理输出事件
+                                        if (event.event === 'stream_msg' || event.event === 'output_msg') {
+                                            if (event.output_schema?.message) {
+                                                const message = Array.isArray(event.output_schema.message) 
+                                                    ? event.output_schema.message.join('') 
+                                                    : event.output_schema.message;
+                                                
+                                                if (message.trim()) {
+                                                    accumulatedMessage += message;
+                                                    
+                                                    // 实时更新显示
+                                                    if (!currentMessageDiv) {
+                                                        currentMessageDiv = addMessage('assistant', accumulatedMessage, true);
+                                                    } else {
+                                                        updateMessage(currentMessageDiv, accumulatedMessage, true);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.log('⚠️ 解析行失败:', line.substring(0, 50));
+                                }
+                            }
+                        }
+                    }
+                    
+                    // 处理剩余的buffer
+                    if (buffer.trim()) {
+                        console.log('📝 处理剩余数据:', buffer.substring(0, 100));
+                    }
+                    
+                } catch (error) {
+                    console.error('❌ 流式读取错误:', error);
+                    throw error;
+                }
+            } catch (error) {
+                console.error('💥 继续工作流异常:', error);
+                console.error('错误类型:', error.name);
+                console.error('错误消息:', error.message);
+                console.error('错误堆栈:', error.stack);
+                addMessage('assistant', '❌ 继续工作流失败: ' + error.message);
+            }
+        }
+
+        // 处理回车键发送
+        document.addEventListener('DOMContentLoaded', function() {
+            const messageInput = document.getElementById('messageInput');
+            if (messageInput) {
+                messageInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        sendMessage();
+                    }
+                });
+            }
+        });
+
+        // 页面加载时自动加载工作流
+        window.addEventListener('load', function() {
+            // 延迟一点时间确保输入框值已设置，然后自动登录
+            setTimeout(loginAndLoadWorkflows, 500);
+        });
+    </script>
+</body>
+</html>

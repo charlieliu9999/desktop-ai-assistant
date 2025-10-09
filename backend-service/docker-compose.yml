@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  # PostgreSQL数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: medical_ai_postgres
+    environment:
+      POSTGRES_USER: medical_user
+      POSTGRES_PASSWORD: medical_pass
+      POSTGRES_DB: medical_ai
+    ports:
+      - "5433:5432"  # 修改为5433避免与现有PostgreSQL冲突
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medical_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis缓存
+  redis:
+    image: redis:7-alpine
+    container_name: medical_ai_redis
+    ports:
+      - "6380:6379"  # 修改为6380避免与现有Redis冲突
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI应用
+  api:
+    build: .
+    container_name: medical_ai_api
+    environment:
+      DATABASE_URL: postgresql://medical_user:medical_pass@postgres:5432/medical_ai
+      REDIS_URL: redis://redis:6379/0
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      LOCAL_AI_ENDPOINT: ${LOCAL_AI_ENDPOINT:-http://host.docker.internal:11434}
+      LOCAL_AI_MODEL: ${LOCAL_AI_MODEL:-qwen2.5vl:latest}
+      AI_SERVICE_MODE: ${AI_SERVICE_MODE:-local}
+      PORT: ${PORT:-8010}
+      HOST: ${HOST:-0.0.0.0}
+    ports:
+      - "${PORT:-8010}:${PORT:-8010}"  # 使用环境变量配置端口
+    volumes:
+      - ./app:/app/app
+      - ./logs:/app/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+

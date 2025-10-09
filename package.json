@@ -1,0 +1,251 @@
+{
+  "name": "desktop-ai-assistant",
+  "version": "1.0.0",
+  "description": "智能桌面AI助手 - 不打扰、隐身、谁叫谁出的设计理念",
+  "main": "dist/main/main.js",
+  "homepage": "./",
+  "author": {
+    "name": "Desktop AI Assistant Team",
+    "email": "support@desktop-ai-assistant.com"
+  },
+  "license": "MIT",
+  "keywords": [
+    "ai",
+    "assistant",
+    "desktop",
+    "electron",
+    "voice",
+    "ocr",
+    "medical",
+    "automation"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "dev:renderer": "vite",
+    "dev:main": "electron-builder install-app-deps && electron .",
+    "dev:floating-only": "ELECTRON_RENDERER_URL=http://127.0.0.1:5928/ APP_MODE=floating npx electron .",
+    "dev:voice-only": "ELECTRON_RENDERER_URL=http://127.0.0.1:5928/ APP_MODE=voice npx electron .",
+    "build": "npm run build:renderer && npm run build:main",
+    "build:renderer": "vite build",
+    "build:main": "tsc -p tsconfig.main.json",
+    "build:all": "npm run build && electron-builder",
+    "dist": "npm run build && electron-builder --publish=never",
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:mac": "npm run build && electron-builder --mac",
+    "dist:linux": "npm run build && electron-builder --linux",
+    "pack": "npm run build && electron-builder --dir",
+    "preview": "vite preview",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --ext ts,tsx --fix",
+    "type-check": "tsc --noEmit",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest --coverage",
+    "clean": "rimraf dist build",
+    "postinstall": "electron-builder install-app-deps"
+  },
+  "dependencies": {
+    "@electron/remote": "^2.1.2",
+    "@google-cloud/speech": "^7.2.0",
+    "@tailwindcss/aspect-ratio": "^0.4.2",
+    "@tailwindcss/container-queries": "^0.1.1",
+    "@tailwindcss/forms": "^0.5.10",
+    "@tailwindcss/typography": "^0.5.19",
+    "axios": "^1.6.2",
+    "electron-store": "^8.1.0",
+    "electron-updater": "^6.1.7",
+    "mammoth": "^1.11.0",
+    "microsoft-cognitiveservices-speech-sdk": "^1.46.0",
+    "openai": "^6.2.0",
+    "react-markdown": "^10.1.0",
+    "rehype-highlight": "^7.0.2",
+    "remark-gfm": "^4.0.1",
+    "screenshot-desktop": "^1.15.0",
+    "tesseract.js": "^5.0.4",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.4",
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@types/ws": "^8.5.10",
+    "@typescript-eslint/eslint-plugin": "^6.14.0",
+    "@typescript-eslint/parser": "^6.14.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.16",
+    "concurrently": "^8.2.2",
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1",
+    "eslint": "^8.55.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "http-proxy": "^1.18.1",
+    "lucide-react": "^0.294.0",
+    "postcss": "^8.4.32",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.20.1",
+    "rimraf": "^5.0.5",
+    "sonner": "^1.2.4",
+    "tailwindcss": "^3.3.6",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.8",
+    "vite-plugin-electron": "^0.15.5",
+    "vite-plugin-electron-renderer": "^0.14.5",
+    "vitest": "^1.0.4",
+    "zustand": "^4.4.7"
+  },
+  "build": {
+    "appId": "com.desktop-ai-assistant.app",
+    "productName": "桌面AI助手",
+    "copyright": "Copyright © 2024 Desktop AI Assistant Team",
+    "directories": {
+      "output": "release",
+      "buildResources": "assets"
+    },
+    "files": [
+      "dist/**/*",
+      "assets/**/*",
+      "!**/node_modules/**/*",
+      "!src/**/*",
+      "!docs/**/*",
+      "!tests/**/*",
+      "!*.md",
+      "!.gitignore",
+      "!.eslintrc.*",
+      "!.prettierrc.*",
+      "!tsconfig.*",
+      "!vite.config.*",
+      "!tailwind.config.*",
+      "!postcss.config.*"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/",
+        "to": "assets/",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "assets/icons/icon.icns",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "darkModeSupport": true,
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "assets/entitlements.mac.plist",
+      "entitlementsInherit": "assets/entitlements.mac.plist"
+    },
+    "win": {
+      "icon": "assets/icons/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ],
+      "publisherName": "Desktop AI Assistant Team",
+      "verifyUpdateCodeSignature": false
+    },
+    "linux": {
+      "icon": "assets/icons/icon.png",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "rpm",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Office",
+      "desktop": {
+        "Name": "桌面AI助手",
+        "Comment": "智能桌面AI助手",
+        "Keywords": "ai;assistant;desktop;productivity;"
+      }
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "桌面AI助手"
+    },
+    "dmg": {
+      "title": "桌面AI助手 ${version}",
+      "icon": "assets/icons/icon.icns",
+      "background": "assets/images/dmg-background.png",
+      "contents": [
+        {
+          "x": 130,
+          "y": 220
+        },
+        {
+          "x": 410,
+          "y": 220,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "window": {
+        "width": 540,
+        "height": 380
+      }
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "desktop-ai-assistant",
+      "repo": "desktop-ai-assistant"
+    }
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/desktop-ai-assistant/desktop-ai-assistant.git"
+  },
+  "bugs": {
+    "url": "https://github.com/desktop-ai-assistant/desktop-ai-assistant/issues"
+  }
+}

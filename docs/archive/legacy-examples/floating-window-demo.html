@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>浮动窗口演示 - Desktop AI Assistant</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: {
+              500: '#3b82f6',
+              600: '#2563eb',
+            },
+          },
+        }
+      },
+    }
+  </script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    /* 浮动窗口容器 */
+    .floating-container {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 9999;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .floating-container.dragging {
+      transition: none;
+    }
+
+    /* 收起状态 */
+    .floating-collapsed {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+      box-shadow: 0 8px 24px rgba(59, 130, 246, 0.4);
+      cursor: pointer;
+      position: relative;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .floating-collapsed:hover {
+      transform: scale(1.1);
+      box-shadow: 0 12px 32px rgba(59, 130, 246, 0.5);
+    }
+
+    .floating-collapsed:active {
+      transform: scale(1.05);
+    }
+
+    /* 呼吸灯效果 */
+    .floating-collapsed::before {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+      opacity: 0.5;
+      animation: pulse-ring 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-ring {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 0.5;
+      }
+      50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+      }
+    }
+
+    /* 图标 */
+    .floating-icon {
+      width: 32px;
+      height: 32px;
+      color: white;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* 状态指示器 */
+    .status-indicator {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      border: 2px solid white;
+      z-index: 2;
+    }
+
+    .status-ready { background: #10b981; }
+    .status-listening { 
+      background: #f59e0b; 
+      animation: blink 1s infinite;
+    }
+    .status-processing { 
+      background: #3b82f6; 
+      animation: spin 1s linear infinite;
+    }
+    .status-error { background: #ef4444; }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
+    /* 展开状态 - 玻璃效果 */
+    .floating-expanded {
+      width: 320px;
+      background: rgba(255, 255, 255, 0.15) !important;
+      -webkit-backdrop-filter: blur(40px) saturate(200%) !important;
+      backdrop-filter: blur(40px) saturate(200%) !important;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3),
+                  0 0 0 1px rgba(255, 255, 255, 0.3) inset,
+                  0 8px 32px rgba(255, 255, 255, 0.15) inset;
+      overflow: hidden;
+      animation: expand 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* 确保玻璃效果不被覆盖 */
+    .floating-expanded * {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* 内容区域也要透明 */
+    .floating-expanded > div {
+      background: transparent !important;
+    }
+
+    /* 头部保持渐变但稍微透明 */
+    .floating-header {
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.9) 0%, rgba(139, 92, 246, 0.9) 100%) !important;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* 内容区域 */
+    .floating-content {
+      padding: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .floating-content:last-child {
+      border-bottom: none;
+    }
+
+    @keyframes expand {
+      from {
+        opacity: 0;
+        transform: scale(0.9) translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    /* 隐藏滚动条但保持功能 */
+    .floating-expanded::-webkit-scrollbar {
+      width: 0;
+      height: 0;
+    }
+
+    /* 快速操作按钮 - 玻璃效果 */
+    .quick-action-btn {
+      width: 72px;
+      height: 72px;
+      border-radius: 12px;
+      background: rgba(255, 255, 255, 0.3) !important;
+      -webkit-backdrop-filter: blur(15px) !important;
+      backdrop-filter: blur(15px) !important;
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1),
+                  0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .quick-action-btn:hover {
+      background: rgba(255, 255, 255, 0.5) !important;
+      border-color: rgba(59, 130, 246, 0.6);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3),
+                  0 0 0 1px rgba(255, 255, 255, 0.3) inset;
+    }
+
+    .quick-action-btn:active {
+      transform: translateY(0);
+    }
+
+    /* 玻璃效果的分隔线 */
+    .glass-divider {
+      border-color: rgba(255, 255, 255, 0.2) !important;
+    }
+
+    /* 玻璃效果的输入框 */
+    .glass-input {
+      background: rgba(255, 255, 255, 0.3) !important;
+      -webkit-backdrop-filter: blur(15px) !important;
+      backdrop-filter: blur(15px) !important;
+      border: 1px solid rgba(255, 255, 255, 0.6) !important;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05),
+                  0 0 0 1px rgba(255, 255, 255, 0.2) inset !important;
+    }
+
+    .glass-input:focus {
+      background: rgba(255, 255, 255, 0.5) !important;
+      border-color: rgba(59, 130, 246, 0.6) !important;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+    }
+
+    /* 智能建议卡片 - 玻璃效果 */
+    .glass-suggestion {
+      background: rgba(254, 243, 199, 0.4) !important;
+      -webkit-backdrop-filter: blur(15px) !important;
+      backdrop-filter: blur(15px) !important;
+      border: 1px solid rgba(251, 191, 36, 0.4) !important;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05),
+                  0 0 0 1px rgba(255, 255, 255, 0.2) inset !important;
+    }
+
+    /* 思考动画 */
+    .thinking-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #3b82f6;
+      animation: bounce-gentle 1.4s ease-in-out infinite;
+    }
+
+    .thinking-dot:nth-child(1) { animation-delay: 0s; }
+    .thinking-dot:nth-child(2) { animation-delay: 0.2s; }
+    .thinking-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes bounce-gentle {
+      0%, 60%, 100% { transform: translateY(0); }
+      30% { transform: translateY(-10px); }
+    }
+
+    /* 淡入动画 */
+    .fade-in {
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* 提示文字 - 玻璃效果 */
+    .demo-hint {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.6);
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      font-size: 14px;
+      z-index: 10000;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+  </style>
+</head>
+<body>
+  <!-- 提示文字 -->
+  <div class="demo-hint">
+    💡 点击浮动按钮展开/收起 | 可拖拽移动位置 | 右键查看菜单
+  </div>
+
+  <!-- 浏览器兼容性提示 -->
+  <div id="browserWarning" style="display: none;" class="fixed top-20 left-1/2 transform -translate-x-1/2 bg-yellow-500 text-white px-6 py-3 rounded-lg shadow-lg z-10001 text-sm">
+    ⚠️ 您的浏览器可能不支持玻璃效果,建议使用 Chrome/Edge/Safari 最新版本
+  </div>
+
+  <!-- 浮动窗口容器 -->
+  <div id="floatingContainer" class="floating-container">
+    <!-- 收起状态 -->
+    <div id="collapsedState" class="floating-collapsed">
+      <svg class="floating-icon" fill="currentColor" viewBox="0 0 24 24">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+      </svg>
+      <div id="statusIndicator" class="status-indicator status-ready"></div>
+    </div>
+
+    <!-- 展开状态 (初始隐藏) -->
+    <div id="expandedState" class="floating-expanded" style="display: none;">
+      <!-- 头部 -->
+      <div class="floating-header">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <span style="color: white; font-weight: 600; font-size: 14px;">🤖 AI助手</span>
+          <div style="width: 8px; height: 8px; background: #4ade80; border-radius: 50%;"></div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button onclick="openMainWindow()" style="color: rgba(255,255,255,0.8); background: none; border: none; cursor: pointer; padding: 4px; transition: color 0.2s;" title="打开主窗口" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.8)'">
+            <svg style="width: 16px; height: 16px;" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
+            </svg>
+          </button>
+          <button onclick="toggleExpanded()" style="color: rgba(255,255,255,0.8); background: none; border: none; cursor: pointer; padding: 4px; transition: color 0.2s;" title="收起" onmouseover="this.style.color='white'" onmouseout="this.style.color='rgba(255,255,255,0.8)'">
+            <svg style="width: 16px; height: 16px;" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 智能建议 -->
+      <div class="floating-content">
+        <div style="font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 8px;">💡 智能建议</div>
+        <div id="smartSuggestion" class="glass-suggestion" style="border-radius: 12px; padding: 12px;">
+          <p style="font-size: 14px; color: #1f2937; margin-bottom: 8px; font-weight: 500;">检测到患者ID: P20240115</p>
+          <div style="display: flex; gap: 8px;">
+            <button onclick="quickQuery()" style="padding: 6px 12px; background: #eab308; color: white; font-size: 12px; border-radius: 6px; border: none; cursor: pointer; transition: background 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.1);" onmouseover="this.style.background='#ca8a04'" onmouseout="this.style.background='#eab308'">
+              快速查询
+            </button>
+            <button onclick="viewDetails()" style="padding: 6px 12px; background: rgba(255,255,255,0.6); backdrop-filter: blur(10px); color: #374151; font-size: 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.5); cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.8)'" onmouseout="this.style.background='rgba(255,255,255,0.6)'">
+              查看详情
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 快速操作 -->
+      <div class="floating-content">
+        <div style="font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 12px;">⚡ 快速操作</div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <button onclick="analyzeScreen()" class="quick-action-btn">
+            <span style="font-size: 28px;">📸</span>
+            <span style="font-size: 12px; color: #1f2937; font-weight: 500;">分析屏幕</span>
+          </button>
+          <button onclick="quickSearch()" class="quick-action-btn">
+            <span style="font-size: 28px;">🔍</span>
+            <span style="font-size: 12px; color: #1f2937; font-weight: 500;">查询</span>
+          </button>
+          <button onclick="generateReport()" class="quick-action-btn">
+            <span style="font-size: 28px;">📝</span>
+            <span style="font-size: 12px; color: #1f2937; font-weight: 500;">生成报告</span>
+          </button>
+          <button onclick="showMore()" class="quick-action-btn">
+            <span style="font-size: 28px;">⚙️</span>
+            <span style="font-size: 12px; color: #1f2937; font-weight: 500;">更多</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 快速输入 -->
+      <div class="floating-content">
+        <div style="font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 8px;">💬 快速输入</div>
+        <div style="display: flex; gap: 8px;">
+          <input
+            id="quickInput"
+            type="text"
+            placeholder="输入您的问题..."
+            class="glass-input"
+            style="flex: 1; padding: 8px 12px; font-size: 14px; border-radius: 8px; color: #111827; outline: none;"
+            onkeypress="handleInputKeyPress(event)"
+            onfocus="this.style.boxShadow='0 0 0 3px rgba(59,130,246,0.1)'"
+            onblur="this.style.boxShadow=''"
+          >
+          <button onclick="startVoiceInput()" style="padding: 8px 12px; background: #3b82f6; color: white; border-radius: 8px; border: none; cursor: pointer; transition: background 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.1);" title="语音输入" onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+            <svg style="width: 16px; height: 16px;" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 14c1.66 0 2.99-1.34 2.99-3L15 5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 最近操作 -->
+      <div class="floating-content" style="border-bottom: none;">
+        <div style="font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 8px;">📋 最近操作</div>
+        <div id="recentActions" style="display: flex; flex-direction: column; gap: 8px;">
+          <div style="font-size: 12px; color: #374151; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; padding: 8px; border-radius: 8px;" onmouseover="this.style.color='#2563eb'; this.style.background='rgba(255,255,255,0.4)'" onmouseout="this.style.color='#374151'; this.style.background='transparent'">
+            <span style="width: 4px; height: 4px; background: #3b82f6; border-radius: 50%;"></span>
+            <span>查询患者 张三 (2分钟前)</span>
+          </div>
+          <div style="font-size: 12px; color: #374151; display: flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; padding: 8px; border-radius: 8px;" onmouseover="this.style.color='#2563eb'; this.style.background='rgba(255,255,255,0.4)'" onmouseout="this.style.color='#374151'; this.style.background='transparent'">
+            <span style="width: 4px; height: 4px; background: #3b82f6; border-radius: 50%;"></span>
+            <span>生成CT报告 (5分钟前)</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 状态管理
+    let isExpanded = false;
+    let isDragging = false;
+    let currentStatus = 'ready'; // ready, listening, processing, error
+    let dragOffset = { x: 0, y: 0 };
+
+    const container = document.getElementById('floatingContainer');
+    const collapsedState = document.getElementById('collapsedState');
+    const expandedState = document.getElementById('expandedState');
+    const statusIndicator = document.getElementById('statusIndicator');
+
+    // 切换展开/收起状态
+    function toggleExpanded() {
+      isExpanded = !isExpanded;
+      
+      if (isExpanded) {
+        collapsedState.style.display = 'none';
+        expandedState.style.display = 'block';
+      } else {
+        expandedState.style.display = 'none';
+        collapsedState.style.display = 'flex';
+      }
+    }
+
+    // 点击收起状态的按钮
+    collapsedState.addEventListener('click', (e) => {
+      if (!isDragging) {
+        toggleExpanded();
+      }
+    });
+
+    // 双击打开主窗口
+    collapsedState.addEventListener('dblclick', (e) => {
+      e.stopPropagation();
+      openMainWindow();
+    });
+
+    // 右键菜单
+    collapsedState.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      showContextMenu(e.clientX, e.clientY);
+    });
+
+    // 拖拽功能
+    let startX, startY, startLeft, startTop;
+
+    collapsedState.addEventListener('mousedown', (e) => {
+      if (e.button === 0) { // 左键
+        isDragging = false;
+        startX = e.clientX;
+        startY = e.clientY;
+        const rect = container.getBoundingClientRect();
+        startLeft = rect.left;
+        startTop = rect.top;
+        
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+      }
+    });
+
+    function onMouseMove(e) {
+      const deltaX = e.clientX - startX;
+      const deltaY = e.clientY - startY;
+      
+      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+        isDragging = true;
+        container.classList.add('dragging');
+        
+        let newLeft = startLeft + deltaX;
+        let newTop = startTop + deltaY;
+        
+        // 边界限制
+        const maxX = window.innerWidth - 64;
+        const maxY = window.innerHeight - 64;
+        newLeft = Math.max(0, Math.min(newLeft, maxX));
+        newTop = Math.max(0, Math.min(newTop, maxY));
+        
+        container.style.left = newLeft + 'px';
+        container.style.top = newTop + 'px';
+        container.style.right = 'auto';
+        container.style.bottom = 'auto';
+      }
+    }
+
+    function onMouseUp() {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      
+      setTimeout(() => {
+        container.classList.remove('dragging');
+        setTimeout(() => {
+          isDragging = false;
+        }, 100);
+      }, 50);
+    }
+
+    // 改变状态
+    function changeStatus(status) {
+      currentStatus = status;
+      statusIndicator.className = `status-indicator status-${status}`;
+    }
+
+    // 模拟功能函数
+    function quickQuery() {
+      showNotification('正在查询患者信息...', 'info');
+      changeStatus('processing');
+      setTimeout(() => {
+        changeStatus('ready');
+        showNotification('查询完成!', 'success');
+      }, 2000);
+    }
+
+    function viewDetails() {
+      showNotification('正在加载详情...', 'info');
+    }
+
+    function analyzeScreen() {
+      showNotification('正在分析屏幕内容...', 'info');
+      changeStatus('processing');
+      setTimeout(() => {
+        changeStatus('ready');
+        showNotification('分析完成!', 'success');
+      }, 3000);
+    }
+
+    function quickSearch() {
+      showNotification('打开搜索功能...', 'info');
+    }
+
+    function generateReport() {
+      showNotification('正在生成报告...', 'info');
+      changeStatus('processing');
+      setTimeout(() => {
+        changeStatus('ready');
+        showNotification('报告生成完成!', 'success');
+      }, 2500);
+    }
+
+    function showMore() {
+      openMainWindow();
+    }
+
+    function startVoiceInput() {
+      showNotification('语音输入已启动', 'info');
+      changeStatus('listening');
+      setTimeout(() => {
+        changeStatus('ready');
+      }, 3000);
+    }
+
+    function handleInputKeyPress(event) {
+      if (event.key === 'Enter') {
+        const input = document.getElementById('quickInput');
+        if (input.value.trim()) {
+          showNotification(`处理: ${input.value}`, 'info');
+          input.value = '';
+        }
+      }
+    }
+
+    function openMainWindow() {
+      showNotification('打开主窗口...', 'info');
+    }
+
+    function showContextMenu(x, y) {
+      showNotification('右键菜单功能(演示)', 'info');
+    }
+
+    // 通知系统
+    function showNotification(message, type = 'info') {
+      const notification = document.createElement('div');
+      notification.className = 'fixed top-24 right-6 px-4 py-3 rounded-lg shadow-lg text-white text-sm z-10001 fade-in';
+      
+      const colors = {
+        info: 'bg-blue-500',
+        success: 'bg-green-500',
+        warning: 'bg-yellow-500',
+        error: 'bg-red-500'
+      };
+      
+      notification.classList.add(colors[type] || colors.info);
+      notification.textContent = message;
+      
+      document.body.appendChild(notification);
+      
+      setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateY(-10px)';
+        setTimeout(() => notification.remove(), 300);
+      }, 3000);
+    }
+
+    // 键盘快捷键
+    document.addEventListener('keydown', (e) => {
+      // Esc 键收起
+      if (e.key === 'Escape' && isExpanded) {
+        toggleExpanded();
+      }
+      // Cmd/Ctrl + K 切换展开
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        toggleExpanded();
+      }
+    });
+
+    // 检测浏览器是否支持 backdrop-filter
+    function checkBackdropFilterSupport() {
+      const testElement = document.createElement('div');
+      testElement.style.cssText = '-webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);';
+      document.body.appendChild(testElement);
+
+      const computedStyle = window.getComputedStyle(testElement);
+      const supported = computedStyle.backdropFilter !== '' || computedStyle.webkitBackdropFilter !== '';
+
+      document.body.removeChild(testElement);
+
+      if (!supported) {
+        const warning = document.getElementById('browserWarning');
+        if (warning) {
+          warning.style.display = 'block';
+          setTimeout(() => {
+            warning.style.opacity = '0';
+            warning.style.transform = 'translateX(-50%) translateY(-10px)';
+            setTimeout(() => warning.remove(), 300);
+          }, 5000);
+        }
+
+        // 降级方案:使用更不透明的背景
+        const style = document.createElement('style');
+        style.textContent = `
+          .floating-expanded {
+            background: rgba(255, 255, 255, 0.95) !important;
+          }
+          .quick-action-btn {
+            background: rgba(255, 255, 255, 0.9) !important;
+          }
+          .glass-input {
+            background: rgba(255, 255, 255, 0.9) !important;
+          }
+          .glass-suggestion {
+            background: rgba(254, 243, 199, 0.9) !important;
+          }
+        `;
+        document.head.appendChild(style);
+      }
+
+      return supported;
+    }
+
+    // 初始化提示
+    setTimeout(() => {
+      const supported = checkBackdropFilterSupport();
+      if (supported) {
+        showNotification('浮动窗口已就绪 (玻璃效果已启用)', 'success');
+      } else {
+        showNotification('浮动窗口已就绪 (降级模式)', 'warning');
+      }
+    }, 500);
+  </script>
+</body>
+</html>
+

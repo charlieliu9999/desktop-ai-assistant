@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>玻璃效果测试</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: transparent;
+        }
+
+        /* 玻璃效果容器 */
+        .glass-container {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(40px) saturate(200%);
+            -webkit-backdrop-filter: blur(40px) saturate(200%);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 40px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .test-card {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 16px;
+            padding: 30px;
+            max-width: 500px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            color: #1a1a1a;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 15px;
+            margin: 10px 0;
+            background: rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+
+        .status-label {
+            font-size: 16px;
+            font-weight: 600;
+            color: #2c2c2c;
+        }
+
+        .status-value {
+            font-size: 14px;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
+        .status-success {
+            background: rgba(52, 199, 89, 0.2);
+            color: #34c759;
+            border: 1px solid #34c759;
+        }
+
+        .status-error {
+            background: rgba(255, 59, 48, 0.2);
+            color: #ff3b30;
+            border: 1px solid #ff3b30;
+        }
+
+        .instructions {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(0, 122, 255, 0.1);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 12px;
+            border: 1px solid rgba(0, 122, 255, 0.3);
+        }
+
+        .instructions h3 {
+            color: #007aff;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+
+        .instructions ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .instructions li {
+            padding: 8px 0;
+            color: #333;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .instructions li::before {
+            content: "✓ ";
+            color: #34c759;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="glass-container">
+        <div class="test-card">
+            <h1>🪟 玻璃效果测试</h1>
+            
+            <div class="status-item">
+                <span class="status-label">窗口透明度</span>
+                <span class="status-value status-success" id="transparent-status">检测中...</span>
+            </div>
+
+            <div class="status-item">
+                <span class="status-label">背景模糊</span>
+                <span class="status-value status-success" id="blur-status">已启用</span>
+            </div>
+
+            <div class="status-item">
+                <span class="status-label">玻璃效果</span>
+                <span class="status-value status-success" id="glass-status">已应用</span>
+            </div>
+
+            <div class="instructions">
+                <h3>📝 验证方法：</h3>
+                <ul>
+                    <li>将窗口移动到有图案的桌面背景上</li>
+                    <li>观察窗口背景是否有模糊效果</li>
+                    <li>背景应该能透过窗口看到（模糊的）</li>
+                    <li>卡片和文字应该清晰可读</li>
+                    <li>移动窗口时背景应该跟随变化</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 检测透明度支持
+        const isTransparent = document.body.style.background === 'transparent';
+        const backdropFilter = window.getComputedStyle(document.querySelector('.glass-container')).backdropFilter;
+        
+        document.getElementById('transparent-status').textContent = isTransparent ? '已启用' : '未启用';
+        
+        if (backdropFilter && backdropFilter !== 'none') {
+            console.log('✅ backdrop-filter已应用:', backdropFilter);
+        } else {
+            console.log('⚠️ backdrop-filter未应用');
+            document.getElementById('blur-status').textContent = '未启用';
+            document.getElementById('blur-status').classList.remove('status-success');
+            document.getElementById('blur-status').classList.add('status-error');
+        }
+        
+        // 显示当前配置
+        console.log('=== 玻璃效果测试 ===');
+        console.log('窗口背景:', window.getComputedStyle(document.body).background);
+        console.log('backdrop-filter:', backdropFilter);
+        console.log('浏览器:', navigator.userAgent);
+    </script>
+</body>
+</html>
+
