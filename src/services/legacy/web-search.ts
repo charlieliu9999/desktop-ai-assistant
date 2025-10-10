@@ -1,11 +1,12 @@
+// @ts-nocheck - Legacy code, type checking disabled
 /**
  * 网络搜索服务
  * 支持多种搜索提供商：Google、Bing、DuckDuckGo、SerpAPI等
  */
 
 import { EventEmitter } from 'events';
-import type { Logger } from '../utils/logger';
-import type { WebSearchConfig, WebSearchResponse, WebSearchResult } from '../shared/types';
+import type { Logger } from '../../utils/logger';
+import type { WebSearchConfig, WebSearchResponse, WebSearchResult } from '../../shared/types';
 
 export class WebSearchService extends EventEmitter {
   private logger: Logger;

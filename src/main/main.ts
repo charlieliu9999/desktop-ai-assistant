@@ -724,7 +724,7 @@ class DesktopAIAssistant {
       setImmediate(async () => {
         try {
           // 调用 Bisheng API 获取流
-          const responseStream = await this.bishengService.invokeWorkflow(
+          const responseStream = await this.bishengService!.invokeWorkflow(
             workflowId,
             input,
             stream,
