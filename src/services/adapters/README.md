@@ -60,23 +60,33 @@ export const FEATURE_FLAGS = {
 | 适配器 | 状态 | 负责人 | 完成日期 |
 |--------|------|--------|---------|
 | ai-adapter.ts | ✅ 已完成 | AI | 2025-10-10 |
-| patient-adapter.ts | ⏳ 待开始 | - | - |
-| ocr-adapter.ts | ⏳ 待开始 | - | - |
-| voice-adapter.ts | ⏳ 待开始 | - | - |
-| bisheng-adapter.ts | ⏳ 待开始 | - | - |
-| medical-adapter.ts | ⏳ 待开始 | - | - |
-| search-adapter.ts | ⏳ 待开始 | - | - |
+| vision-adapter.ts | ✅ 已完成 | AI | 2025-10-10 |
+| voice-adapter.ts | ✅ 已完成 | AI | 2025-10-10 |
+| agent-adapter.ts | ⏳ 待开始 | - | - |
+| config-adapter.ts | ⏳ 待开始 | - | - |
 
-### AI适配器功能
+### 已实现的适配器功能
 
-`ai-adapter.ts` 已实现以下功能：
-
+#### AI适配器 (`ai-adapter.ts`)
 - ✅ 标准对话 (`processMessage`)
 - ✅ 流式对话 (`chatStream`)
 - ✅ 内容分析 (`analyzeContent`)
 - ✅ 自动故障转移
 - ✅ 后端连接测试
-- ✅ 配置开关控制
+
+#### 视觉适配器 (`vision-adapter.ts`)
+- ✅ OCR文字识别 (`recognizeText`)
+- ✅ 图像理解 (`understandImage`)
+- ✅ 医疗图像分析 (`analyzeMedicalImage`)
+- ✅ 文字提取 (`extractTextFromImage`)
+- ✅ 自动降级到legacy实现
+
+#### 语音适配器 (`voice-adapter.ts`)
+- ✅ 语音识别 (`speechToText`)
+- ✅ 语音合成 (`textToSpeech`)
+- ✅ 连续识别 (`startContinuousRecognition`)
+- ✅ 音频播放 (`playAudio`)
+- ✅ 自动降级到legacy实现
 
 ---
 
