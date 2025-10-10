@@ -1,13 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, MicOff, Paperclip, MoreVertical, Trash2, Copy, RefreshCw, X, Zap, Globe } from 'lucide-react';
+import { Send, Mic, MicOff, Paperclip, MoreVertical, Trash2, Copy, RefreshCw, X, Zap, Globe, StopCircle } from 'lucide-react';
 import { useConfigStore } from '../stores/configStore';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import 'highlight.js/styles/github-dark.css';
+import '../styles/chat-components.css';
 import { screenshotService } from '../services/screenshot';
 import { apiClient } from '../../services/api-client';
+import { UNIFIED_TEXTAREA_STYLES } from '../styles/unified-input-styles';
 
 interface Message {
   id: string;
@@ -26,6 +28,9 @@ interface ChatProps {
   className?: string;
 }
 
+// Storage key for chat messages
+const CHAT_STORAGE_KEY = 'app:chat:messages';
+
 const Chat: React.FC<ChatProps> = ({ className = '' }) => {
   const { config } = useConfigStore();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -34,20 +39,22 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [attachments, setAttachments] = useState<File[]>([]);
   const [useWebSearch, setUseWebSearch] = useState<boolean>(false);
-  
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
 
-  // Restore messages from session on mount
+  // Restore messages from localStorage on mount
   useEffect(() => {
     try {
-      const raw = sessionStorage.getItem('chatMessages');
+      const raw = localStorage.getItem(CHAT_STORAGE_KEY);
       if (raw) {
         const restored = JSON.parse(raw);
         if (Array.isArray(restored) && restored.length > 0) {
           setMessages(restored.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) })));
+          console.log('[Chat] Restored', restored.length, 'messages from storage');
         }
       } else {
         // 初次不注入系统说明，按你的要求取消开场白
@@ -58,13 +65,13 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
     }
   }, []);
 
-  // Auto scroll to bottom when new messages arrive + persist
+  // Auto scroll to bottom when new messages arrive + persist to localStorage
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     try {
-      sessionStorage.setItem('chatMessages', JSON.stringify(messages));
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
     } catch (e) {
-      // ignore
+      console.warn('Failed to save chat messages:', e);
     }
   }, [messages]);
 
@@ -444,12 +451,26 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
     if (!confirm('确定要清空聊天记录并开始新会话吗？')) return;
     try {
       setMessages([]);
-      sessionStorage.removeItem('chatMessages');
+      setAttachments([]);
+      setInputValue('');
+      localStorage.removeItem(CHAT_STORAGE_KEY);
       await window.electronAPI?.ai?.clearHistory?.();
       toast.success('已清空，并开始新会话');
+      console.log('[Chat] Chat cleared and new session started');
     } catch (e) {
       console.warn('Failed to clear AI history:', e);
       toast.success('已清空对话');
+    }
+  };
+
+  // Stop generation
+  const stopGeneration = () => {
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
+      setIsLoading(false);
+      toast.info('已停止生成');
+      console.log('[Chat] Generation stopped by user');
     }
   };
 
@@ -532,7 +553,7 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
             <div
               className={`w-full rounded-lg p-3 ${
                 message.type === 'user'
-                  ? 'bg-primary-600 text-white'
+                  ? 'bg-gray-380 dark:bg-gray-600 text-white'
                   : message.type === 'system'
                   ? (isGlass
                       ? 'glass text-gray-700 dark:text-gray-200'
@@ -612,7 +633,7 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
                   {message.attachments.map((attachment, index) => (
                     <div
                       key={index}
-                      className="flex items-center space-x-2 p-2 bg-primary-500/50 rounded border border-primary-500/30"
+                      className="flex items-center space-x-2 p-2 bg-gray-400/50 dark:bg-gray-500/50 rounded border border-gray-400/30 dark:border-gray-500/30"
                     >
                       {attachment.type === 'image' ? (
                         <img
@@ -646,7 +667,7 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
                   <div className="flex items-center space-x-1">
                     <button
                       onClick={() => copyMessage(message.content)}
-                      className="p-1 rounded hover:bg-primary-500/50 transition-colors"
+                      className="p-1 rounded hover:bg-gray-400/50 dark:hover:bg-gray-500/50 transition-colors"
                       title="复制"
                     >
                       <Copy className="h-3 w-3" />
@@ -665,7 +686,7 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
                     
                     <button
                       onClick={() => deleteMessage(message.id)}
-                      className="p-1 rounded hover:bg-primary-500/50 transition-colors"
+                      className="p-1 rounded hover:bg-gray-400/50 dark:hover:bg-gray-500/50 transition-colors"
                       title="删除"
                     >
                       <Trash2 className="h-3 w-3" />
@@ -677,15 +698,25 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
           </div>
         ))}
         
-        {/* Loading indicator */}
+        {/* Loading indicator with stop button */}
         {isLoading && (
-          <div className="flex justify-start">
-            <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-              <div className="flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                <span className="text-sm text-gray-500 dark:text-gray-400">AI正在思考...</span>
+          <div className="flex items-center space-x-2">
+            <div className="flex justify-start">
+              <div className="bg-[rgb(var(--card))] border border-[rgb(var(--border))] rounded-lg p-3">
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[rgb(var(--primary))]"></div>
+                  <span className="text-sm text-[rgb(var(--muted-foreground))]">AI正在思考...</span>
+                </div>
               </div>
             </div>
+            <button
+              type="button"
+              onClick={stopGeneration}
+              className="p-2 rounded-lg bg-[rgb(var(--error))] text-white hover:opacity-90 transition-all"
+              title="停止生成"
+            >
+              <StopCircle className="h-4 w-4" />
+            </button>
           </div>
         )}
         
@@ -737,7 +768,7 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="输入消息... (Enter发送，Shift+Enter换行)"
-              className="w-full px-3 py-2 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-primary-600 focus:border-transparent text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500"
+              className={UNIFIED_TEXTAREA_STYLES}
               rows={1}
               style={{
                 minHeight: '40px',

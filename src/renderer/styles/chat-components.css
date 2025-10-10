@@ -1,0 +1,336 @@
+/**
+ * 统一对话组件样式
+ * 
+ * 遵循设计系统规范 (docs/DESIGN_SYSTEM.md)
+ * 支持玻璃、浅色、深色三种主题
+ */
+
+/* ========== 消息容器 ========== */
+.message-container {
+  display: flex;
+  width: 100%;
+  margin-bottom: var(--message-gap, 1rem);
+  animation: fadeInUp var(--duration-normal, 200ms) var(--ease-out, cubic-bezier(0, 0, 0.2, 1));
+}
+
+/* ========== 消息气泡基础样式 ========== */
+.message-bubble {
+  max-width: 80%;
+  padding: var(--bubble-padding-y, 0.75rem) var(--bubble-padding-x, 1rem);
+  border-radius: var(--radius-2xl, 1.5rem);
+  font-size: var(--text-base, 1rem);
+  line-height: var(--leading-normal, 1.5);
+  word-wrap: break-word;
+  transition: all var(--duration-normal, 200ms) var(--ease-out, cubic-bezier(0, 0, 0.2, 1));
+}
+
+/* ========== 用户消息 ========== */
+.message-user {
+  margin-left: auto;
+  background: rgb(var(--message-user-bg, 59 130 246));
+  color: rgb(var(--message-user-text, 255 255 255));
+  border-top-right-radius: var(--radius-sm, 0.25rem);
+  box-shadow: var(--shadow-sm, 0 1px 2px 0 rgb(0 0 0 / 0.05));
+}
+
+.message-user:hover {
+  box-shadow: var(--shadow-md, 0 4px 6px -1px rgb(0 0 0 / 0.1));
+  transform: translateY(-1px);
+}
+
+/* ========== 助手消息 ========== */
+.message-assistant {
+  margin-right: auto;
+  background: rgb(var(--message-assistant-bg, 241 245 249));
+  color: rgb(var(--message-assistant-text, 15 23 42));
+  border-top-left-radius: var(--radius-sm, 0.25rem);
+  box-shadow: var(--shadow-sm, 0 1px 2px 0 rgb(0 0 0 / 0.05));
+}
+
+.message-assistant:hover {
+  box-shadow: var(--shadow-md, 0 4px 6px -1px rgb(0 0 0 / 0.1));
+  transform: translateY(-1px);
+}
+
+/* 玻璃效果 */
+.theme-glass .message-assistant {
+  backdrop-filter: blur(var(--glass-blur, 40px)) saturate(var(--glass-saturation, 200%));
+  -webkit-backdrop-filter: blur(var(--glass-blur, 40px)) saturate(var(--glass-saturation, 200%));
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: var(--shadow-glass, 0 8px 32px 0 rgba(31, 38, 135, 0.15));
+}
+
+/* 流式输出动画 */
+.message-streaming::after {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 1em;
+  margin-left: 2px;
+  background: currentColor;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* ========== 系统消息 ========== */
+.message-system {
+  margin: 0 auto;
+  max-width: 60%;
+  background: rgb(var(--message-system-bg, 254 243 199));
+  color: rgb(var(--message-system-text, 120 53 15));
+  border-radius: var(--radius-lg, 0.75rem);
+  padding: var(--spacing-2, 0.5rem) var(--spacing-3, 0.75rem);
+  font-size: var(--text-sm, 0.875rem);
+  text-align: center;
+  box-shadow: var(--shadow-sm, 0 1px 2px 0 rgb(0 0 0 / 0.05));
+}
+
+/* ========== 输入框 ========== */
+.chat-input {
+  width: 100%;
+  min-height: 44px;
+  max-height: 120px;
+  padding: var(--input-padding, 1rem);
+  background: rgb(var(--input-bg, 255 255 255));
+  border: 1px solid rgb(var(--input-border, 226 232 240));
+  border-radius: var(--radius-lg, 0.75rem);
+  font-size: var(--text-base, 1rem);
+  font-family: var(--font-sans);
+  line-height: var(--leading-normal, 1.5);
+  color: rgb(var(--foreground, 15 23 42));
+  resize: none;
+  outline: none;
+  transition: all var(--duration-normal, 200ms) var(--ease-out, cubic-bezier(0, 0, 0.2, 1));
+}
+
+.chat-input::placeholder {
+  color: rgb(var(--muted-foreground, 100 116 139));
+}
+
+.chat-input:focus,
+.chat-input-focused {
+  border-color: rgb(var(--input-focus, 59 130 246));
+  box-shadow: 0 0 0 3px rgba(var(--input-focus, 59 130 246) / 0.1);
+}
+
+.chat-input-error {
+  border-color: rgb(var(--error, 239 68 68));
+}
+
+.chat-input-error:focus {
+  box-shadow: 0 0 0 3px rgba(var(--error, 239 68 68) / 0.1);
+}
+
+/* 玻璃效果 */
+.theme-glass .chat-input {
+  backdrop-filter: blur(var(--glass-blur, 40px)) saturate(var(--glass-saturation, 200%));
+  -webkit-backdrop-filter: blur(var(--glass-blur, 40px)) saturate(var(--glass-saturation, 200%));
+  background: rgba(255, 255, 255, var(--glass-opacity, 0.15));
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* ========== 按钮 ========== */
+.chat-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-2, 0.5rem);
+  font-weight: var(--font-medium, 500);
+  border-radius: var(--radius-md, 0.5rem);
+  border: none;
+  cursor: pointer;
+  transition: all var(--duration-normal, 200ms) var(--ease-out, cubic-bezier(0, 0, 0.2, 1));
+  outline: none;
+}
+
+.chat-button:focus-visible {
+  box-shadow: 0 0 0 3px rgba(var(--primary, 59 130 246) / 0.2);
+}
+
+/* 按钮大小 */
+.chat-button-sm {
+  padding: var(--spacing-1, 0.25rem) var(--spacing-3, 0.75rem);
+  font-size: var(--text-sm, 0.875rem);
+  min-height: 32px;
+}
+
+.chat-button-md {
+  padding: var(--spacing-2, 0.5rem) var(--spacing-4, 1rem);
+  font-size: var(--text-base, 1rem);
+  min-height: 40px;
+}
+
+.chat-button-lg {
+  padding: var(--spacing-3, 0.75rem) var(--spacing-6, 1.5rem);
+  font-size: var(--text-lg, 1.125rem);
+  min-height: 48px;
+}
+
+/* 主要按钮 */
+.chat-button-primary {
+  background: rgb(var(--primary, 59 130 246));
+  color: rgb(var(--primary-foreground, 255 255 255));
+}
+
+.chat-button-primary:hover:not(:disabled) {
+  background: rgb(var(--primary, 59 130 246) / 0.9);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md, 0 4px 6px -1px rgb(0 0 0 / 0.1));
+}
+
+.chat-button-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* 次要按钮 */
+.chat-button-secondary {
+  background: rgb(var(--muted, 241 245 249));
+  color: rgb(var(--foreground, 15 23 42));
+}
+
+.chat-button-secondary:hover:not(:disabled) {
+  background: rgb(var(--muted, 241 245 249) / 0.8);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm, 0 1px 2px 0 rgb(0 0 0 / 0.05));
+}
+
+/* 幽灵按钮 */
+.chat-button-ghost {
+  background: transparent;
+  color: rgb(var(--foreground, 15 23 42));
+}
+
+.chat-button-ghost:hover:not(:disabled) {
+  background: rgb(var(--muted, 241 245 249));
+}
+
+/* 危险按钮 */
+.chat-button-destructive {
+  background: rgb(var(--destructive, 239 68 68));
+  color: rgb(var(--destructive-foreground, 255 255 255));
+}
+
+.chat-button-destructive:hover:not(:disabled) {
+  background: rgb(var(--destructive, 239 68 68) / 0.9);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md, 0 4px 6px -1px rgb(0 0 0 / 0.1));
+}
+
+/* 禁用状态 */
+.chat-button:disabled,
+.chat-button-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* ========== 智能建议 ========== */
+.chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2, 0.5rem);
+  margin-top: var(--spacing-3, 0.75rem);
+  animation: fadeIn var(--duration-normal, 200ms) var(--ease-out, cubic-bezier(0, 0, 0.2, 1));
+}
+
+.chat-suggestion-chip {
+  padding: var(--spacing-2, 0.5rem) var(--spacing-3, 0.75rem);
+  background: rgb(var(--muted, 241 245 249));
+  color: rgb(var(--foreground, 15 23 42));
+  border: 1px solid rgb(var(--border, 226 232 240));
+  border-radius: var(--radius-full, 9999px);
+  font-size: var(--text-sm, 0.875rem);
+  cursor: pointer;
+  transition: all var(--duration-fast, 150ms) var(--ease-out, cubic-bezier(0, 0, 0.2, 1));
+}
+
+.chat-suggestion-chip:hover {
+  background: rgb(var(--primary, 59 130 246));
+  color: rgb(var(--primary-foreground, 255 255 255));
+  border-color: rgb(var(--primary, 59 130 246));
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm, 0 1px 2px 0 rgb(0 0 0 / 0.05));
+}
+
+/* ========== 加载指示器 ========== */
+.chat-loading {
+  display: flex;
+  gap: var(--spacing-1, 0.25rem);
+  padding: var(--spacing-3, 0.75rem);
+}
+
+.chat-loading-dot {
+  width: 8px;
+  height: 8px;
+  background: rgb(var(--muted-foreground, 100 116 139));
+  border-radius: var(--radius-full, 9999px);
+  animation: typing 1.4s infinite;
+}
+
+.chat-loading-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.chat-loading-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes typing {
+  0%, 60%, 100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ========== 错误提示 ========== */
+.chat-error {
+  padding: var(--spacing-3, 0.75rem) var(--spacing-4, 1rem);
+  background: rgb(var(--error, 239 68 68) / 0.1);
+  color: rgb(var(--error, 239 68 68));
+  border: 1px solid rgb(var(--error, 239 68 68) / 0.3);
+  border-radius: var(--radius-lg, 0.75rem);
+  font-size: var(--text-sm, 0.875rem);
+  animation: fadeIn var(--duration-normal, 200ms) var(--ease-out, cubic-bezier(0, 0, 0.2, 1));
+}
+
+/* ========== 动画定义 ========== */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+

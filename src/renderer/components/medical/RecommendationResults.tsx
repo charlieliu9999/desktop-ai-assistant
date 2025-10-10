@@ -7,6 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import type { RecommendationType } from './RecommendationTypeSelector';
+import { UNIFIED_OUTPUT_STYLES, UNIFIED_PRE_STYLES } from '../../styles/unified-input-styles';
 
 export interface RecommendationItem {
   name: string;
@@ -144,7 +145,7 @@ export const RecommendationResultsDisplay: React.FC<RecommendationResultsProps> 
               </ReactMarkdown>
             </div>
           ) : (
-            <pre className="p-3 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200">{results.combined as string}</pre>
+            <pre className={UNIFIED_PRE_STYLES}>{results.combined as string}</pre>
           )}
         </div>
       )}
@@ -173,7 +174,7 @@ export const RecommendationResultsDisplay: React.FC<RecommendationResultsProps> 
                   </ReactMarkdown>
                 </div>
               ) : (
-                <pre className="p-3 rounded-md bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 whitespace-pre-wrap text-sm text-gray-800 dark:text-gray-200">{items}</pre>
+                <pre className={UNIFIED_PRE_STYLES}>{items}</pre>
               )}
             </div>
           );
@@ -195,7 +196,7 @@ export const RecommendationResultsDisplay: React.FC<RecommendationResultsProps> 
               {items.map((item, index) => (
                 <div
                   key={index}
-                  className="p-3 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700"
+                  className={UNIFIED_OUTPUT_STYLES}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1">

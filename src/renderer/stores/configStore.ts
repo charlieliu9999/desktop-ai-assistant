@@ -367,19 +367,13 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
         logging: updates.logging ? { ...state.config.logging, ...updates.logging } : state.config.logging,
       } as AppConfig;
 
-      console.log('📝 配置更新:', { updates, newConfig });
+      console.log('📝 配置更新 (仅内存):', { updates, newConfig });
 
       return { config: newConfig };
     });
-    
-    try {
-      // Persist partial updates to main process if available
-      if (window.electronAPI?.config?.update) {
-        window.electronAPI.config.update(updates);
-      }
-    } catch (err) {
-      console.error('Failed to persist config updates:', err);
-    }
+
+    // 注意：不再自动持久化，需要手动调用 saveConfig() 来保存
+    // 这样可以让用户批量修改后一次性保存，并且可以取消未保存的更改
   },
 
   resetConfig: () => {

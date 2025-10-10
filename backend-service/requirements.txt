@@ -29,8 +29,24 @@ loguru==0.7.2
 # AI/ML
 openai==1.10.0  # 用于调用Deepseek API (兼容OpenAI格式)
 
+# 限流和熔断
+slowapi==0.1.9
+circuitbreaker==1.4.0
+
+# 监控
+prometheus-client==0.19.0
+
+# OCR和图像处理
+pytesseract==0.3.10
+Pillow==10.1.0
+
+# 异步任务队列
+celery==5.3.4
+flower==2.0.1
+
 # 测试
 pytest==7.4.4
 pytest-asyncio==0.23.3
+pytest-cov==4.1.0
 httpx==0.26.0
 

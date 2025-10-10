@@ -1,0 +1,107 @@
+version: '3.8'
+
+services:
+  # 后端API服务
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: medical-ai-backend-dev
+    ports:
+      - "8010:8010"
+    volumes:
+      - .:/app
+      - /app/venv  # 不挂载虚拟环境
+    environment:
+      - APP_ENV=development
+      - DEBUG=true
+      - DATABASE_URL=postgresql://dev:dev123@postgres:5432/medical_ai
+      - REDIS_URL=redis://redis:6379/0
+      - LOG_LEVEL=DEBUG
+    depends_on:
+      - postgres
+      - redis
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8010 --reload
+    networks:
+      - medical-ai-network
+
+  # PostgreSQL数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: medical-ai-postgres-dev
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=medical_ai
+      - POSTGRES_USER=dev
+      - POSTGRES_PASSWORD=dev123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - medical-ai-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis缓存
+  redis:
+    image: redis:7-alpine
+    container_name: medical-ai-redis-dev
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - medical-ai-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Celery Worker (异步任务)
+  celery-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: medical-ai-celery-worker-dev
+    volumes:
+      - .:/app
+    environment:
+      - APP_ENV=development
+      - DATABASE_URL=postgresql://dev:dev123@postgres:5432/medical_ai
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - postgres
+      - redis
+    command: celery -A app.celery_app worker --loglevel=info
+    networks:
+      - medical-ai-network
+
+  # Flower (Celery监控)
+  flower:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: medical-ai-flower-dev
+    ports:
+      - "5555:5555"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - celery-worker
+    command: celery -A app.celery_app flower --port=5555
+    networks:
+      - medical-ai-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  medical-ai-network:
+    driver: bridge
+

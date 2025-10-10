@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, RotateCcw, Check, AlertTriangle } from 'lucide-react';
 import { useConfigStore } from '../stores/configStore';
+import { ThemeSettings } from '../components/ThemeSettings';
 import { toast } from 'sonner';
 import type { AppConfig } from '../../shared/types';
 
@@ -8,7 +9,7 @@ interface SettingsWindowProps {
   // Props can be passed from main process
 }
 
-type SettingsTab = 'general' | 'voice' | 'shortcuts' | 'ui' | 'privacy' | 'medical' | 'ai' | 'desktop';
+type SettingsTab = 'general' | 'voice' | 'shortcuts' | 'ui' | 'theme' | 'privacy' | 'medical' | 'ai' | 'desktop';
 
 const SettingsWindow: React.FC<SettingsWindowProps> = () => {
   const { config, updateConfig, resetConfig } = useConfigStore();
@@ -23,6 +24,7 @@ const SettingsWindow: React.FC<SettingsWindowProps> = () => {
     { id: 'voice' as const, label: '语音设置', icon: '🎤' },
     { id: 'shortcuts' as const, label: '快捷键', icon: '⌨️' },
     { id: 'ui' as const, label: '界面设置', icon: '🎨' },
+    { id: 'theme' as const, label: '主题设置', icon: '🌈' },
     { id: 'privacy' as const, label: '隐私设置', icon: '🔒' },
     { id: 'medical' as const, label: '医疗集成', icon: '🏥' },
     { id: 'ai' as const, label: 'AI设置', icon: '🤖' },
@@ -273,19 +275,6 @@ const SettingsWindow: React.FC<SettingsWindowProps> = () => {
       case 'ui':
         return (
           <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-medium mb-2">主题</label>
-              <select
-                value={localConfig.theme}
-                onChange={(e) => handleConfigChange('theme', e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-md bg-background"
-              >
-                <option value="auto">跟随系统</option>
-                <option value="light">浅色主题</option>
-                <option value="dark">深色主题</option>
-                <option value="glass">玻璃主题</option>
-              </select>
-            </div>
 
             <div>
               <label className="block text-sm font-medium mb-2">字体大小</label>
@@ -349,6 +338,9 @@ const SettingsWindow: React.FC<SettingsWindowProps> = () => {
             </div>
           </div>
         );
+
+      case 'theme':
+        return <ThemeSettings />;
 
       default:
         return (

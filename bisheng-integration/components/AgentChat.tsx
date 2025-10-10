@@ -11,6 +11,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
 import type { BishengWorkflow, BishengMessage } from '../../src/shared/types';
 import { useAgentSessionStore } from '../store/agentSessionStore';
+import { UNIFIED_TEXTAREA_STYLES } from '../../src/renderer/styles/unified-input-styles';
 
 interface AgentChatProps {
   workflow: BishengWorkflow;
@@ -34,6 +35,8 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const cleanupRef = useRef<(() => void) | null>(null); // 保存清理函数
+  const abortControllerRef = useRef<AbortController | null>(null); // AbortController 用于取消请求
+  const currentStreamIdRef = useRef<string | null>(null); // 当前流ID
 
   // 从 Store 获取当前会话
   const session = getSession(workflow.id, workflow.name);
@@ -62,6 +65,18 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
       cleanupRef.current = null;
     }
 
+    // 中止之前的请求
+    if (abortControllerRef.current) {
+      console.log('[AgentChat] Aborting previous request');
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+
+    // 重置状态
+    setIsProcessing(false);
+    setError(null);
+    currentStreamIdRef.current = null;
+
     // 设置为活跃会话
     setActiveWorkflow(workflow.id);
 
@@ -74,15 +89,24 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
       autoStartWorkflow();
     }
 
-    setError(null);
-
     // 组件卸载时清理
     return () => {
+      console.log('[AgentChat] Component unmounting, cleaning up');
+
+      // 清理事件监听器
       if (cleanupRef.current) {
-        console.log('[AgentChat] Component unmounting, cleaning up');
         cleanupRef.current();
         cleanupRef.current = null;
       }
+
+      // 中止正在进行的请求
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+
+      // 重置状态
+      currentStreamIdRef.current = null;
     };
   }, [workflow.id]);
 
@@ -117,6 +141,9 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
       cleanupRef.current = null;
     }
 
+    // 创建 AbortController
+    abortControllerRef.current = new AbortController();
+
     let assistantContent = '';
 
     try {
@@ -131,6 +158,9 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
         undefined, // 无 messageId
         undefined  // 无 inputNodeId
       );
+
+      // 保存当前流ID
+      currentStreamIdRef.current = streamId;
 
       console.log('[AUTO-START] Workflow invoked, streamId:', streamId);
 
@@ -225,6 +255,10 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
           updateMessageType(workflow.id, assistantMessageId, 'error');
         }
 
+        // 清理 AbortController 和流ID
+        abortControllerRef.current = null;
+        currentStreamIdRef.current = null;
+
         setIsProcessing(false);
 
         // 清理监听器
@@ -232,6 +266,9 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
           cleanupRef.current();
           cleanupRef.current = null;
         }
+
+        // 聚焦输入框
+        inputRef.current?.focus();
       };
 
       // 注册监听器（返回清理函数）
@@ -245,11 +282,29 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
         offEnd();
       };
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('[AUTO-START] Error:', error);
-      setError(error instanceof Error ? error.message : '自动启动失败');
+
+      // 检查是否是用户主动取消
+      if (error?.name === 'AbortError') {
+        console.log('[AUTO-START ABORT] Request was aborted by user');
+        setError(null); // 用户主动取消不显示错误
+      } else {
+        setError(error instanceof Error ? error.message : '自动启动失败');
+      }
+
       updateMessageType(workflow.id, assistantMessageId, 'error');
       setIsProcessing(false);
+
+      // 清理 AbortController 和流ID
+      abortControllerRef.current = null;
+      currentStreamIdRef.current = null;
+
+      // 清理监听器
+      if (cleanupRef.current) {
+        cleanupRef.current();
+        cleanupRef.current = null;
+      }
     }
   };
 
@@ -302,6 +357,9 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
     let hasReceivedData = false; // 标记是否收到数据
     let timeoutId: NodeJS.Timeout | null = null; // 超时定时器
 
+    // 创建 AbortController
+    abortControllerRef.current = new AbortController();
+
     try {
       const hasSession = sessionId && inputNodeId;
       console.log(hasSession ? '[CONTINUE]' : '[FIRST]', 'Invoking workflow', {
@@ -322,21 +380,29 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
         inputNodeId || undefined // 传递输入节点 ID
       );
 
+      // 保存当前流ID
+      currentStreamIdRef.current = streamId;
+
       console.log('[DEBUG] Workflow invoked, streamId:', streamId);
       console.log('[DEBUG] Now registering event listeners...');
 
-      // 设置超时：如果 30 秒内没有收到数据，显示错误
+      // 设置超时：如果 60 秒内没有收到数据或流没有结束，显示错误并重置状态
       timeoutId = setTimeout(() => {
-        if (!hasReceivedData) {
-          console.error('[TIMEOUT] No data received within 30 seconds');
-          setError('工作流响应超时，请重试');
-          setIsProcessing(false);
-          if (cleanupRef.current) {
-            cleanupRef.current();
-            cleanupRef.current = null;
-          }
+        console.error('[TIMEOUT] Workflow response timeout (60 seconds)');
+        setError('工作流响应超时，请重试');
+        updateMessageType(workflow.id, assistantMessageId, 'error');
+
+        // ✅ 确保超时时也重置 isProcessing 状态
+        setIsProcessing(false);
+
+        if (cleanupRef.current) {
+          cleanupRef.current();
+          cleanupRef.current = null;
         }
-      }, 30000);
+
+        // 聚焦输入框
+        inputRef.current?.focus();
+      }, 60000); // 增加到 60 秒
 
       // 现在注册事件监听器（使用已知的 streamId）
       const offStart = window.electronAPI.bisheng.onStreamStart(({ streamId: id }) => {
@@ -411,12 +477,8 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
                 updateSession(workflow.id, updates);
               }
 
-              // 如果当前没有内容，显示提示信息
-              if (!assistantContent.trim()) {
-                assistantContent = '工作流已准备就绪，请继续输入...';
-                updateMessageInStore(workflow.id, assistantMessageId, assistantContent);
-                updateMessageType(workflow.id, assistantMessageId, 'text');
-              }
+              // ❌ 移除了"工作流已准备就绪"的提示，避免用户需要输入两次
+              // 现在 input 事件只用于保存会话信息，不显示任何消息
             }
 
             // 处理 guide_word 事件（引导词）
@@ -513,6 +575,13 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
           timeoutId = null;
         }
 
+        // 更新消息类型
+        if (success) {
+          updateMessageType(workflow.id, assistantMessageId, 'text');
+        } else {
+          updateMessageType(workflow.id, assistantMessageId, 'error');
+        }
+
         // 清理当前流的事件监听器
         if (cleanupRef.current) {
           console.log('[Stream End] Cleaning up current stream listeners');
@@ -520,6 +589,11 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
           cleanupRef.current = null;
         }
 
+        // 清理 AbortController 和流ID
+        abortControllerRef.current = null;
+        currentStreamIdRef.current = null;
+
+        // ✅ 确保在所有情况下都设置 isProcessing 为 false
         setIsProcessing(false);
 
         if (!success) {
@@ -542,33 +616,17 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
 
     } catch (err: any) {
       console.error('Failed to send message:', err);
-      setError(err?.message || '发送消息失败');
+
+      // 检查是否是用户主动取消
+      if (err?.name === 'AbortError') {
+        console.log('[ABORT] Request was aborted by user');
+        setError(null); // 用户主动取消不显示错误
+      } else {
+        setError(err?.message || '发送消息失败');
+      }
+
       setIsProcessing(false);
       inputRef.current?.focus();
-
-      if (cleanupRef.current) {
-        cleanupRef.current();
-        cleanupRef.current = null;
-      }
-    }
-  };
-
-  /**
-   * 停止当前工作流
-   */
-  const handleStopWorkflow = async () => {
-    if (!sessionId) {
-      console.warn('[STOP] No sessionId available, cannot stop workflow');
-      return;
-    }
-
-    try {
-      console.log('[STOP] Stopping workflow', { workflowId: workflow.id, sessionId });
-
-      // 调用停止接口
-      await window.electronAPI.bisheng.stopWorkflow(workflow.id, sessionId);
-
-      console.log('[STOP] Workflow stopped successfully');
 
       // 清理事件监听器
       if (cleanupRef.current) {
@@ -576,16 +634,59 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
         cleanupRef.current = null;
       }
 
-      // 重置状态
+      // 清理 AbortController 和流ID
+      abortControllerRef.current = null;
+      currentStreamIdRef.current = null;
+    }
+  };
+
+  /**
+   * 停止当前工作流
+   */
+  const handleStopWorkflow = async () => {
+    console.log('[STOP] Stopping workflow', {
+      workflowId: workflow.id,
+      sessionId,
+      currentStreamId: currentStreamIdRef.current
+    });
+
+    try {
+      // 1. 中止 AbortController（如果存在）
+      if (abortControllerRef.current) {
+        console.log('[STOP] Aborting current request');
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+
+      // 2. 调用停止接口（如果有 sessionId）
+      if (sessionId) {
+        console.log('[STOP] Calling stopWorkflow API');
+        await window.electronAPI.bisheng.stopWorkflow(workflow.id, sessionId);
+        console.log('[STOP] Workflow stopped successfully');
+      }
+
+      // 3. 清理事件监听器
+      if (cleanupRef.current) {
+        console.log('[STOP] Cleaning up event listeners');
+        cleanupRef.current();
+        cleanupRef.current = null;
+      }
+
+      // 4. 重置状态
       setIsProcessing(false);
       setError(null);
+      currentStreamIdRef.current = null;
 
-      // 聚焦输入框
+      // 5. 聚焦输入框
       inputRef.current?.focus();
 
     } catch (error) {
       console.error('[STOP] Failed to stop workflow:', error);
       setError(error instanceof Error ? error.message : '停止工作流失败');
+
+      // 即使出错也要重置状态
+      setIsProcessing(false);
+      currentStreamIdRef.current = null;
     }
   };
 
@@ -701,7 +802,7 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
             disabled={isProcessing}
             placeholder="输入消息... (Enter 发送, Shift+Enter 换行)"
             rows={3}
-            className="flex-1 px-4 py-3 border border-gray-300/50 dark:border-gray-600/50 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500/50 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm text-gray-900 dark:text-gray-100 placeholder:text-gray-500 dark:placeholder:text-gray-400 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+            className={UNIFIED_TEXTAREA_STYLES}
           />
 
           {/* 停止按钮 - 仅在处理中显示 */}
