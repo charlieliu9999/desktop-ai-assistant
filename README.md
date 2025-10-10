@@ -1,15 +1,179 @@
-# Desktop AI Assistant
+# 桌面AI助手 (Desktop AI Assistant)
 
-一个基于 Electron 的桌面 AI 医疗助手，集成语音识别、桌面内容识别、医疗系统集成和 Bisheng 智能体平台。
+<div align="center">
 
-## ✨ 主要功能
+![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)
 
-- 🎤 **语音交互** - 支持语音唤醒、实时语音识别和语音合成
-- 🖥️ **桌面识别** - OCR 文字识别和桌面内容理解
-- 🏥 **医疗集成** - 集成 RIS/PACS/HIS 系统，支持患者信息提取
-- 🤖 **Bisheng 智能体** - 集成 Bisheng 智能体平台，支持 API 和 iframe 两种模式
-- 🎨 **玻璃拟态主题** - 现代化的玻璃拟态 UI 设计
-- 🌓 **深色模式** - 完整的深色/浅色主题支持
+**一款功能强大的桌面AI助手，集成语音识别、OCR文字识别、医疗影像分析等功能**
+
+[快速开始](#-快速开始) • [功能特性](#-功能特性) • [架构说明](#-架构说明) • [开发指南](#-开发指南)
+
+</div>
+
+---
+
+## 📋 目录
+
+- [项目简介](#-项目简介)
+- [功能特性](#-功能特性)
+- [技术栈](#️-技术栈)
+- [系统要求](#-系统要求)
+- [快速开始](#-快速开始)
+- [项目结构](#-项目结构)
+- [配置说明](#️-配置说明)
+- [开发指南](#-开发指南)
+- [API文档](#-api文档)
+- [快捷键](#️-快捷键)
+- [常见问题](#-常见问题)
+
+---
+
+## 🎯 项目简介
+
+桌面AI助手是一款基于Electron + FastAPI架构的智能桌面应用，旨在为医疗专业人员提供AI驱动的辅助工具。
+
+### 核心能力
+
+- 🤖 **AI对话**: 支持多种AI模型（OpenAI、Deepseek、Ollama）
+- 🎤 **语音交互**: 实时语音识别和语音合成
+- 👁️ **视觉识别**: OCR文字识别、图像理解、医疗影像分析
+- 🏥 **医疗集成**: 与RIS/PACS/HIS系统集成
+- 🤝 **智能体平台**: 集成Bisheng等智能体平台
+- 🖥️ **桌面识别**: 自动识别屏幕内容并提取信息
+
+---
+
+## ✨ 功能特性
+
+### 1. AI对话服务
+- ✅ 多AI提供商支持（OpenAI、Deepseek、Ollama）
+- ✅ 自动故障转移机制
+- ✅ 流式响应（SSE）
+- ✅ 内容分析和JSON提取
+
+### 2. 视觉服务
+- ✅ OCR文字识别（Tesseract）
+- ✅ 图像理解和分析
+- ✅ 医疗影像分析
+- ✅ 多语言支持
+
+### 3. 语音服务
+- ✅ 语音转文字（Whisper）
+- ✅ 文字转语音（TTS）
+- ✅ 连续语音识别
+- ✅ 热词唤醒（"小助手"）
+
+### 4. 智能体集成
+- ✅ Bisheng平台集成
+- ✅ 工作流管理
+- ✅ 智能体调用和停止
+- ✅ 健康检查
+
+### 5. 桌面功能
+- ✅ 主窗口 + 浮动窗口
+- ✅ 系统托盘
+- ✅ 全局快捷键
+- ✅ 屏幕截图和识别
+
+---
+
+## 🛠️ 技术栈
+
+### 后端
+- **FastAPI** - Python Web框架
+- **Python 3.11+** - 编程语言
+- **Pydantic** - 数据验证
+- **AsyncOpenAI** - AI客户端
+- **Tesseract** - OCR引擎
+- **Whisper** - 语音识别
+
+### 前端
+- **Electron 28** - 桌面应用框架
+- **React 18** - UI框架
+- **TypeScript** - 类型安全
+- **Vite** - 构建工具
+- **Tailwind CSS** - 样式框架
+- **Zustand** - 状态管理
+
+### AI服务
+- **OpenAI API** - GPT模型
+- **Deepseek API** - 国产大模型
+- **Ollama** - 本地AI模型
+- **Bisheng** - 智能体平台
+
+---
+
+## 💻 系统要求
+
+### 必需
+- **Node.js** 18.0.0 或更高版本
+- **Python** 3.11 或更高版本
+- **npm** 或 **pnpm**
+- **macOS** 10.15+ / **Windows** 10+ / **Linux**
+
+### 可选
+- **Tesseract OCR** - 用于文字识别
+- **Ollama** - 用于本地AI模型
+- **Bisheng** - 用于智能体功能
+
+---
+
+## 🚀 快速开始
+
+### 方法1: 使用启动脚本（推荐）
+
+```bash
+# 1. 克隆项目
+git clone <repository-url>
+cd desktop-ai-assistant
+
+# 2. 安装依赖
+npm install
+cd backend-service && pip install -r requirements.txt && cd ..
+
+# 3. 配置环境变量
+cp backend-service/.env.example backend-service/.env
+# 编辑 .env 文件，填入API密钥
+
+# 4. 启动应用（一键启动所有服务）
+chmod +x start-app.sh
+./start-app.sh
+```
+
+### 方法2: 手动启动
+
+#### 步骤1: 启动后端服务
+
+```bash
+cd backend-service
+
+# 使用虚拟环境（推荐）
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+
+# 安装依赖
+pip install -r requirements.txt
+
+# 启动服务
+python -m app.main
+```
+
+后端服务将运行在 `http://localhost:8010`
+
+#### 步骤2: 启动前端应用
+
+```bash
+# 在项目根目录
+npm install
+
+# 启动开发服务器
+npm run dev:renderer
+
+# 在另一个终端启动Electron
+npm run dev
+```
 
 ## 📁 项目结构
 
