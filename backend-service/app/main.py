@@ -168,20 +168,6 @@ async def lifespan(app: FastAPI):
     logger.info("-" * 60)
     logger.info("AI服务管理器初始化完成")
     logger.info("-" * 60)
-
-    # 初始化患者信息提取器
-    logger.info("-" * 60)
-    logger.info("初始化患者信息提取器...")
-    logger.info("-" * 60)
-
-    from app.services.patient import PatientInfoExtractor
-    from app.api.v1 import patient as patient_api
-
-    patient_extractor = PatientInfoExtractor(ai_manager=ai_manager)
-    patient_api.patient_extractor = patient_extractor
-    logger.info("✓ 患者信息提取器初始化完成")
-
-    logger.info("-" * 60)
     logger.info("服务自检完成")
     logger.info("=" * 60)
     logger.info(f"API 文档: http://{settings.HOST}:{settings.PORT}/docs")
