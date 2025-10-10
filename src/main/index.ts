@@ -4,9 +4,9 @@ import { join } from 'path';
 const is = { dev: process.env.NODE_ENV === 'development' };
 import { Logger } from '../utils/logger';
 import { ConfigService } from '../services/config';
-import { VoiceService } from '../services/voice';
-import { AIService } from '../services/ai';
-import { MedicalIntegrationService } from '../services/medical-integration';
+import { VoiceService } from '../services/legacy/voice';
+import { AIService } from '../services/legacy/ai';
+import { MedicalIntegrationService } from '../services/legacy/medical-integration';
 import type { 
   AppStatus, 
   AIProvider, 

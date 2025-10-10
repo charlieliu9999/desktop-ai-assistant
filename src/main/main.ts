@@ -3,13 +3,13 @@ import { join } from 'path';
 import { Logger } from '../utils/logger';
 import { ConfigService } from '../services/config';
 import { WindowManager } from './window-manager';
-import { VoiceService } from '../services/voice';
-import { AIService } from '../services/ai';
-import { MedicalIntegrationService } from '../services/medical-integration';
-import { DesktopRecognitionService } from '../services/desktop-recognition';
+import { VoiceService } from '../services/legacy/voice';
+import { AIService } from '../services/legacy/ai';
+import { MedicalIntegrationService } from '../services/legacy/medical-integration';
+import { DesktopRecognitionService } from '../services/legacy/desktop-recognition';
 import { ShortcutService } from '../services/shortcut';
-import { ScreenshotService } from '../services/screenshot';
-import { BishengService } from '../services/bisheng';
+import { ScreenshotService } from '../services/legacy/screenshot';
+import { BishengService } from '../services/legacy/bisheng';
 import { ServiceHealthChecker } from '../services/service-health-checker';
 import type {
   AppConfig,

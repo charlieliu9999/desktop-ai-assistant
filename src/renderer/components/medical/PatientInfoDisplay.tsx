@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { User, Edit2, Check, X, AlertTriangle } from 'lucide-react';
-import type { PatientInfo } from '../../../services/patient-info-extractor';
+import type { PatientInfo } from '../../../services/legacy/patient-info-extractor';
 
 interface PatientInfoDisplayProps {
   patientInfo: PatientInfo | null;
