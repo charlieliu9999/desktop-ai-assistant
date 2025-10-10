@@ -3,6 +3,7 @@ AI Service Manager单元测试
 """
 
 import pytest
+from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 from app.services.ai.manager import AIServiceManager
 from app.services.ai.models import (
@@ -36,9 +37,10 @@ def mock_provider():
     )
     provider.health_check = AsyncMock(
         return_value=ProviderHealth(
-            provider_name="test-provider",
-            is_healthy=True,
-            response_time_ms=100.0,
+            name="test-provider",
+            healthy=True,
+            latency_ms=100.0,
+            last_check=datetime.now(),
         )
     )
     return provider
@@ -238,9 +240,10 @@ class TestAIServiceManager:
         provider1.name = "provider1"
         provider1.health_check = AsyncMock(
             return_value=ProviderHealth(
-                provider_name="provider1",
-                is_healthy=True,
-                response_time_ms=100.0,
+                name="provider1",
+                healthy=True,
+                latency_ms=100.0,
+                last_check=datetime.now(),
             )
         )
 
@@ -248,9 +251,9 @@ class TestAIServiceManager:
         provider2.name = "provider2"
         provider2.health_check = AsyncMock(
             return_value=ProviderHealth(
-                provider_name="provider2",
-                is_healthy=False,
-                error_message="Connection failed",
+                name="provider2",
+                healthy=False,
+                last_check=datetime.now(),
             )
         )
 
@@ -260,8 +263,8 @@ class TestAIServiceManager:
         health_list = await ai_manager.get_all_providers_health()
 
         assert len(health_list) == 2
-        assert health_list[0].is_healthy is True
-        assert health_list[1].is_healthy is False
+        assert health_list[0].healthy is True
+        assert health_list[1].healthy is False
 
     def test_list_providers(self, ai_manager, mock_provider):
         """测试列出所有提供商"""

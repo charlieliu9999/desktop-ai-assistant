@@ -267,9 +267,9 @@ class TestOpenAIProvider:
         ):
             health = await openai_provider.health_check()
 
-            assert health.is_healthy is True
-            assert health.provider_name == "openai"
-            assert health.response_time_ms > 0
+            assert health.healthy is True
+            assert health.name == "openai"
+            assert health.latency_ms > 0
 
     @pytest.mark.asyncio
     async def test_health_check_failure(self, openai_provider):
@@ -282,6 +282,6 @@ class TestOpenAIProvider:
         ):
             health = await openai_provider.health_check()
 
-            assert health.is_healthy is False
-            assert "Connection failed" in health.error_message
+            assert health.healthy is False
+            assert "Connection failed" in health.error
 

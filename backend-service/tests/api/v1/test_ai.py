@@ -3,6 +3,7 @@ AI API端点测试
 """
 
 import pytest
+from datetime import datetime
 from fastapi.testclient import TestClient
 from unittest.mock import AsyncMock, MagicMock, patch
 from app.main import app
@@ -44,15 +45,17 @@ def mock_ai_manager():
             extracted_data={"key": "value"},
             confidence=0.95,
             raw_response="test response",
+            provider="test",
         )
     )
 
     # Mock get_provider_health方法
     manager.get_provider_health = AsyncMock(
         return_value=ProviderHealth(
-            provider_name="test",
-            is_healthy=True,
-            response_time_ms=100.0,
+            name="test",
+            healthy=True,
+            latency_ms=100.0,
+            last_check=datetime.now(),
         )
     )
 
@@ -181,8 +184,8 @@ class TestAIAPI:
             assert response.status_code == 200
             data = response.json()
             assert data["success"] is True
-            assert data["data"]["provider_name"] == "test"
-            assert data["data"]["is_healthy"] is True
+            assert data["data"]["name"] == "test"
+            assert data["data"]["healthy"] is True
 
     def test_health_endpoint_no_provider(self, client):
         """测试健康检查端点缺少提供商参数"""
