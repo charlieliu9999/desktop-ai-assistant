@@ -168,6 +168,42 @@ async def lifespan(app: FastAPI):
     logger.info("-" * 60)
     logger.info("AI服务管理器初始化完成")
     logger.info("-" * 60)
+
+    # 初始化视觉服务
+    logger.info("-" * 60)
+    logger.info("初始化视觉服务...")
+    logger.info("-" * 60)
+
+    from app.services.vision import OCRService, VisionService
+    from app.api.v1 import vision as vision_api
+
+    ocr_service = OCRService()
+    vision_service = VisionService(ai_manager=ai_manager)
+
+    vision_api.ocr_service = ocr_service
+    vision_api.vision_service = vision_service
+
+    logger.info("✓ OCR服务初始化完成")
+    logger.info("✓ 视觉理解服务初始化完成")
+
+    # 初始化语音服务
+    logger.info("-" * 60)
+    logger.info("初始化语音服务...")
+    logger.info("-" * 60)
+
+    from app.services.voice import STTService, TTSService
+    from app.api.v1 import voice as voice_api
+
+    stt_service = STTService(model_name="base")
+    tts_service = TTSService(model_name="tts-1")
+
+    voice_api.stt_service = stt_service
+    voice_api.tts_service = tts_service
+
+    logger.info("✓ 语音识别服务初始化完成")
+    logger.info("✓ 语音合成服务初始化完成")
+
+    logger.info("-" * 60)
     logger.info("服务自检完成")
     logger.info("=" * 60)
     logger.info(f"API 文档: http://{settings.HOST}:{settings.PORT}/docs")
