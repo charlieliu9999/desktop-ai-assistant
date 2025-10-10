@@ -1,0 +1,15 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["**/services/legacy/*"],
+            "message": "❌ 不要导入legacy目录的代码！请使用 services/adapters/ 中的适配器。"
+          }
+        ]
+      }
+    ]
+  }
+}
