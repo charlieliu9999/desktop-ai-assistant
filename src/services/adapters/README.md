@@ -59,13 +59,24 @@ export const FEATURE_FLAGS = {
 
 | 适配器 | 状态 | 负责人 | 完成日期 |
 |--------|------|--------|---------|
-| ai-adapter.ts | ⏳ 开发中 | - | - |
+| ai-adapter.ts | ✅ 已完成 | AI | 2025-10-10 |
 | patient-adapter.ts | ⏳ 待开始 | - | - |
 | ocr-adapter.ts | ⏳ 待开始 | - | - |
 | voice-adapter.ts | ⏳ 待开始 | - | - |
 | bisheng-adapter.ts | ⏳ 待开始 | - | - |
 | medical-adapter.ts | ⏳ 待开始 | - | - |
 | search-adapter.ts | ⏳ 待开始 | - | - |
+
+### AI适配器功能
+
+`ai-adapter.ts` 已实现以下功能：
+
+- ✅ 标准对话 (`processMessage`)
+- ✅ 流式对话 (`chatStream`)
+- ✅ 内容分析 (`analyzeContent`)
+- ✅ 自动故障转移
+- ✅ 后端连接测试
+- ✅ 配置开关控制
 
 ---
 
