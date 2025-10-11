@@ -200,6 +200,50 @@ async def lifespan(app: FastAPI):
     voice_api.stt_service = stt_service
     voice_api.tts_service = tts_service
 
+    logger.info("✓ STT服务初始化完成")
+    logger.info("✓ TTS服务初始化完成")
+
+    # 初始化智能体服务
+    logger.info("-" * 60)
+    logger.info("初始化智能体服务...")
+    logger.info("-" * 60)
+
+    from app.services.agent import AgentManager, BishengService, BishengConfig
+    from app.api.v1 import agent as agent_api
+
+    # 创建智能体管理器
+    agent_mgr = AgentManager()
+
+    # 如果Bisheng启用，注册服务
+    if settings.BISHENG_ENABLED:
+        try:
+            bisheng_config = BishengConfig(
+                enabled=settings.BISHENG_ENABLED,
+                base_url=settings.BISHENG_BASE_URL,
+                frontend_url=settings.BISHENG_FRONTEND_URL,
+                username=settings.BISHENG_USERNAME,
+                password=settings.BISHENG_PASSWORD,
+                access_token=settings.BISHENG_ACCESS_TOKEN,
+                mode=settings.BISHENG_DEFAULT_MODE,
+                timeout=30,
+                retry_attempts=3
+            )
+            bisheng_service = BishengService(bisheng_config)
+            agent_mgr.register_service("bisheng", bisheng_service)
+            logger.info("✓ Bisheng智能体服务已注册")
+        except Exception as e:
+            logger.warning(f"⚠ Bisheng智能体服务注册失败: {e}")
+    else:
+        logger.info("○ Bisheng智能体服务已禁用")
+
+    # 设置到API模块
+    agent_api.set_agent_manager(agent_mgr)
+
+    logger.info("-" * 60)
+    logger.info("智能体服务初始化完成")
+    logger.info("-" * 60)
+    voice_api.tts_service = tts_service
+
     logger.info("✓ 语音识别服务初始化完成")
     logger.info("✓ 语音合成服务初始化完成")
 

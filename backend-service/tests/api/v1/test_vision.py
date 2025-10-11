@@ -6,8 +6,10 @@ import base64
 from io import BytesIO
 from PIL import Image
 from fastapi.testclient import TestClient
+from unittest.mock import AsyncMock, patch
 
 from app.main import app
+from app.services.vision.models import OCRResult
 
 
 @pytest.fixture
@@ -28,34 +30,59 @@ def test_image_base64():
 
 def test_ocr_endpoint(client, test_image_base64):
     """测试OCR端点"""
-    response = client.post(
-        "/v1/vision/ocr",
-        json={
-            "image_data": test_image_base64,
-            "language": "eng",
-            "psm": 3,
-            "oem": 3
-        }
+    from app.services.vision.models import OCRResponse as OCRServiceResponse
+
+    # Mock OCR服务响应
+    mock_response = OCRServiceResponse(
+        success=True,
+        result=OCRResult(
+            text="Test OCR Result",
+            confidence=0.95,
+            language="eng"
+        )
     )
 
-    assert response.status_code == 200
-    data = response.json()
-    assert "success" in data
-    assert "result" in data or "error" in data
+    with patch("app.api.v1.vision.ocr_service") as mock_service:
+        mock_service.recognize = AsyncMock(return_value=mock_response)
+
+        response = client.post(
+            "/v1/vision/ocr",
+            json={
+                "image_data": test_image_base64,
+                "language": "eng",
+                "psm": 3,
+                "oem": 3
+            }
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["result"]["text"] == "Test OCR Result"
 
 
 def test_ocr_endpoint_invalid_data(client):
     """测试OCR端点无效数据"""
-    response = client.post(
-        "/v1/vision/ocr",
-        json={
-            "image_data": "invalid_base64",
-            "language": "eng"
-        }
+    from app.services.vision.models import OCRResponse as OCRServiceResponse
+
+    mock_response = OCRServiceResponse(
+        success=False,
+        error="Invalid image data"
     )
 
-    # 应该返回错误
-    assert response.status_code in [200, 500]
+    with patch("app.api.v1.vision.ocr_service") as mock_service:
+        mock_service.recognize = AsyncMock(return_value=mock_response)
+
+        response = client.post(
+            "/v1/vision/ocr",
+            json={
+                "image_data": "invalid_base64",
+                "language": "eng"
+            }
+        )
+
+        # 应该返回错误
+        assert response.status_code in [200, 500]
 
 
 def test_understand_endpoint(client, test_image_base64):

@@ -108,8 +108,8 @@ tmp/
 temp/
 
 # Electron specific
-app/
-package/
+/app/
+/package/
 *.asar
 
 # macOS specific
@@ -188,3 +188,30 @@ recordings/
 # Documentation build
 docs/build/
 docs/.vuepress/dist/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+*.manifest
+*.spec
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.hypothesis/
+.tox/
+.venv/
+venv/
+ENV/
+env/
+*.pyc
