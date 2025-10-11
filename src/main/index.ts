@@ -5,7 +5,8 @@ const is = { dev: process.env.NODE_ENV === 'development' };
 import { Logger } from '../utils/logger';
 import { ConfigService } from '../services/config';
 import { VoiceService } from '../services/legacy/voice';
-import { AIService } from '../services/legacy/ai';
+// ✅ 使用适配器替代直接导入 legacy 服务
+import { AIServiceAdapter } from '../services/adapters/ai-adapter';
 import { MedicalIntegrationService } from '../services/legacy/medical-integration';
 import type { 
   AppStatus, 
@@ -38,7 +39,7 @@ class DesktopAIAssistant {
   private logger: Logger;
   private configService: ConfigService;
   private voiceService!: VoiceService;
-  private aiService!: AIService;
+  private aiService!: AIServiceAdapter; // ✅ 使用适配器类型
   private medicalService!: MedicalIntegrationService;
   private appStatus: AppStatus = 'initializing';
   private isQuitting = false;
@@ -122,7 +123,7 @@ class DesktopAIAssistant {
       
       // 初始化服务实例
       this.voiceService = new VoiceService(config.voice, this.logger);
-      this.aiService = new AIService(config.ai, this.logger);
+      this.aiService = new AIServiceAdapter(config.ai, this.logger); // ✅ 使用适配器实例化
       this.medicalService = new MedicalIntegrationService(config.medical, this.logger);
       
       // 初始化服务
