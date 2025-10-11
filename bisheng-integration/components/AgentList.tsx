@@ -143,7 +143,7 @@ const AgentList: React.FC<AgentListProps> = ({
               className={`w-full p-3 rounded-lg text-left transition-all ${
                 selectedAgent?.id === workflow.id
                   ? 'bg-blue-500/20 dark:bg-blue-600/20 border border-blue-400/50 dark:border-blue-500/50 backdrop-blur-sm'
-                  : 'glass dark:glass-dark hover:bg-white/40 dark:hover:bg-black/40 border border-gray-200/30 dark:border-gray-600/30'
+                  : 'glass hover:bg-white/40 dark:hover:bg-black/40 border border-gray-200/30 dark:border-gray-600/30'
               }`}
             >
               <div className="flex items-start space-x-2">

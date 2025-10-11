@@ -657,7 +657,7 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
               className={`flex-1 px-4 py-3 rounded-xl shadow-md transition-all duration-200 ${
                 message.role === 'user'
                   ? 'bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 text-white backdrop-blur-sm'
-                  : 'glass dark:glass-dark text-gray-900 dark:text-gray-100'
+                  : 'glass text-gray-900 dark:text-gray-100'
               }`}
             >
               {message.type === 'stream' && message.content === '' ? (
@@ -691,7 +691,7 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
       </div>
 
       {/* 输入框 - 玻璃拟态效果 */}
-      <div className="px-6 py-4 border-t border-gray-200/50 dark:border-gray-700/50 glass dark:glass-dark">
+      <div className="px-6 py-4 border-t border-gray-200/50 dark:border-gray-700/50 glass">
         <div className="flex items-end space-x-3">
           <textarea
             ref={inputRef}
