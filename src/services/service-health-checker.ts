@@ -3,7 +3,7 @@
  * 用于在应用启动时检查各个依赖服务的状态
  */
 
-import type { Logger } from './logger';
+import type { Logger } from '../utils/logger';
 
 export interface ServiceStatus {
   name: string;

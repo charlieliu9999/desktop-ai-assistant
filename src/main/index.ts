@@ -4,9 +4,9 @@ import { join } from 'path';
 const is = { dev: process.env.NODE_ENV === 'development' };
 import { Logger } from '../utils/logger';
 import { ConfigService } from '../services/config';
-import { VoiceService } from '../services/voice';
-import { AIService } from '../services/ai';
-import { MedicalIntegrationService } from '../services/medical-integration';
+import { VoiceService } from '../services/legacy/voice';
+import { AIService } from '../services/legacy/ai';
+import { MedicalIntegrationService } from '../services/legacy/medical-integration';
 import type { 
   AppStatus, 
   AIProvider, 
@@ -55,10 +55,25 @@ class DesktopAIAssistant {
     try {
       this.logger.info('Initializing Desktop AI Assistant...');
       const appMode = process.env.APP_MODE || 'full';
-      
+
       // 设置应用用户模型ID (Windows)
       if (process.platform === 'win32') {
         app.setAppUserModelId('com.desktop-ai-assistant');
+      }
+
+      // macOS 特定配置，避免 SetApplicationIsDaemon 错误
+      if (process.platform === 'darwin') {
+        try {
+          // 禁用硬件加速可以避免某些 macOS 系统服务错误
+          // app.disableHardwareAcceleration();
+
+          // 设置激活策略为常规应用
+          app.setActivationPolicy('regular');
+
+          this.logger.info('macOS specific configuration applied');
+        } catch (macError) {
+          this.logger.warn('Failed to apply macOS configuration:', macError);
+        }
       }
 
       // 初始化服务
@@ -477,126 +492,295 @@ class DesktopAIAssistant {
     });
 
     // 语音识别统一测试（Whisper/FunASR/Browser占位）
-    ipcMain.handle('voice-test-all-models', async (_event, audioData: ArrayBuffer) => {
-      const start = Date.now();
-      const cfg = await this.configService.getConfig();
-      const toBuffer = (ab: ArrayBuffer) => Buffer.from(new Uint8Array(ab));
-      const buf = toBuffer(audioData);
-
-      const results: any[] = [];
-
-      // Browser 占位（主进程无法直接识别）
-      results.push({
-        model: 'browser',
-        success: false,
-        accuracy: 0,
-        latency: Date.now() - start,
-        text: '',
-        confidence: 0,
-        error: '浏览器原生识别需在渲染进程测试',
-        timestamp: Date.now()
-      });
-
-      // Whisper
+    ipcMain.handle('voice-test-all-models', async (_event, audioData: any) => {
       try {
-        const whisperUrl = (cfg as any)?.voice?.recognition?.whisper?.apiUrl;
-        if (whisperUrl) {
-          const wstart = Date.now();
-          const resp = await fetch(whisperUrl, { method: 'POST', body: buf as any, headers: { 'Content-Type': 'audio/wav' } });
-          if (resp.ok) {
-            const data = await resp.json().catch(() => ({}));
+        this.logger.info('[Voice Test] Starting voice recognition test for all models');
+        this.logger.info('[Voice Test] Received audio data type:', typeof audioData);
+        this.logger.info('[Voice Test] Audio data constructor:', audioData?.constructor?.name);
+
+        const start = Date.now();
+
+        // 验证输入数据
+        if (!audioData) {
+          this.logger.error('[Voice Test] Audio data is null or undefined');
+          throw new Error('音频数据为空');
+        }
+
+        // 获取配置（添加错误处理）
+        let cfg: any;
+        try {
+          cfg = await this.configService.getConfig();
+          this.logger.info('[Voice Test] Config loaded successfully');
+        } catch (configError) {
+          this.logger.error('[Voice Test] Failed to load config:', configError);
+          cfg = {}; // 使用空配置继续
+        }
+
+        // 安全地转换 ArrayBuffer/Buffer 到 Buffer
+        let buf: Buffer;
+        try {
+          // 处理不同类型的输入
+          if (Buffer.isBuffer(audioData)) {
+            this.logger.info('[Voice Test] Audio data is already a Buffer');
+            buf = audioData;
+          } else if (audioData instanceof ArrayBuffer) {
+            this.logger.info('[Voice Test] Converting ArrayBuffer to Buffer');
+            buf = Buffer.from(new Uint8Array(audioData));
+          } else if (audioData instanceof Uint8Array) {
+            this.logger.info('[Voice Test] Converting Uint8Array to Buffer');
+            buf = Buffer.from(audioData);
+          } else if (typeof audioData === 'object' && audioData.type === 'Buffer' && Array.isArray(audioData.data)) {
+            // IPC 传输可能将 Buffer 序列化为 { type: 'Buffer', data: [...] }
+            this.logger.info('[Voice Test] Converting serialized Buffer to Buffer');
+            buf = Buffer.from(audioData.data);
+          } else {
+            this.logger.error('[Voice Test] Unsupported audio data type:', typeof audioData);
+            throw new Error(`不支持的音频数据类型: ${typeof audioData}`);
+          }
+
+          this.logger.info(`[Voice Test] Audio data converted to buffer, size: ${buf.length} bytes`);
+
+          // 验证 buffer 大小
+          if (buf.length === 0) {
+            throw new Error('音频数据为空');
+          }
+
+          if (buf.length < 1024) {
+            this.logger.warn('[Voice Test] Audio data is very small, may be invalid');
+          }
+
+        } catch (error: any) {
+          this.logger.error('[Voice Test] Failed to convert audio data:', error);
+          throw new Error(`音频数据转换失败: ${error.message}`);
+        }
+
+        const results: any[] = [];
+
+        // Browser 占位（主进程无法直接识别）
+        this.logger.info('[Voice Test] Adding browser placeholder result');
+        results.push({
+          model: 'browser',
+          success: false,
+          accuracy: 0,
+          latency: Date.now() - start,
+          text: '',
+          confidence: 0,
+          error: '浏览器原生识别需在渲染进程测试',
+          timestamp: Date.now()
+        });
+
+        // Whisper
+        this.logger.info('[Voice Test] Testing Whisper model');
+        try {
+          const whisperUrl = (cfg as any)?.voice?.recognition?.whisper?.apiUrl;
+          if (whisperUrl) {
+            this.logger.info(`[Voice Test] Whisper API URL: ${whisperUrl}`);
+            this.logger.info(`[Voice Test] Preparing to send ${buf.length} bytes to Whisper`);
+            const wstart = Date.now();
+
+            // 添加超时控制
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => {
+              this.logger.warn('[Voice Test] Whisper request timeout, aborting...');
+              controller.abort();
+            }, 30000); // 30秒超时
+
+            try {
+              this.logger.info('[Voice Test] Sending request to Whisper...');
+              const resp = await fetch(whisperUrl, {
+                method: 'POST',
+                body: buf as any,
+                headers: { 'Content-Type': 'audio/wav' },
+                signal: controller.signal
+              });
+              clearTimeout(timeoutId);
+              this.logger.info(`[Voice Test] Whisper response received: ${resp.status} ${resp.statusText}`);
+
+              if (resp.ok) {
+                const data = await resp.json().catch(() => ({}));
+                this.logger.info('[Voice Test] Whisper recognition successful:', data);
+                results.push({
+                  model: 'whisper',
+                  success: true,
+                  accuracy: data.accuracy ?? 0.9,
+                  latency: Date.now() - wstart,
+                  text: data.text ?? data.result ?? data.transcript ?? '',
+                  confidence: data.confidence ?? 0.9,
+                  timestamp: Date.now()
+                });
+              } else {
+                const txt = await resp.text();
+                this.logger.error(`[Voice Test] Whisper API error: ${resp.status} ${resp.statusText}`);
+                results.push({
+                  model: 'whisper',
+                  success: false,
+                  accuracy: 0,
+                  latency: Date.now() - wstart,
+                  text: '',
+                  confidence: 0,
+                  error: `HTTP ${resp.status} ${resp.statusText}: ${txt}`,
+                  timestamp: Date.now()
+                });
+              }
+            } catch (fetchError: any) {
+              clearTimeout(timeoutId);
+              if (fetchError.name === 'AbortError') {
+                this.logger.error('[Voice Test] Whisper request timeout');
+                results.push({
+                  model: 'whisper',
+                  success: false,
+                  accuracy: 0,
+                  latency: 30000,
+                  text: '',
+                  confidence: 0,
+                  error: '请求超时（30秒）',
+                  timestamp: Date.now()
+                });
+              } else {
+                throw fetchError;
+              }
+            }
+          } else {
+            this.logger.warn('[Voice Test] Whisper API URL not configured');
             results.push({
               model: 'whisper',
-              success: true,
-              accuracy: data.accuracy ?? 0.9,
-              latency: Date.now() - wstart,
-              text: data.text ?? data.result ?? data.transcript ?? '',
-              confidence: data.confidence ?? 0.9,
+              success: false,
+              accuracy: 0,
+              latency: 0,
+              text: '',
+              confidence: 0,
+              error: '未配置 whisper.apiUrl',
               timestamp: Date.now()
             });
-          } else {
-            const txt = await resp.text();
-            results.push({
-              model: 'whisper', success: false, accuracy: 0, latency: Date.now() - start, text: '', confidence: 0, error: `HTTP ${resp.status} ${resp.statusText}: ${txt}`, timestamp: Date.now()
-            });
           }
-        } else {
-          results.push({ model: 'whisper', success: false, accuracy: 0, latency: 0, text: '', confidence: 0, error: '未配置 whisper.apiUrl', timestamp: Date.now() });
+        } catch (e: any) {
+          this.logger.error('[Voice Test] Whisper test failed:', e);
+          results.push({
+            model: 'whisper',
+            success: false,
+            accuracy: 0,
+            latency: 0,
+            text: '',
+            confidence: 0,
+            error: e?.message || String(e),
+            timestamp: Date.now()
+          });
         }
-      } catch (e: any) {
-        results.push({ model: 'whisper', success: false, accuracy: 0, latency: 0, text: '', confidence: 0, error: e?.message || String(e), timestamp: Date.now() });
-      }
 
-      // FunASR
-      try {
-        const funasrUrl = (cfg as any)?.voice?.recognition?.funasr?.apiUrl;
-        if (funasrUrl) {
-          const fstart = Date.now();
-          const resp = await fetch(funasrUrl, { method: 'POST', body: buf as any, headers: { 'Content-Type': 'audio/wav' } });
-          if (resp.ok) {
-            const data = await resp.json().catch(() => ({}));
+        // FunASR
+        this.logger.info('[Voice Test] Testing FunASR model');
+        try {
+          const funasrUrl = (cfg as any)?.voice?.recognition?.funasr?.apiUrl;
+          if (funasrUrl) {
+            this.logger.info(`[Voice Test] FunASR API URL: ${funasrUrl}`);
+            this.logger.info(`[Voice Test] Preparing to send ${buf.length} bytes to FunASR`);
+            const fstart = Date.now();
+
+            // 添加超时控制
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => {
+              this.logger.warn('[Voice Test] FunASR request timeout, aborting...');
+              controller.abort();
+            }, 30000); // 30秒超时
+
+            try {
+              this.logger.info('[Voice Test] Sending request to FunASR...');
+              const resp = await fetch(funasrUrl, {
+                method: 'POST',
+                body: buf as any,
+                headers: { 'Content-Type': 'audio/wav' },
+                signal: controller.signal
+              });
+              clearTimeout(timeoutId);
+              this.logger.info(`[Voice Test] FunASR response received: ${resp.status} ${resp.statusText}`);
+
+              if (resp.ok) {
+                const data = await resp.json().catch(() => ({}));
+                this.logger.info('[Voice Test] FunASR recognition successful:', data);
+                results.push({
+                  model: 'funasr',
+                  success: true,
+                  accuracy: data.accuracy ?? 0.9,
+                  latency: Date.now() - fstart,
+                  text: data.text ?? data.result ?? data.transcript ?? '',
+                  confidence: data.confidence ?? 0.9,
+                  timestamp: Date.now()
+                });
+              } else {
+                const txt = await resp.text();
+                this.logger.error(`[Voice Test] FunASR API error: ${resp.status} ${resp.statusText}`);
+                results.push({
+                  model: 'funasr',
+                  success: false,
+                  accuracy: 0,
+                  latency: Date.now() - fstart,
+                  text: '',
+                  confidence: 0,
+                  error: `HTTP ${resp.status} ${resp.statusText}: ${txt}`,
+                  timestamp: Date.now()
+                });
+              }
+            } catch (fetchError: any) {
+              clearTimeout(timeoutId);
+              if (fetchError.name === 'AbortError') {
+                this.logger.error('[Voice Test] FunASR request timeout');
+                results.push({
+                  model: 'funasr',
+                  success: false,
+                  accuracy: 0,
+                  latency: 30000,
+                  text: '',
+                  confidence: 0,
+                  error: '请求超时（30秒）',
+                  timestamp: Date.now()
+                });
+              } else {
+                throw fetchError;
+              }
+            }
+          } else {
+            this.logger.warn('[Voice Test] FunASR API URL not configured');
             results.push({
               model: 'funasr',
-              success: true,
-              accuracy: data.accuracy ?? 0.9,
-              latency: Date.now() - fstart,
-              text: data.text ?? data.result ?? data.transcript ?? '',
-              confidence: data.confidence ?? 0.9,
+              success: false,
+              accuracy: 0,
+              latency: 0,
+              text: '',
+              confidence: 0,
+              error: '未配置 funasr.apiUrl',
               timestamp: Date.now()
             });
-          } else {
-            const txt = await resp.text();
-            results.push({
-              model: 'funasr', success: false, accuracy: 0, latency: Date.now() - start, text: '', confidence: 0, error: `HTTP ${resp.status} ${resp.statusText}: ${txt}`, timestamp: Date.now()
-            });
           }
-        } else {
-          results.push({ model: 'funasr', success: false, accuracy: 0, latency: 0, text: '', confidence: 0, error: '未配置 funasr.apiUrl', timestamp: Date.now() });
-        }
-      } catch (e: any) {
-        results.push({ model: 'funasr', success: false, accuracy: 0, latency: 0, text: '', confidence: 0, error: e?.message || String(e), timestamp: Date.now() });
-      }
-
-      return results;
-    });
-
-    // 语音识别测试
-    ipcMain.handle('voice-test-all-models', async (_, audioData: ArrayBuffer) => {
-      try {
-        // 这里需要实现语音识别测试逻辑
-        // 暂时返回模拟数据
-        return [
-          {
-            model: 'browser',
-            success: true,
-            accuracy: 0.85,
-            latency: 150,
-            text: '浏览器原生识别测试结果',
-            confidence: 0.85,
-            timestamp: Date.now()
-          },
-          {
-            model: 'whisper',
-            success: true,
-            accuracy: 0.92,
-            latency: 800,
-            text: 'Whisper 识别测试结果',
-            confidence: 0.92,
-            timestamp: Date.now()
-          },
-          {
+        } catch (e: any) {
+          this.logger.error('[Voice Test] FunASR test failed:', e);
+          results.push({
             model: 'funasr',
-            success: true,
-            accuracy: 0.88,
-            latency: 600,
-            text: 'FunASR 识别测试结果',
-            confidence: 0.88,
+            success: false,
+            accuracy: 0,
+            latency: 0,
+            text: '',
+            confidence: 0,
+            error: e?.message || String(e),
             timestamp: Date.now()
-          }
-        ];
-      } catch (error) {
-        this.logger.error('Voice recognition test failed:', error);
-        return [];
+          });
+        }
+
+        this.logger.info(`[Voice Test] All models tested, returning ${results.length} results`);
+        return results;
+
+      } catch (error: any) {
+        this.logger.error('[Voice Test] Voice recognition test failed with error:', error);
+        // 返回错误结果而不是抛出异常，避免崩溃
+        return [{
+          model: 'error',
+          success: false,
+          accuracy: 0,
+          latency: 0,
+          text: '',
+          confidence: 0,
+          error: error?.message || String(error),
+          timestamp: Date.now()
+        }];
       }
     });
 

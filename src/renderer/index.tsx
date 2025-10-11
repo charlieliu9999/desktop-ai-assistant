@@ -11,6 +11,7 @@ import VoiceWindow from './pages/VoiceWindow';
 import './index.css';
 import './App.css';
 import './styles/glass-effect.css';
+import './styles/chat-components.css';
 
 // 为全局 window 增加 electronAPI 可选类型，避免在浏览器预览环境下的类型报错
 declare global {

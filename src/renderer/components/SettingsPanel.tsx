@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Save, RefreshCw, Download, Upload, AlertCircle, CheckCircle, Settings, Volume2, Monitor, Activity, Search, Mic, TestTube, Bot } from 'lucide-react';
 import { useConfigStore } from '../stores/configStore';
+import { ThemeSettings } from './ThemeSettings';
 import { toast } from 'sonner';
 import ModelConfigPanel from './ModelConfigPanel';
 import { WebSearchSettings } from './WebSearchSettings';
 import { VoiceRecognitionTest } from './VoiceRecognitionTest';
 import { BishengStatusIndicator } from './BishengStatusIndicator';
 
-type SettingsSection = 'general' | 'voice' | 'ai' | 'aiImage' | 'aiRecommend' | 'oneClick' | 'desktop' | 'medical' | 'bisheng' | 'websearch' | 'advanced';
+type SettingsSection = 'general' | 'theme' | 'voice' | 'ai' | 'aiImage' | 'aiRecommend' | 'oneClick' | 'desktop' | 'medical' | 'bisheng' | 'websearch' | 'advanced';
 
 const SettingsPanel: React.FC = () => {
   const { config, updateConfig, resetConfig } = useConfigStore();
@@ -146,6 +147,7 @@ const SettingsPanel: React.FC = () => {
 
   const sections = [
     { id: 'general' as SettingsSection, name: '常规设置', icon: Settings },
+    { id: 'theme' as SettingsSection, name: '主题设置', icon: Activity },
     { id: 'voice' as SettingsSection, name: '语音设置', icon: Volume2 },
     { id: 'ai' as SettingsSection, name: 'AI 模型', icon: Activity },
     { id: 'aiImage' as SettingsSection, name: 'AI 图片', icon: Activity },
@@ -237,196 +239,6 @@ const SettingsPanel: React.FC = () => {
               </div>
             </div>
           </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">主题选择</label>
-            <select
-              value={config?.theme ?? 'auto'}
-              onChange={async (e) => {
-                const theme = e.target.value;
-                // 统一切换：主题 + 玻璃效果
-                const updates: any = { theme };
-                if (!updates.windows) updates.windows = { main: {} };
-                if (!updates.windows.main) updates.windows.main = {};
-                updates.windows.main.glassEffect = {
-                  ...(config?.windows?.main?.glassEffect ?? {}),
-                  enabled: theme === 'glass'
-                };
-                updateConfig(updates);
-                try {
-                  await window.electronAPI?.config.update?.(updates);
-                } catch (e) {
-                  console.warn('Failed to update config in main process:', e);
-                }
-                if (theme === 'glass') {
-                  toast.info('已切换为玻璃主题，建议重启应用以应用系统级毛玻璃效果');
-                }
-              }}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
-            >
-              <option value="glass">玻璃主题</option>
-              <option value="light">浅色主题</option>
-              <option value="dark">深色主题</option>
-              <option value="auto">跟随系统</option>
-            </select>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">统一控制主题、透明度与毛玻璃效果</p>
-          </div>
-
-          {((config?.theme === 'glass') || config?.windows?.main?.glassEffect?.enabled) && (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">玻璃不透明度</label>
-                <input
-                  type="range"
-                  min={0.05}
-                  max={0.95}
-                  step={0.05}
-                  value={config?.windows?.main?.glassEffect?.opacity ?? 0.15}
-                  onChange={(e) => handleConfigChange('windows.main.glassEffect.opacity', parseFloat(e.target.value))}
-                  className="w-full"
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">当前：{(config?.windows?.main?.glassEffect?.opacity ?? 0.15).toFixed(2)}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">模糊半径（px）</label>
-                <input
-                  type="range"
-                  min={0}
-                  max={80}
-                  step={1}
-                  value={config?.windows?.main?.glassEffect?.blur ?? 40}
-                  onChange={(e) => handleConfigChange('windows.main.glassEffect.blur', parseInt(e.target.value))}
-                  className="w-full"
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">当前：{config?.windows?.main?.glassEffect?.blur ?? 40}px</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">饱和度（%）</label>
-                <input
-                  type="range"
-                  min={50}
-                  max={300}
-                  step={10}
-                  value={config?.windows?.main?.glassEffect?.saturation ?? 200}
-                  onChange={(e) => handleConfigChange('windows.main.glassEffect.saturation', parseInt(e.target.value))}
-                  className="w-full"
-                />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">当前：{config?.windows?.main?.glassEffect?.saturation ?? 200}%</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">色彩遮罩</label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="color"
-                    value={config?.windows?.main?.glassEffect?.tintColor ?? '#ffffff'}
-                    onChange={(e) => handleConfigChange('windows.main.glassEffect.tintColor', e.target.value)}
-                    className="w-12 h-10 p-1 bg-transparent border border-gray-300 dark:border-gray-600 rounded"
-                  />
-                  <div className="flex-1">
-                    <input
-                      type="range"
-                      min={0}
-                      max={1}
-                      step={0.05}
-                      value={config?.windows?.main?.glassEffect?.tintOpacity ?? 0}
-                      onChange={(e) => handleConfigChange('windows.main.glassEffect.tintOpacity', parseFloat(e.target.value))}
-                      className="w-full"
-                    />
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">遮罩透明度：{(config?.windows?.main?.glassEffect?.tintOpacity ?? 0).toFixed(2)}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Floating window glass controls */}
-          {((config?.theme === 'glass') || config?.windows?.floating?.glassEffect?.enabled) && (
-            <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-4">
-              <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">浮动窗口玻璃效果</h4>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="col-span-1 md:col-span-4">
-                  <label className="inline-flex items-center space-x-2">
-                    <input
-                      type="checkbox"
-                      checked={!!config?.windows?.floating?.glassEffect?.enabled}
-                      onChange={(e) => handleConfigChange('windows.floating.glassEffect.enabled', e.target.checked)}
-                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                    />
-                    <span className="text-sm">启用浮动窗口玻璃效果</span>
-                  </label>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">不透明度</label>
-                  <input
-                    type="range"
-                    min={0.05}
-                    max={0.95}
-                    step={0.05}
-                    value={config?.windows?.floating?.glassEffect?.opacity ?? 0.18}
-                    onChange={(e) => handleConfigChange('windows.floating.glassEffect.opacity', parseFloat(e.target.value))}
-                    className="w-full"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">当前：{(config?.windows?.floating?.glassEffect?.opacity ?? 0.18).toFixed(2)}</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">模糊（px）</label>
-                  <input
-                    type="range"
-                    min={0}
-                    max={80}
-                    step={1}
-                    value={config?.windows?.floating?.glassEffect?.blur ?? 30}
-                    onChange={(e) => handleConfigChange('windows.floating.glassEffect.blur', parseInt(e.target.value))}
-                    className="w-full"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">当前：{config?.windows?.floating?.glassEffect?.blur ?? 30}px</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">饱和度（%）</label>
-                  <input
-                    type="range"
-                    min={50}
-                    max={300}
-                    step={10}
-                    value={config?.windows?.floating?.glassEffect?.saturation ?? 180}
-                    onChange={(e) => handleConfigChange('windows.floating.glassEffect.saturation', parseInt(e.target.value))}
-                    className="w-full"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">当前：{config?.windows?.floating?.glassEffect?.saturation ?? 180}%</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">色彩遮罩</label>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="color"
-                      value={config?.windows?.floating?.glassEffect?.tintColor ?? '#ffffff'}
-                      onChange={(e) => handleConfigChange('windows.floating.glassEffect.tintColor', e.target.value)}
-                      className="w-12 h-10 p-1 bg-transparent border border-gray-300 dark:border-gray-600 rounded"
-                    />
-                    <div className="flex-1">
-                      <input
-                        type="range"
-                        min={0}
-                        max={1}
-                        step={0.05}
-                        value={config?.windows?.floating?.glassEffect?.tintOpacity ?? 0}
-                        onChange={(e) => handleConfigChange('windows.floating.glassEffect.tintOpacity', parseFloat(e.target.value))}
-                        className="w-full"
-                      />
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">遮罩透明度：{(config?.windows?.floating?.glassEffect?.tintOpacity ?? 0).toFixed(2)}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">语言</label>
@@ -2000,6 +1812,8 @@ const SettingsPanel: React.FC = () => {
     switch (activeSection) {
       case 'general':
         return renderGeneralSettings();
+      case 'theme':
+        return <ThemeSettings />;
       case 'voice':
         return renderVoiceSettings();
       case 'ai':

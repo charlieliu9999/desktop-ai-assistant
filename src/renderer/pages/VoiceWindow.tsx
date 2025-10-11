@@ -136,19 +136,26 @@ const VoiceWindow: React.FC<VoiceWindowProps> = () => {
 
   // Web Speech API lifecycle
   const buildRecognition = () => {
-    const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) {
-      toast.error('当前环境不支持语音识别');
-      return null;
-    }
-    const rec = new SR();
-    const recLang = (config as any)?.voice?.recognition?.language || (config as any)?.voice?.language || 'zh-CN';
-    const recContinuous = !!((config as any)?.voice?.recognition?.continuous ?? (config as any)?.voice?.continuous);
-    const maxAlt = (config as any)?.voice?.recognition?.maxAlternatives ?? (config as any)?.voice?.maxAlternatives ?? 1;
-    rec.lang = recLang;
-    rec.continuous = recContinuous;
-    rec.interimResults = true;
-    rec.maxAlternatives = Math.min(3, Math.max(1, maxAlt));
+    try {
+      const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      if (!SR) {
+        console.warn('[Voice] SpeechRecognition API not available');
+        toast.error('当前环境不支持语音识别');
+        return null;
+      }
+
+      console.log('[Voice] Creating SpeechRecognition instance');
+      const rec = new SR();
+      const recLang = (config as any)?.voice?.recognition?.language || (config as any)?.voice?.language || 'zh-CN';
+      const recContinuous = !!((config as any)?.voice?.recognition?.continuous ?? (config as any)?.voice?.continuous);
+      const maxAlt = (config as any)?.voice?.recognition?.maxAlternatives ?? (config as any)?.voice?.maxAlternatives ?? 1;
+
+      rec.lang = recLang;
+      rec.continuous = recContinuous;
+      rec.interimResults = true;
+      rec.maxAlternatives = Math.min(3, Math.max(1, maxAlt));
+
+      console.log('[Voice] SpeechRecognition configured:', { lang: recLang, continuous: recContinuous, maxAlternatives: rec.maxAlternatives });
 
     rec.onstart = () => {
       setVoiceState(prev => ({ ...prev, isListening: true, transcript: '', confidence: 0 }));
@@ -176,15 +183,47 @@ const VoiceWindow: React.FC<VoiceWindowProps> = () => {
         if (finalText.trim()) processVoiceInput(finalText.trim());
       }
     };
-    rec.onerror = (e: any) => {
-      console.warn('Speech recognition error:', e?.error || e);
-      setVoiceState(prev => ({ ...prev, isListening: false }));
-      toast.error(`语音识别错误: ${e?.error || 'unknown'}`);
-    };
-    rec.onend = () => {
-      setVoiceState(prev => ({ ...prev, isListening: false }));
-    };
-    return rec;
+      rec.onerror = (e: any) => {
+        console.error('[Voice] Speech recognition error:', e?.error || e, e);
+        setVoiceState(prev => ({ ...prev, isListening: false }));
+
+        // 不同错误类型的处理
+        const errorType = e?.error || 'unknown';
+        if (errorType === 'no-speech') {
+          toast.warning('未检测到语音，请重试');
+        } else if (errorType === 'audio-capture') {
+          toast.error('无法访问麦克风，请检查权限');
+        } else if (errorType === 'not-allowed') {
+          toast.error('麦克风权限被拒绝');
+        } else if (errorType === 'network') {
+          toast.error('网络错误，请检查连接');
+        } else {
+          toast.error(`语音识别错误: ${errorType}`);
+        }
+
+        // 清理识别实例，避免状态混乱
+        try {
+          if (recognitionRef.current) {
+            recognitionRef.current.stop();
+            recognitionRef.current = null;
+          }
+        } catch (cleanupError) {
+          console.warn('[Voice] Error during recognition cleanup:', cleanupError);
+        }
+      };
+
+      rec.onend = () => {
+        console.log('[Voice] Speech recognition ended');
+        setVoiceState(prev => ({ ...prev, isListening: false }));
+      };
+
+      return rec;
+
+    } catch (error) {
+      console.error('[Voice] Failed to build SpeechRecognition:', error);
+      toast.error('创建语音识别失败');
+      return null;
+    }
   };
 
   // Handle keyboard shortcuts
@@ -205,28 +244,77 @@ const VoiceWindow: React.FC<VoiceWindowProps> = () => {
       toast.error('语音功能未启用');
       return;
     }
+
     try {
-      // small permission nudge so mic indicator shows, improves UX
-      try { await navigator.mediaDevices.getUserMedia({ audio: true }); } catch {}
+      console.log('[Voice] Starting voice recognition...');
+
+      // 请求麦克风权限
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        console.log('[Voice] Microphone permission granted');
+        // 立即停止流，我们只是需要权限
+        stream.getTracks().forEach(track => track.stop());
+      } catch (permError) {
+        console.error('[Voice] Microphone permission denied:', permError);
+        toast.error('无法访问麦克风，请检查权限');
+        return;
+      }
+
+      // 创建或重用识别实例
       if (!recognitionRef.current) {
+        console.log('[Voice] Building new recognition instance');
         recognitionRef.current = buildRecognition();
       }
-      if (!recognitionRef.current) return;
+
+      if (!recognitionRef.current) {
+        console.error('[Voice] Failed to create recognition instance');
+        return;
+      }
+
+      // 启动识别
+      console.log('[Voice] Starting recognition...');
       recognitionRef.current.start();
-    } catch (error) {
-      console.error('Failed to start voice recognition:', error);
-      toast.error('无法启动语音识别');
+      console.log('[Voice] Recognition started successfully');
+
+    } catch (error: any) {
+      console.error('[Voice] Failed to start voice recognition:', error);
+
+      // 详细的错误处理
+      if (error.name === 'InvalidStateError') {
+        console.warn('[Voice] Recognition already started, stopping and restarting...');
+        try {
+          if (recognitionRef.current) {
+            recognitionRef.current.stop();
+            recognitionRef.current = null;
+          }
+          // 短暂延迟后重试
+          setTimeout(() => startListening(), 100);
+        } catch (retryError) {
+          console.error('[Voice] Retry failed:', retryError);
+          toast.error('语音识别启动失败，请重试');
+        }
+      } else {
+        toast.error(`无法启动语音识别: ${error.message || '未知错误'}`);
+      }
     }
   };
 
   // Stop voice recognition
   const stopListening = async () => {
     try {
+      console.log('[Voice] Stopping voice recognition...');
       const rec = recognitionRef.current;
-      if (rec) rec.stop();
+      if (rec) {
+        rec.stop();
+        console.log('[Voice] Recognition stopped');
+      } else {
+        console.warn('[Voice] No recognition instance to stop');
+      }
       setVoiceState(prev => ({ ...prev, isListening: false }));
     } catch (error) {
-      console.error('Failed to stop voice recognition:', error);
+      console.error('[Voice] Failed to stop voice recognition:', error);
+      // 即使停止失败，也要重置状态
+      setVoiceState(prev => ({ ...prev, isListening: false }));
     }
   };
 

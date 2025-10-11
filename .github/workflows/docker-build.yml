@@ -1,0 +1,43 @@
+name: Docker Build
+
+on:
+  push:
+    branches: [ main, feature/backend-refactor ]
+    paths:
+      - 'backend-service/**'
+      - '.github/workflows/docker-build.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'backend-service/**'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build Docker image
+      working-directory: backend-service
+      run: |
+        docker build -t medical-ai-backend:test .
+    
+    - name: Test Docker image
+      run: |
+        docker run --rm medical-ai-backend:test python --version
+        docker run --rm medical-ai-backend:test pip list
+    
+    - name: Build with Docker Compose
+      working-directory: backend-service
+      run: |
+        docker-compose -f docker-compose.dev.yml build
+    
+    - name: Verify Docker Compose services
+      working-directory: backend-service
+      run: |
+        docker-compose -f docker-compose.dev.yml config
+

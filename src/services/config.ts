@@ -57,27 +57,6 @@ const DEFAULT_CONFIG: AppConfig = {
   },
   voice: {
     enabled: true,
-    language: 'zh-CN',
-    continuous: false,
-    interimResults: true,
-    maxAlternatives: 1,
-    hotwordEnabled: true,
-    hotwords: ['小助手', 'AI助手'],
-    sensitivity: 0.5,
-    noiseReduction: true,
-    echoCancellation: true,
-    autoGainControl: true,
-    sampleRate: 16000,
-    channels: 1,
-    voiceActivityDetection: true,
-    silenceTimeout: 3000,
-    speechTimeout: 10000,
-    ttsEnabled: true,
-    ttsVoice: 'default',
-    ttsRate: 1.0,
-    ttsPitch: 1.0,
-    ttsVolume: 0.8,
-    // 新增识别配置块，支持 Browser/Whisper/FunASR
     recognition: {
       enabled: true,
       model: 'browser',
@@ -103,6 +82,10 @@ const DEFAULT_CONFIG: AppConfig = {
         language: 'zh',
         apiUrl: '',
         apiKey: '',
+        temperature: 0.0,
+        beamSize: 5,
+        bestOf: 5,
+        patience: 1.0,
         lengthPenalty: 1.0,
         suppressTokens: '',
         initialPrompt: '',
@@ -129,6 +112,13 @@ const DEFAULT_CONFIG: AppConfig = {
         apiUrl: '',
         apiKey: ''
       }
+    },
+    synthesis: {
+      enabled: true,
+      voice: 'zh-CN-XiaoxiaoNeural',
+      rate: 1.0,
+      pitch: 1.0,
+      volume: 0.8
     }
   },
   ai: {

@@ -399,28 +399,58 @@ export const VoiceRecognitionTest: React.FC<VoiceRecognitionTestProps> = ({ onTe
     setError('');
 
     try {
+      console.log('[VoiceTest] Starting test for all models');
+      console.log('[VoiceTest] Audio data size:', audioData.byteLength, 'bytes');
+
+      // 验证音频数据
+      if (!audioData || audioData.byteLength === 0) {
+        throw new Error('音频数据为空');
+      }
+
+      if (audioData.byteLength < 1024) {
+        throw new Error('音频数据太小，可能无效');
+      }
+
       // 转换为 WAV 提高通用性
       let payload = audioData;
       try {
+        console.log('[VoiceTest] Converting to WAV format...');
         const { convertToWav } = await import('../../utils/audio-utils');
         payload = await convertToWav(audioData);
+        console.log('[VoiceTest] WAV conversion successful, size:', payload.byteLength, 'bytes');
       } catch (e) {
-        console.warn('WAV conversion failed, sending original data');
+        console.warn('[VoiceTest] WAV conversion failed, using original data:', e);
+      }
+
+      // 检查 electronAPI 是否可用
+      if (!(window as any).electronAPI?.voice?.testAllModels) {
+        throw new Error('语音测试API不可用，请检查应用配置');
       }
 
       // 调用主进程进行测试
-      const results = await (window as any).electronAPI?.voice?.testAllModels?.(payload);
-      
+      console.log('[VoiceTest] Calling main process testAllModels...');
+      const results = await (window as any).electronAPI.voice.testAllModels(payload);
+      console.log('[VoiceTest] Received results:', results);
+
       if (results) {
         setTestResults(results);
         onTestComplete(results);
+        console.log('[VoiceTest] Test completed successfully');
       } else {
         throw new Error('测试失败：无法获取结果');
       }
-    } catch (err) {
-      setError(`测试失败: ${err instanceof Error ? err.message : '未知错误'}`);
+    } catch (err: any) {
+      console.error('[VoiceTest] Test failed:', err);
+      const errorMessage = err instanceof Error ? err.message : '未知错误';
+      setError(`测试失败: ${errorMessage}`);
+
+      // 如果是崩溃相关的错误，提供更多信息
+      if (errorMessage.includes('crash') || errorMessage.includes('崩溃')) {
+        setError(`测试失败: 应用崩溃。请检查控制台日志获取详细信息。`);
+      }
     } finally {
       setIsTesting(false);
+      console.log('[VoiceTest] Test process finished');
     }
   };
 

@@ -114,23 +114,23 @@ const AgentService: React.FC = () => {
   // 登录表单
   if (showLoginForm && !isAuthenticated) {
     return (
-      <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-gray-900 p-8">
+      <div className="flex items-center justify-center h-full bg-[rgb(var(--background))] p-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full mb-4">
-              <Bot className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-[rgb(var(--primary)_/_0.1)] rounded-full mb-4">
+              <Bot className="w-8 h-8 text-[rgb(var(--primary))]" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+            <h2 className="text-2xl font-bold text-[rgb(var(--foreground))] mb-2">
               登录 Bisheng 智能体平台
             </h2>
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-[rgb(var(--muted-foreground))]">
               请使用您的 Bisheng 账号登录
             </p>
           </div>
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[rgb(var(--foreground))] mb-2">
                 用户名
               </label>
               <input
@@ -138,13 +138,13 @@ const AgentService: React.FC = () => {
                 value={loginForm.username}
                 onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
                 placeholder="请输入用户名或邮箱"
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                className="w-full px-4 py-3 border border-[rgb(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgb(var(--primary))] bg-[rgb(var(--input))] text-[rgb(var(--foreground))]"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[rgb(var(--foreground))] mb-2">
                 密码
               </label>
               <input
@@ -152,7 +152,7 @@ const AgentService: React.FC = () => {
                 value={loginForm.password}
                 onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
                 placeholder="请输入密码"
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-gray-100"
+                className="w-full px-4 py-3 border border-[rgb(var(--border))] rounded-lg focus:outline-none focus:ring-2 focus:ring-[rgb(var(--primary))] bg-[rgb(var(--input))] text-[rgb(var(--foreground))]"
                 required
               />
             </div>
@@ -160,7 +160,7 @@ const AgentService: React.FC = () => {
             <button
               type="submit"
               disabled={isLoggingIn}
-              className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 text-white font-medium rounded-lg transition-colors disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              className="w-full py-3 bg-[rgb(var(--primary))] hover:opacity-90 disabled:opacity-50 text-white font-medium rounded-lg transition-all disabled:cursor-not-allowed flex items-center justify-center space-x-2"
             >
               {isLoggingIn ? (
                 <>
@@ -177,12 +177,13 @@ const AgentService: React.FC = () => {
           </form>
 
           <div className="mt-6 text-center">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-[rgb(var(--muted-foreground))]">
               服务地址: {config?.baseUrl || '未配置'}
             </p>
             <button
+              type="button"
               onClick={() => window.electronAPI?.window?.showSettings?.()}
-              className="text-xs text-blue-600 dark:text-blue-400 hover:underline mt-2"
+              className="text-xs text-[rgb(var(--primary))] hover:underline mt-2"
             >
               前往设置配置服务
             </button>
@@ -195,18 +196,19 @@ const AgentService: React.FC = () => {
   // 未配置
   if (!config || !config.enabled) {
     return (
-      <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-gray-900 p-8">
+      <div className="flex items-center justify-center h-full bg-[rgb(var(--background))] p-8">
         <div className="max-w-md text-center">
-          <AlertCircle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
+          <AlertCircle className="w-16 h-16 text-[rgb(var(--warning))] mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-[rgb(var(--foreground))] mb-2">
             Bisheng 服务未配置
           </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+          <p className="text-sm text-[rgb(var(--muted-foreground))] mb-6">
             请先在设置中配置 Bisheng 智能体平台的连接信息
           </p>
           <button
+            type="button"
             onClick={() => window.electronAPI?.window?.showSettings?.()}
-            className="inline-flex items-center space-x-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+            className="inline-flex items-center space-x-2 px-6 py-3 bg-[rgb(var(--primary))] hover:opacity-90 text-white rounded-lg transition-all"
           >
             <Settings className="w-5 h-5" />
             <span>前往设置</span>
@@ -218,7 +220,7 @@ const AgentService: React.FC = () => {
 
   // 主界面 - 三栏布局
   return (
-    <div className="flex h-full bg-white dark:bg-gray-900">
+    <div className="flex h-full bg-[rgb(var(--background))]">
       {/* 左侧：智能体列表 */}
       <AgentList
         onSelectAgent={handleSelectAgent}
@@ -238,14 +240,14 @@ const AgentService: React.FC = () => {
         ) : (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <Bot className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+              <Bot className="w-16 h-16 text-[rgb(var(--muted-foreground)_/_0.3)] mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-[rgb(var(--foreground))] mb-2">
                 选择一个智能体开始对话
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm text-[rgb(var(--muted-foreground))]">
                 从左侧列表中选择一个智能体
               </p>
-              <div className="mt-4 text-xs text-gray-400 dark:text-gray-500">
+              <div className="mt-4 text-xs text-[rgb(var(--muted-foreground))]">
                 当前模式: {config.mode === 'iframe' ? 'iframe 嵌入' : 'API 调用'}
               </div>
             </div>
