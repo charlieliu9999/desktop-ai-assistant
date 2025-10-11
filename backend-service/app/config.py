@@ -3,7 +3,7 @@
 """
 from pydantic_settings import BaseSettings
 from typing import List, Dict, Any
-from pydantic import Field
+from pydantic import Field, ConfigDict
 
 
 class ModelConfig(BaseSettings):
@@ -20,6 +20,14 @@ class ModelConfig(BaseSettings):
 
 class Settings(BaseSettings):
     """应用配置"""
+
+    # Pydantic v2 配置：允许额外字段（用于 .env 中未在此定义的配置项）
+    model_config = ConfigDict(
+        extra='allow',  # 允许额外字段
+        protected_namespaces=(),  # 允许 model_ 前缀
+        env_file='.env',  # 从 .env 文件加载
+        case_sensitive=True  # 区分大小写
+    )
 
     # 应用基础配置
     APP_NAME: str = "AI医疗助手后端服务"
@@ -106,10 +114,6 @@ class Settings(BaseSettings):
     # 日志配置
     LOG_LEVEL: str = "INFO"
     LOG_FILE: str = "logs/app.log"
-
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
 
     def get_model_config(self, scenario: str) -> Dict[str, Any]:
         """获取指定场景的模型配置"""
