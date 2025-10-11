@@ -19,6 +19,10 @@ release/
 .env.test.local
 .env.production.local
 
+# 允许提交环境配置模板（不包含敏感信息）
+!.env.development
+!.env.production
+
 # IDE and editor files
 .vscode/
 .idea/

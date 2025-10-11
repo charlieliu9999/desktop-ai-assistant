@@ -3,7 +3,21 @@
  * 封装所有后端 API 调用
  */
 
-const API_BASE_URL = 'http://127.0.0.1:8010/api';
+/**
+ * 获取 API 基础 URL
+ * 优先级：环境变量 > 默认值
+ */
+function getAPIBaseURL(): string {
+  // 优先级1: Vite 环境变量
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+
+  // 优先级2: 默认值
+  return 'http://127.0.0.1:8010/api';
+}
+
+const API_BASE_URL = getAPIBaseURL();
 
 /**
  * 模型配置相关类型
