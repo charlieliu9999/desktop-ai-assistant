@@ -5,11 +5,13 @@ import { ConfigService } from '../services/config';
 import { WindowManager } from './window-manager';
 import { VoiceService } from '../services/legacy/voice';
 import { AIService } from '../services/legacy/ai';
+import { AIServiceAdapter, setBackendApiOrigin } from '../services/adapters/ai-adapter';
 import { MedicalIntegrationService } from '../services/legacy/medical-integration';
 import { DesktopRecognitionService } from '../services/legacy/desktop-recognition';
 import { ShortcutService } from '../services/shortcut';
 import { ScreenshotService } from '../services/legacy/screenshot';
 import { BishengService } from '../services/legacy/bisheng';
+import { AgentServiceAdapter } from '../services/adapters/agent-adapter';
 import { ServiceHealthChecker } from '../services/service-health-checker';
 import type {
   AppConfig,
@@ -27,12 +29,14 @@ class DesktopAIAssistant {
   private configService: ConfigService;
   private windowManager: WindowManager;
   private voiceService: VoiceService;
-  private aiService: AIService;
+  private aiService: AIService; // legacy
+  private aiAdapter: AIServiceAdapter | null = null; // backend route
   private medicalService: MedicalIntegrationService;
   private desktopRecognitionService: DesktopRecognitionService;
   private shortcutService: ShortcutService;
   private screenshotService: ScreenshotService;
   private bishengService: BishengService | null = null;
+  private agentAdapter: AgentServiceAdapter | null = null;
   private tray: Tray | null = null;
   private isQuitting = false;
   private isInitialized = false;
@@ -68,7 +72,18 @@ class DesktopAIAssistant {
       await this.configService.initialize();
       
       // 获取配置
-      const config = await this.configService.getConfig();
+      let config = await this.configService.getConfig();
+      // 从环境变量覆盖路由模式（可选），便于脚本启动时指定
+      const envRouting = (process.env.APP_ROUTING_MODE || '').toLowerCase();
+      if (envRouting === 'backend' || envRouting === 'frontend') {
+        try {
+          await this.configService.updateConfig({ ai: { routingMode: envRouting as any } } as any);
+          config = await this.configService.getConfig();
+          this.logger.info(`Applied routing mode from env: ${envRouting}`);
+        } catch (e) {
+          this.logger.warn('Failed to apply APP_ROUTING_MODE from env:', e);
+        }
+      }
       this.logger.info('Retrieved config:', { 
         hasVoice: !!config.voice, 
         voiceEnabled: config.voice?.enabled,
@@ -93,9 +108,17 @@ class DesktopAIAssistant {
       
       this.voiceService = new VoiceService(config.voice as VoiceConfig, this.logger);
       
-      // 初始化AI服务
+      // 初始化AI服务（同时准备后端适配器，按 routingMode 切换）
       this.aiService = new AIService(config.ai as AIConfig, this.logger);
       await this.aiService.initialize();
+      // 计算后端基址 origin，并传给适配器
+      try {
+        const apiBase = (config?.medical?.apiUrl || 'http://127.0.0.1:8010/api');
+        const u = new URL(apiBase);
+        setBackendApiOrigin(u.origin);
+      } catch {}
+      this.aiAdapter = new AIServiceAdapter(config.ai as AIConfig, this.logger);
+      try { await this.aiAdapter.initialize(); } catch {}
       
       // 初始化医疗集成服务
       this.medicalService = new MedicalIntegrationService(config.medical as MedicalConfig, this.logger);
@@ -127,6 +150,24 @@ class DesktopAIAssistant {
         await this.bishengService.initialize();
       } else {
         this.logger.info('Bisheng service created but not enabled');
+      }
+
+      // 初始化后端智能体适配器（统一代理 /v1/agent），使用配置中的后端基址 origin
+      try {
+        const cfg = await this.configService.getConfig();
+        const apiBase = (cfg?.medical?.apiUrl || 'http://127.0.0.1:8010/api');
+        let origin = 'http://127.0.0.1:8010';
+        try { const u = new URL(apiBase); origin = u.origin; } catch {}
+        this.agentAdapter = new AgentServiceAdapter(origin);
+        try {
+          const health = await this.agentAdapter.healthCheck();
+          this.logger.info('Agent backend initialized, health:', health?.success);
+        } catch (e) {
+          this.logger.warn('Agent backend health check failed:', e as any);
+        }
+      } catch (e) {
+        this.logger.warn('Failed to initialize AgentServiceAdapter:', e as any);
+        this.agentAdapter = null;
       }
       
       // 注册开发者工具快捷键（仅开发模式）
@@ -472,70 +513,148 @@ class DesktopAIAssistant {
 
     // AI服务控制
     ipcMain.handle('ai-process-message', async (_, message: string) => {
-      const aiMessage = {
-        role: 'user' as const,
-        content: message,
-        timestamp: Date.now()
-      };
-      // 使用当前配置中的系统提示词，提升对话质量
-      let sysPrompt: string | undefined = undefined;
-      try {
-        const cfg = await this.configService.getConfig();
-        sysPrompt = cfg?.ai?.systemPrompt || undefined;
-      } catch {}
-      const response = await this.aiService.processMessage(aiMessage, sysPrompt ? { systemPrompt: sysPrompt } : { });
-      return response.content;
+      // 读取路由模式
+      const cfg = await this.configService.getConfig();
+      const routing = cfg?.ai?.routingMode || 'frontend';
+      const sysPrompt = cfg?.ai?.systemPrompt || undefined;
+
+      if (routing === 'backend' && this.aiAdapter) {
+        // 后端模式：通过适配器转发到后端（适配器会自动注入 systemPrompt）
+        const content = await this.aiAdapter.processMessage(message, undefined);
+        return content;
+      } else {
+        // 前端直连（legacy）
+        const aiMessage = { role: 'user' as const, content: message, timestamp: Date.now() };
+        const response = await this.aiService.processMessage(aiMessage, sysPrompt ? { systemPrompt: sysPrompt } : { });
+        return response.content;
+      }
     });
 
     // AI服务控制（含工具调用，非流式）
     ipcMain.handle('ai-process-with-tools', async (_, message: string) => {
-      const aiMessage = {
-        role: 'user' as const,
-        content: message,
-        timestamp: Date.now()
-      };
-      let sysPrompt: string | undefined = undefined;
+      const cfg = await this.configService.getConfig();
+      const routing = cfg?.ai?.routingMode || 'frontend';
+      const sysPrompt = cfg?.ai?.systemPrompt || undefined;
+
+      // 前端直连：使用 legacy 内置工具调用（支持 web_search）
+      if (routing !== 'backend') {
+        const aiMessage = { role: 'user' as const, content: message, timestamp: Date.now() };
+        const response = await this.aiService.processMessageWithTools(aiMessage, sysPrompt ? { systemPrompt: sysPrompt } : {});
+        return response.content;
+      }
+
+      // 后端路由：后端当前未内置工具调用，这里编排“生成查询 → 后端搜索 → 汇总回答”的混合流程
+      if (!this.aiAdapter) {
+        // 后备：无适配器则退化为普通对话
+        return await this.aiService.processMessage({ role: 'user', content: message, timestamp: Date.now() } as any).then(r => r.content);
+      }
+
+      // 计算后端基址 origin
+      const origin = (() => {
+        try {
+          const apiBase = (cfg?.medical?.apiUrl || 'http://127.0.0.1:8010/api');
+          const u = new URL(apiBase);
+          return u.origin;
+        } catch {
+          return 'http://127.0.0.1:8010';
+        }
+      })();
+
+      // 1) 让后端模型生成一个简洁的搜索查询词（JSON输出）
+      let searchQuery = '';
       try {
-        const cfg = await this.configService.getConfig();
-        sysPrompt = cfg?.ai?.systemPrompt || undefined;
-      } catch {}
-      const response = await this.aiService.processMessageWithTools(aiMessage, sysPrompt ? { systemPrompt: sysPrompt } : {});
-      return response.content;
+        const queryPrompt = [
+          '你将收到一条用户消息。请为网络搜索生成一个尽量简短且有效的查询词（不超过15个字/10个英文单词）。',
+          '只输出JSON，格式如：{"query":"..."}，不要输出其它任何文字。',
+          '若无需搜索，请将 query 设置为原问题的核心关键词。'
+        ].join('\n');
+        const ask = `${queryPrompt}\n\n用户消息：\n${message}`;
+        const queryJson = await this.aiAdapter.processMessage(ask, undefined);
+        try {
+          const parsed = JSON.parse((queryJson || '').trim());
+          if (parsed && typeof parsed.query === 'string' && parsed.query.trim()) {
+            searchQuery = parsed.query.trim();
+          }
+        } catch {
+          // 粗略提取：去掉换行，截断
+          searchQuery = (queryJson || message || '').replace(/\s+/g, ' ').slice(0, 50);
+        }
+      } catch (e) {
+        this.logger.warn('Generate search query failed, fallback to raw message');
+        searchQuery = (message || '').slice(0, 50);
+      }
+      if (!searchQuery) searchQuery = (message || '').slice(0, 50);
+
+      // 2) 调用后端搜索接口（支持 duckduckgo / serpapi）
+      const provider = (cfg?.ai as any)?.webSearch?.provider || 'duckduckgo';
+      const maxResults = (cfg?.ai as any)?.webSearch?.maxResults || 5;
+      let results: Array<{ title: string; url: string; snippet: string } > = [];
+      try {
+        const r = await fetch(`${origin}/v1/tools/search?q=${encodeURIComponent(searchQuery)}&provider=${encodeURIComponent(provider)}&max_results=${encodeURIComponent(String(maxResults))}`);
+        const data = await r.json();
+        if (data?.success) {
+          results = (data?.data?.results || []) as typeof results;
+        } else {
+          this.logger.warn('Backend web search failed:', data?.error || 'unknown');
+        }
+      } catch (e) {
+        this.logger.warn('Call backend tools/search failed:', e as any);
+      }
+
+      // 3) 将检索结果注入上下文，请求后端模型生成最终回答
+      if (!Array.isArray(results) || results.length === 0) {
+        // 无检索结果：直接生成普通回答
+        return await this.aiAdapter.processMessage(message, undefined);
+      }
+
+      const contextLines = results.map((it, idx) => `【${idx + 1}】${it.title} \n${it.url}\n${(it.snippet || '').slice(0, 280)}`).join('\n\n');
+      const finalPrompt = [
+        sysPrompt ? `系统说明：${sysPrompt}` : '',
+        '请基于以下最新网络检索结果，回答用户问题：',
+        contextLines,
+        '要求：',
+        '- 明确标注依据（可在文末用(见条目#编号)引用）',
+        '- 中文输出；如无法从检索结果得到答案，请说明原因并给出建议',
+        `用户问题：${message}`
+      ].filter(Boolean).join('\n\n');
+
+      const content = await this.aiAdapter.processMessage(finalPrompt, undefined);
+      return content;
     });
 
     // AI服务控制（流式）
     ipcMain.handle('ai-process-message-stream', async (event, message: string) => {
-      const aiMessage = {
-        role: 'user' as const,
-        content: message,
-        timestamp: Date.now()
-      };
-      
-      // 使用当前配置中的系统提示词
-      let sysPrompt: string | undefined = undefined;
-      try {
-        const cfg = await this.configService.getConfig();
-        sysPrompt = cfg?.ai?.systemPrompt || undefined;
-      } catch {}
+      // 使用当前配置
+      const cfg = await this.configService.getConfig();
+      const routing = cfg?.ai?.routingMode || 'frontend';
+      const sysPrompt = cfg?.ai?.systemPrompt || undefined;
 
-      // 定义chunk回调函数
-      const onChunk = (chunk: string) => {
-        // 发送流式数据块到渲染进程
+      // 定义chunk回调函数（legacy）
+      const onChunkLegacy = (chunk: string) => {
         event.sender.send('ai-stream-chunk', chunk);
       };
 
       try {
-        const response = await this.aiService.processMessageStream(
-          aiMessage,
-          onChunk,
-          sysPrompt ? { systemPrompt: sysPrompt } : {}
-        );
-        
-        // 发送完成信号
-        event.sender.send('ai-stream-end', { success: true, content: response.content });
-        return { success: true, content: response.content };
+        if (routing === 'backend' && this.aiAdapter) {
+          // 后端流式：转发SSE
+          let full = '';
+          for await (const chunk of this.aiAdapter.chatStream(message, undefined)) {
+            full += chunk;
+            event.sender.send('ai-stream-chunk', chunk);
+          }
+          event.sender.send('ai-stream-end', { success: true, content: full });
+          return { success: true, content: full };
+        } else {
+          const aiMessage = { role: 'user' as const, content: message, timestamp: Date.now() };
+          const response = await this.aiService.processMessageStream(
+            aiMessage,
+            onChunkLegacy,
+            sysPrompt ? { systemPrompt: sysPrompt } : {}
+          );
+          event.sender.send('ai-stream-end', { success: true, content: response.content });
+          return { success: true, content: response.content };
+        }
       } catch (error: any) {
-        // 发送错误信号
         event.sender.send('ai-stream-end', { success: false, error: error.message });
         throw error;
       }
@@ -612,7 +731,26 @@ class DesktopAIAssistant {
       try {
         if (updates.ai) {
           await this.aiService.updateConfig(updates.ai as Partial<AIConfig>);
+          try { this.aiAdapter?.updateConfig(updates.ai as Partial<AIConfig>); } catch {}
           this.logger.info('AI service config updated');
+        }
+        // 若医疗后端基址发生变化，更新适配器基址
+        const candidateApiBase =
+          (updates.ai && (updates.ai as any).backendBaseUrl) ||
+          (next.ai && (next.ai as any).backendBaseUrl) ||
+          (updates.medical && (updates.medical as any).apiUrl) ||
+          next.medical?.apiUrl ||
+          process.env.APP_BACKEND_URL ||
+          'http://127.0.0.1:8010/api';
+        try {
+          const parsed = new URL(candidateApiBase);
+          setBackendApiOrigin(parsed.origin);
+          this.logger.info('AI backend origin updated', { origin: parsed.origin });
+        } catch (e) {
+          this.logger.warn('Failed to update AI backend origin from config', {
+            candidateApiBase,
+            error: (e as Error).message,
+          });
         }
         if (updates.voice) {
           await this.voiceService.updateConfig(updates.voice as Partial<VoiceConfig>);
@@ -677,16 +815,30 @@ class DesktopAIAssistant {
 
     // Bisheng 智能体服务控制
     ipcMain.handle('bisheng-login', async (_, username: string, password: string) => {
-      if (!this.bishengService) {
-        throw new Error('Bisheng service not initialized');
+      // 优先使用后端 /v1/agent 登录
+      if (this.agentAdapter) {
+        try {
+          return await this.agentAdapter.login(username, password);
+        } catch (e) {
+          this.logger.warn('Agent backend login failed, fallback to legacy:', e as any);
+        }
       }
+      if (!this.bishengService) throw new Error('Bisheng service not initialized');
       return await this.bishengService.login(username, password);
     });
 
     ipcMain.handle('bisheng-get-workflows', async (_, pageSize?: number, pageNum?: number) => {
-      if (!this.bishengService) {
-        throw new Error('Bisheng service not initialized');
+      // 优先走后端 /v1/agent/workflows
+      const cfg = await this.configService.getConfig();
+      const token = cfg?.bisheng?.accessToken || '';
+      if (this.agentAdapter && token) {
+        try {
+          return await this.agentAdapter.getWorkflows(token, pageSize || 50, pageNum || 1);
+        } catch (e) {
+          this.logger.warn('Agent backend getWorkflows failed, fallback:', e as any);
+        }
       }
+      if (!this.bishengService) throw new Error('Bisheng service not initialized');
       return await this.bishengService.getWorkflows(pageSize, pageNum);
     });
 
@@ -703,10 +855,6 @@ class DesktopAIAssistant {
       messageId?: string,
       inputNodeId?: string
     ) => {
-      if (!this.bishengService) {
-        throw new Error('Bisheng service not initialized');
-      }
-
       // 生成唯一的流 ID
       const streamId = `bisheng-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
       const webContents = event.sender;
@@ -719,12 +867,32 @@ class DesktopAIAssistant {
         hasInputNodeId: !!inputNodeId
       });
 
-      // 立即返回 streamId，然后在后台处理流
-      // 这样渲染进程可以先注册事件监听器
+      // 立即返回 streamId，然后在后台处理流（渲染侧先注册监听器）
       setImmediate(async () => {
         try {
-          // 调用 Bisheng API 获取流
-          const responseStream = await this.bishengService!.invokeWorkflow(
+          const cfg = await this.configService.getConfig();
+          const token = cfg?.bisheng?.accessToken || '';
+          if (this.agentAdapter && token) {
+            // /v1/agent 后端转发
+            webContents.send('bisheng-stream-start', { streamId, workflowId });
+            await this.agentAdapter.invokeWorkflow(
+              { workflow_id: workflowId, input, stream: stream !== false, session_id: sessionId, message_id: messageId, input_node_id: inputNodeId },
+              token,
+              (data: any) => {
+                try {
+                  const json = JSON.stringify(data);
+                  const chunk = `data: ${json}\n`;
+                  webContents.send('bisheng-stream-chunk', { streamId, chunk });
+                } catch {}
+              }
+            );
+            webContents.send('bisheng-stream-end', { streamId, success: true });
+            return;
+          }
+
+          // 回退到 legacy 直连 Bisheng
+          if (!this.bishengService) throw new Error('Bisheng service not initialized');
+          const responseStream = await this.bishengService.invokeWorkflow(
             workflowId,
             input,
             stream,
@@ -733,31 +901,15 @@ class DesktopAIAssistant {
             inputNodeId
           );
 
-          this.logger.info('Workflow invoked successfully, returning stream');
-
-          // 发送流开始事件
           webContents.send('bisheng-stream-start', { streamId, workflowId });
-
-          // 读取流并转发到渲染进程
           const reader = responseStream.getReader();
           const decoder = new TextDecoder();
-
           while (true) {
             const { done, value } = await reader.read();
-
-            if (done) {
-              this.logger.info('Stream reading completed', { streamId });
-              break;
-            }
-
-            // 解码并发送 chunk
+            if (done) break;
             const chunkText = decoder.decode(value, { stream: true });
-            if (chunkText) {
-              webContents.send('bisheng-stream-chunk', { streamId, chunk: chunkText });
-            }
+            if (chunkText) webContents.send('bisheng-stream-chunk', { streamId, chunk: chunkText });
           }
-
-          // 发送流结束事件
           webContents.send('bisheng-stream-end', { streamId, success: true });
 
         } catch (error) {
@@ -785,26 +937,40 @@ class DesktopAIAssistant {
       workflowId: string,
       sessionId: string
     ) => {
-      if (!this.bishengService) {
-        throw new Error('Bisheng service not initialized');
-      }
-
       this.logger.info('IPC: bisheng-stop-workflow', { workflowId, sessionId });
-
+      // 优先使用后端 /v1/agent 停止
+      try {
+        const cfg = await this.configService.getConfig();
+        const token = cfg?.bisheng?.accessToken || '';
+        if (this.agentAdapter && token) {
+          const ok = await this.agentAdapter.stopWorkflow(workflowId, sessionId, token);
+          if (ok) return { success: true };
+        }
+      } catch (e) {
+        this.logger.warn('Agent backend stopWorkflow failed, fallback to legacy:', e as any);
+      }
+      if (!this.bishengService) throw new Error('Bisheng service not initialized');
       try {
         await this.bishengService.stopWorkflow(workflowId, sessionId);
         this.logger.info('Workflow stopped successfully', { workflowId, sessionId });
+        return { success: true };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         this.logger.error('Error stopping workflow', { workflowId, sessionId, error: errorMessage });
-        throw error;
+        return { success: false, error: errorMessage };
       }
     });
 
-    ipcMain.handle('bisheng-get-config', () => {
-      if (!this.bishengService) {
-        return null;
+    ipcMain.handle('bisheng-get-config', async () => {
+      // 优先从后端读取当前配置/状态
+      if (this.agentAdapter) {
+        try {
+          return await this.agentAdapter.getConfig();
+        } catch (e) {
+          this.logger.warn('Agent backend getConfig failed, fallback to legacy:', e as any);
+        }
       }
+      if (!this.bishengService) return null;
       return this.bishengService.getConfig();
     });
 
@@ -822,10 +988,17 @@ class DesktopAIAssistant {
       return true;
     });
 
-    ipcMain.handle('bisheng-is-authenticated', () => {
-      if (!this.bishengService) {
-        return false;
+    ipcMain.handle('bisheng-is-authenticated', async () => {
+      if (this.agentAdapter) {
+        try {
+          const health = await this.agentAdapter.healthCheck();
+          const ok = !!(health?.success && Object.values(health.services || {}).some(s => (s as any)?.authenticated));
+          return ok;
+        } catch (e) {
+          this.logger.warn('Agent backend isAuthenticated failed, fallback:', e as any);
+        }
       }
+      if (!this.bishengService) return false;
       return this.bishengService.isAuthenticated();
     });
 

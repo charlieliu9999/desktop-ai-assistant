@@ -150,8 +150,12 @@ export const PatientInfoCapture: React.FC = () => {
     setCurrentStep('extracting');
 
     try {
-      // 检查是否启用AI图片识别
-      if (config?.aiImage?.enabled) {
+      // 路由选择：aiImage.routingMode -> backend/frontend；inherit 时跟随 ai.routingMode
+      const globalRouting = (config?.ai?.routingMode || 'frontend');
+      const imageRouting = (config?.aiImage as any)?.routingMode || 'inherit';
+      const useBackendForImage = imageRouting === 'backend' || (imageRouting === 'inherit' && globalRouting === 'backend');
+
+      if (!useBackendForImage && config?.aiImage?.enabled) {
         console.log('🔍 使用配置的AI图片模型进行识别:', config.aiImage);
         // 使用配置的图片模型直接提取患者信息
         const response = await apiClient.extractPatientInfo(screenshot, config.aiImage);
@@ -169,10 +173,10 @@ export const PatientInfoCapture: React.FC = () => {
         // 转换字段名以匹配PatientInfo接口
         const pi: any = response.patient_info || {};
         const convertedPatientInfo = response.patient_info ? {
-          name: pi.name || '',
+          name: pi.name || pi.patient_name || '',
           age: typeof pi.age === 'number' ? pi.age : parseInt(String(pi.age || '0')) || 0,
           gender: pi.gender || '',
-          patient_id: pi.patient_id || pi.patientId || '',
+          patient_id: pi.patient_id || pi.patientId || pi.medical_record_number || '',
           department: pi.department || '',
           chief_complaint: pi.chief_complaint || pi.chiefComplaint || '',
           diagnosis: pi.diagnosis || '',
@@ -182,20 +186,39 @@ export const PatientInfoCapture: React.FC = () => {
         setPatientInfo(convertedPatientInfo);
         saveSession({ patientInfo: convertedPatientInfo, currentStep: 'editing' });
       } else {
-        console.log('🔍 使用后端API进行识别');
-        // 使用后端API提取患者信息
-        const response = await apiClient.extractPatientInfo(screenshot);
-        
-        // 打印后端API接收数据
-        console.log('🔍 后端API接收的完整数据:', {
-          timestamp: new Date().toISOString(),
-          success: response.success,
-          patient_info: response.patient_info,
-          error: response.error
+        console.log('🔍 使用后端视觉进行识别');
+        // 使用 visionAdapter 走后端严格 JSON（patient_info_v1）
+        const { visionAdapter } = await import('../../../services/adapters/vision-adapter');
+        const backendProvider = (config as any)?.aiImage?.backendProvider || 'dashscope';
+        const backendModel = (config as any)?.aiImage?.backendModel || undefined;
+        const scene = (config as any)?.aiImage?.backendScene || (backendProvider === 'dashscope' ? 'screen_recognition_aliyun' : 'screen_recognition');
+        const res = await visionAdapter.understandImage({
+          imageData: screenshot,
+          imageMime: 'image/png',
+          // 后端模式：提示词由后端场景注入
+          prompt: '',
+          provider: backendProvider as any,
+          model: backendModel,
+          strictJson: true,
+          // 允许后端在严格JSON失败时走OCR+LLM/正则兜底，提高命中率
+          allowFallback: true,
+          schemaName: 'patient_info_v1',
+          scene,
         });
-        
-        setPatientInfo(response.patient_info);
-        saveSession({ patientInfo: response.patient_info, currentStep: 'editing' });
+        const s: any = (res as any)?.details?.structured || {};
+        const norm = (v: any) => (v === undefined || v === null) ? '' : v;
+        const convertedPatientInfo = {
+          name: norm(s.name) || norm(s.patient_name) || '',
+          age: typeof s.age === 'number' ? s.age : parseInt(String(s.age || '0')) || 0,
+          gender: norm(s.gender) || '',
+          patient_id: norm(s.patient_id) || norm(s.patientId) || norm(s.medical_record_number) || '',
+          department: norm(s.department) || '',
+          chief_complaint: norm(s.chief_complaint) || norm(s.chiefComplaint) || '',
+          diagnosis: norm(s.diagnosis) || '',
+          medical_history: norm(s.medical_history) || norm(s.medicalHistory) || norm(s.medicalNow) || ''
+        };
+        setPatientInfo(convertedPatientInfo);
+        saveSession({ patientInfo: convertedPatientInfo, currentStep: 'editing' });
       }
       
       setCurrentStep('editing');
@@ -227,7 +250,12 @@ export const PatientInfoCapture: React.FC = () => {
     setCurrentStep('generating');
 
     try {
-      if (config?.aiRecommend?.enabled) {
+      // 路由选择：aiRecommend.routingMode；inherit 时跟随 ai.routingMode
+      const globalRouting = (config?.ai?.routingMode || 'frontend');
+      const recRouting = (config?.aiRecommend as any)?.routingMode || 'inherit';
+      const useFrontendRec = recRouting === 'frontend' || (recRouting === 'inherit' && globalRouting === 'frontend');
+
+      if (useFrontendRec && config?.aiRecommend?.enabled) {
         // 保存一次“用户”消息到会话（用于历史对话）
         try {
           if (patientInfo?.patient_id) {
@@ -267,14 +295,27 @@ export const PatientInfoCapture: React.FC = () => {
           }
         } catch {}
       } else {
-        // 回退到后端 API
-        const response = await apiClient.generateRecommendations(
-          patientInfo,
-          selectedTypes
-        );
-        setRecommendations(response.recommendations || {});
-        setCurrentStep('results');
-        saveSession({ recommendations: response.recommendations, currentStep: 'results' });
+        // 后端模式：通过主进程 AI（/v1/ai/chat/stream）生成合并 Markdown
+        try {
+          const userInput = `请基于以下患者信息一次性输出诊断建议、检查项目推荐与用药建议，使用 Markdown 二级标题（##）分段，内容精炼专业，不要开场白或总结。`;
+          const patientSummary = `姓名：${patientInfo.name}\n性别：${patientInfo.gender}\n年龄：${patientInfo.age}\nID：${patientInfo.patient_id}\n`
+            + (patientInfo.department ? `科室：${patientInfo.department}\n` : '')
+            + (patientInfo.chief_complaint ? `主诉：${patientInfo.chief_complaint}\n` : '')
+            + (patientInfo.diagnosis ? `诊断：${patientInfo.diagnosis}\n` : '')
+            + (patientInfo.medical_history ? `病史：${patientInfo.medical_history}\n` : '');
+          const prompt = `${userInput}\n\n患者信息：\n${patientSummary}\n`;
+          let combined = '';
+          const offChunk = (window as any).electronAPI?.ai?.onStreamChunk?.((chunk: string)=>{
+            combined += chunk;
+            setRecommendations({ combined });
+            saveSession({ recommendations: { combined }, currentStep: 'results' });
+          });
+          const offEnd = (window as any).electronAPI?.ai?.onStreamEnd?.((_res:any)=>{ offChunk?.(); offEnd?.(); setCurrentStep('results'); });
+          await (window as any).electronAPI?.ai?.processMessageStream?.(prompt);
+        } catch (e) {
+          setError(e instanceof Error ? e.message : '后端生成失败');
+          setCurrentStep('selecting');
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : '推荐生成失败');

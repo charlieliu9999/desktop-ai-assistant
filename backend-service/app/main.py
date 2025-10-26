@@ -6,26 +6,45 @@ from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 import sys
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+import os
+
+# 加载环境变量
+env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), '.env')
+load_dotenv(env_path)
 
 from app.config import settings
 from app.database import init_db
-from app.api import patients, recommendations, ai_chat, local_ai, model_config, patient_extraction, bisheng
 from app.api.v1 import router as v1_router
 from app.services.ai import ai_manager, ProviderConfig, OpenAIProvider, DeepseekProvider
+from app.services.ai.providers import OllamaProvider
+from app.registry import load_registry
 
 # 配置日志
 logger.remove()
+# 控制台输出
 logger.add(
     sys.stdout,
     level=settings.LOG_LEVEL,
     format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
 )
+# 主日志文件（统一写到 logs/backend.log）
 logger.add(
     settings.LOG_FILE,
-    rotation="500 MB",
+    rotation="200 MB",
     retention="10 days",
     level=settings.LOG_LEVEL
 )
+# 兼容旧路径：同时写一份到 logs/app.log，避免历史脚本/工具找不到日志
+try:
+    logger.add(
+        "logs/app.log",
+        rotation="200 MB",
+        retention="5 days",
+        level=settings.LOG_LEVEL
+    )
+except Exception:
+    pass
 
 
 @asynccontextmanager
@@ -114,6 +133,17 @@ async def lifespan(app: FastAPI):
     logger.info("初始化AI服务管理器...")
     logger.info("-" * 60)
 
+    # 先加载外部模型配置并应用到 settings（运行期）
+    try:
+        from app.config_models import load_config, apply_to_settings
+        cfg = load_config()
+        apply_to_settings(cfg)
+        logger.info("✓ 已加载运行期模型配置（config/models.json）")
+        if getattr(cfg, 'lock', False):
+            logger.info("  前端模型编辑：已锁定")
+    except Exception as e:
+        logger.warning(f"⚠ 加载运行期模型配置失败：{e}")
+
     # 注册OpenAI提供商
     if hasattr(settings, 'OPENAI_API_KEY') and settings.OPENAI_API_KEY:
         try:
@@ -154,6 +184,67 @@ async def lifespan(app: FastAPI):
         except Exception as e:
             logger.warning(f"⚠ Deepseek 提供商注册失败: {e}")
 
+    # 注册 DashScope（阿里云）提供商（OpenAI兼容）
+    try:
+        import os as _os
+        # 同时支持 .env(Settings) 与环境变量两种来源
+        dash_key = getattr(settings, 'DASHSCOPE_API_KEY', '') or _os.getenv('DASHSCOPE_API_KEY', '')
+        dash_base = getattr(settings, 'DASHSCOPE_API_BASE', '') or _os.getenv('DASHSCOPE_API_BASE', 'https://dashscope.aliyuncs.com/compatible-mode/v1')
+        if dash_key:
+            try:
+                # 使用Dashscope的默认模型,而不是AI_CHAT_MODEL
+                dash_model = getattr(settings, 'DASHSCOPE_MODEL', 'qwen-max')
+                dash_cfg = ProviderConfig(
+                    name="dashscope",
+                    api_key=dash_key,
+                    api_base=dash_base,
+                    model=dash_model,
+                    enabled=True,
+                    timeout=30,
+                    max_retries=3
+                )
+                dash_provider = OpenAIProvider(dash_cfg)
+                ai_manager.register_provider("dashscope", dash_provider, is_default=False)
+                logger.info("✓ DashScope 提供商已注册")
+                logger.info(f"  模型: {dash_model}")
+                logger.info(f"  基址: {dash_base}")
+            except Exception as e:
+                logger.warning(f"⚠ DashScope 提供商注册失败: {e}")
+        else:
+            logger.info("○ DashScope 未配置（DASHSCOPE_API_KEY 为空）")
+    except Exception as e:
+        logger.warning(f"⚠ 检查 DashScope 配置失败: {e}")
+
+    # 检测本地 Ollama 并注册为专用 Provider（命名为 'local'）。
+    try:
+        import httpx
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(f"{settings.LOCAL_AI_ENDPOINT}/api/tags")
+        if resp.status_code == 200:
+            try:
+                local_base = f"{settings.LOCAL_AI_ENDPOINT}"
+                local_model = getattr(settings, 'AI_CHAT_MODEL', 'qwen2.5:32b')
+                local_cfg = ProviderConfig(
+                    name="local",
+                    api_key="",
+                    api_base=local_base,
+                    model=local_model,
+                    enabled=True,
+                    timeout=30,
+                    max_retries=3
+                )
+                local_provider = OllamaProvider(local_cfg)
+                ai_manager.register_provider("local", local_provider, is_default=False)
+                logger.info("✓ 已注册本地 Ollama 提供商为 'local'")
+                logger.info(f"  端点: {local_base}")
+                logger.info(f"  模型: {local_model}")
+            except Exception as e:
+                logger.warning(f"⚠ 本地 OpenAI 兼容提供商注册失败: {e}")
+        else:
+            logger.info("○ 本地AI服务不可用，未注册本地提供商")
+    except Exception as e:
+        logger.warning(f"⚠ 检查/注册本地提供商时出错: {e}")
+
     # 设置故障转移提供商
     fallback_providers = []
     if settings.DEEPSEEK_API_KEY:
@@ -168,6 +259,67 @@ async def lifespan(app: FastAPI):
     logger.info("-" * 60)
     logger.info("AI服务管理器初始化完成")
     logger.info("-" * 60)
+
+    # 从注册中心引导 Provider（兼容 OpenAI 模式的提供商）
+    try:
+        reg = load_registry()
+        for p in reg.providers:
+            # 已注册则跳过
+            if p.id in ai_manager.providers:
+                continue
+            # 目前使用 OpenAI 兼容客户端统一接入
+            if p.kind == "openai":
+                # 取 base_url 与 api_key（优先 env，再回退 settings）
+                api_key = None
+                import os as _os
+                if p.auth and p.auth.type == "env" and p.auth.env_key:
+                    api_key = _os.getenv(p.auth.env_key, "") or None
+                if not api_key:
+                    # 回退 settings 已知字段
+                    if p.id == "openai" and getattr(settings, 'OPENAI_API_KEY', ''):
+                        api_key = settings.OPENAI_API_KEY
+                    elif p.id == "deepseek" and getattr(settings, 'DEEPSEEK_API_KEY', ''):
+                        api_key = settings.DEEPSEEK_API_KEY
+                    elif p.id == "dashscope":
+                        api_key = getattr(settings, 'DASHSCOPE_API_KEY', '') or _os.getenv('DASHSCOPE_API_KEY', '') or None
+
+                try:
+                    cfg = ProviderConfig(
+                        name=p.id,
+                        api_key=api_key or "",
+                        api_base=p.base_url,
+                        model=getattr(settings, 'AI_CHAT_MODEL', 'gpt-4o-mini'),
+                        enabled=p.enabled,
+                        timeout=30,
+                        max_retries=3,
+                    )
+                    # 如果需要密钥但未配置，则跳过注册，避免不可用 Provider 误导
+                    if p.id in ("openai", "deepseek", "dashscope") and not cfg.api_key:
+                        logger.info(f"○ 跳过注册中心 Provider {p.id}（缺少 API Key）")
+                    else:
+                        prov_client = OpenAIProvider(cfg)
+                        ai_manager.register_provider(p.id, prov_client, is_default=False)
+                        logger.info(f"✓ 注册中心引导 Provider: {p.id}")
+                except Exception as e:
+                    logger.warning(f"⚠ Provider({p.id}) 注册失败: {e}")
+            elif p.kind == "ollama":
+                try:
+                    cfg = ProviderConfig(
+                        name=p.id,
+                        api_key="",
+                        api_base=p.base_url,
+                        model=getattr(settings, 'AI_CHAT_MODEL', 'qwen2.5:32b'),
+                        enabled=p.enabled,
+                        timeout=30,
+                        max_retries=3,
+                    )
+                    prov_client = OllamaProvider(cfg)
+                    ai_manager.register_provider(p.id, prov_client, is_default=False)
+                    logger.info(f"✓ 注册中心引导 Provider: {p.id} (ollama)")
+                except Exception as e:
+                    logger.warning(f"⚠ Provider({p.id}) 注册失败: {e}")
+    except Exception as e:
+        logger.warning(f"⚠ 从注册中心引导 Provider 失败: {e}")
 
     # 初始化视觉服务
     logger.info("-" * 60)
@@ -194,7 +346,10 @@ async def lifespan(app: FastAPI):
     from app.services.voice import STTService, TTSService
     from app.api.v1 import voice as voice_api
 
-    stt_service = STTService(model_name="base")
+    # 使用OpenAI Whisper API作为默认STT provider (更稳定,无需本地依赖)
+    # 可选: provider="local", model_name="base" (需要安装whisper和ffmpeg)
+    # 可选: provider="faster-whisper", model_name="base" (需要安装faster-whisper)
+    stt_service = STTService(provider="openai", model_name="whisper-1")
     tts_service = TTSService(model_name="tts-1")
 
     voice_api.stt_service = stt_service
@@ -279,6 +434,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# 统一版本与弃用标识（中间件）
+@app.middleware("http")
+async def version_and_deprecation_headers(request, call_next):
+    response = await call_next(request)
+    path = request.url.path or ""
+    try:
+        if path.startswith("/v1/"):
+            response.headers["X-API-Version"] = "1.1.0"
+        if path.startswith("/api/"):
+            # 标注为弃用，并在日志中提示迁移
+            response.headers["X-Deprecated"] = "true; use /v1/*"
+            from loguru import logger as _lg
+            _lg.warning(f"Deprecated API used: {path}. Please migrate to /v1/*")
+    except Exception:
+        pass
+    return response
 
 
 
@@ -403,14 +576,7 @@ async def detailed_health_check():
 # V1 API路由 (新架构)
 app.include_router(v1_router)
 
-# 旧版API路由 (保持兼容)
-app.include_router(patients.router, prefix="/api/patients", tags=["患者管理"])
-app.include_router(recommendations.router, prefix="/api/recommendations", tags=["智能推荐"])
-app.include_router(ai_chat.router, prefix="/api/ai", tags=["AI问答"])
-app.include_router(local_ai.router, prefix="/api/local-ai", tags=["本地AI"])
-app.include_router(model_config.router, prefix="/api/model-config", tags=["模型配置"])
-app.include_router(patient_extraction.router, prefix="/api/patient-extraction", tags=["患者信息提取"])
-app.include_router(bisheng.router, prefix="/api/bisheng", tags=["Bisheng智能体"])
+# 已移除旧版 /api/* 路由挂载（完成迁移后不再提供）
 
 
 if __name__ == "__main__":
@@ -421,4 +587,3 @@ if __name__ == "__main__":
         port=settings.PORT,
         reload=settings.DEBUG
     )
-

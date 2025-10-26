@@ -9,6 +9,7 @@ import 'highlight.js/styles/github-dark.css';
 import '../styles/chat-components.css';
 import { screenshotService } from '../services/screenshot';
 import { apiClient } from '../../services/api-client';
+import { visionAdapter } from '../../services/adapters/vision-adapter';
 import { UNIFIED_TEXTAREA_STYLES } from '../styles/unified-input-styles';
 
 interface Message {
@@ -30,6 +31,20 @@ interface ChatProps {
 
 // Storage key for chat messages
 const CHAT_STORAGE_KEY = 'app:chat:messages';
+
+const ensureText = (value: any): string => {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) {
+    return value.map(ensureText).join('');
+  }
+  if (typeof value === 'object') {
+    if ('text' in value) return ensureText((value as Record<string, unknown>).text);
+    if ('content' in value) return ensureText((value as Record<string, unknown>).content);
+    return JSON.stringify(value);
+  }
+  return String(value);
+};
 
 const Chat: React.FC<ChatProps> = ({ className = '' }) => {
   const { config } = useConfigStore();
@@ -53,7 +68,12 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
       if (raw) {
         const restored = JSON.parse(raw);
         if (Array.isArray(restored) && restored.length > 0) {
-          setMessages(restored.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) })));
+          setMessages(restored.map((m: any) => ({
+            ...m,
+            content: ensureText(m.content),
+            attachments: Array.isArray(m.attachments) ? m.attachments : undefined,
+            timestamp: new Date(m.timestamp),
+          })));
           console.log('[Chat] Restored', restored.length, 'messages from storage');
         }
       } else {
@@ -69,7 +89,11 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     try {
-      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
+      const serializable = messages.map(m => ({
+        ...m,
+        content: ensureText(m.content),
+      }));
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(serializable));
     } catch (e) {
       console.warn('Failed to save chat messages:', e);
     }
@@ -79,6 +103,14 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // 当配置启用了网络搜索时，默认开启“网络搜索模式”（后端路由无需 toolsEnabled）
+  useEffect(() => {
+    try {
+      const enabled = !!(config?.ai?.webSearch?.enabled);
+      setUseWebSearch(enabled);
+    } catch {}
+  }, [config?.ai?.webSearch?.enabled]);
 
   // 构造包含附件文本的增强内容
   const buildAugmentedContent = async (base: string, files: File[]): Promise<string> => {
@@ -158,59 +190,79 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
     
     setMessages(prev => [...prev, assistantMessage]);
 
+    let cleanupListeners = () => {};
     try {
       // 设置流式更新监听器
       const unsubscribeChunk = window.electronAPI?.ai?.onStreamChunk?.((chunk: string) => {
-        setMessages(prev => prev.map(msg => 
-          msg.id === assistantMessageId 
-            ? { ...msg, content: msg.content + chunk }
+        const safeChunk = ensureText(chunk);
+        setMessages(prev => prev.map(msg =>
+          msg.id === assistantMessageId
+            ? { ...msg, content: (msg.content || '') + safeChunk }
             : msg
         ));
       });
 
       const unsubscribeEnd = window.electronAPI?.ai?.onStreamEnd?.(async (result: any) => {
+        let finalContent = '';
         if (!result.success && result.error) {
           console.error('Stream error:', result.error);
           toast.error('AI响应出错');
-          setMessages(prev => prev.map(msg => 
-            msg.id === assistantMessageId 
-              ? { ...msg, content: msg.content || '抱歉，处理您的消息时出现错误。', type: 'system' as const }
-              : msg
-          ));
         }
-        // 保存最终助手消息
+
+        setMessages(prev => prev.map(msg => {
+          if (msg.id !== assistantMessageId) return msg;
+          if (!result.success && result.error) {
+            const fallback = msg.content || '抱歉，处理您的消息时出现错误。请稍后再试。';
+            finalContent = fallback;
+            return { ...msg, content: fallback, type: 'system' as const };
+          }
+          finalContent = ensureText(result?.content ?? msg.content);
+          return { ...msg, content: finalContent };
+        }));
+
         try {
           const { saveChatMessage } = await import('../services/persistence');
-          const finalMsg = messages.find(m => m.id === assistantMessageId);
-          const content = finalMsg?.content || '';
-          saveChatMessage({ id: assistantMessageId, session_id: 'assistant-global', role: 'assistant', content, created_at: Date.now() });
+          saveChatMessage({
+            id: assistantMessageId,
+            session_id: 'assistant-global',
+            role: 'assistant',
+            content: finalContent || '',
+            created_at: Date.now(),
+          });
         } catch {}
+
         setIsLoading(false);
-        // 清理监听器
+        cleanupListeners();
+      });
+      cleanupListeners = () => {
         unsubscribeChunk?.();
         unsubscribeEnd?.();
-      });
+      };
 
       // 调用API：根据是否启用网络搜索切换路径
       if (useWebSearch && window.electronAPI?.ai?.processMessageWithTools) {
         const content = await window.electronAPI.ai.processMessageWithTools(augmentedContent);
+        const safeContent = ensureText(content);
         setMessages(prev => prev.map(msg => 
           msg.id === assistantMessageId 
-            ? { ...msg, content: content || '' }
+            ? { ...msg, content: safeContent }
             : msg
         ));
         setIsLoading(false);
         // 保存最终助手消息
         try {
           const { saveChatMessage } = await import('../services/persistence');
-          saveChatMessage({ id: assistantMessageId, session_id: 'assistant-global', role: 'assistant', content: content || '', created_at: Date.now() });
+          saveChatMessage({ id: assistantMessageId, session_id: 'assistant-global', role: 'assistant', content: safeContent, created_at: Date.now() });
         } catch {}
+        cleanupListeners();
       } else if (window.electronAPI?.ai?.processMessageStream) {
         await window.electronAPI.ai.processMessageStream(augmentedContent);
       } else {
         // 降级到非流式API
-        const responseText: string = await window.electronAPI?.ai?.processMessage?.(augmentedContent)
-          || '抱歉，我现在无法处理您的请求。请稍后再试。';
+        const responseText: string = ensureText(
+          (await window.electronAPI?.ai?.processMessage?.(augmentedContent))
+          || '抱歉，我现在无法处理您的请求。请稍后再试。'
+        );
         
         setMessages(prev => prev.map(msg => 
           msg.id === assistantMessageId 
@@ -218,6 +270,7 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
             : msg
         ));
         setIsLoading(false);
+        cleanupListeners();
       }
     } catch (error) {
       console.error('Failed to process message:', error);
@@ -233,6 +286,7 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
           : msg
       ));
       setIsLoading(false);
+      cleanupListeners();
     }
   };
 
@@ -251,10 +305,42 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
       if (!hasPerm) throw new Error('没有屏幕录制权限，请在系统设置中授权');
       const shot = await screenshotService.captureScreen({ noCache: true });
 
-      // 识别患者信息（优先使用AI图片模型）
+      // 识别患者信息：若视觉走后端（scene化），则调用 /v1/vision/understand
       const { config } = useConfigStore.getState();
-      const resp = await apiClient.extractPatientInfo(shot.dataUrl, config.aiImage);
-      const piRaw: any = resp.patient_info || {};
+      let piRaw: any = {};
+      try {
+        const aiImage: any = (config as any).aiImage || {};
+        const routing: string = aiImage.routingMode || 'inherit';
+        if (routing === 'backend') {
+          // 从 dataURL 中提取 MIME
+          const mimeMatch = /^data:(.*?);base64,/.exec(shot.dataUrl || '');
+          const imageMime = mimeMatch ? mimeMatch[1] : 'image/png';
+          const provider = aiImage.backendProvider || 'dashscope';
+          const scene = aiImage.backendScene || (provider === 'dashscope' ? 'screen_recognition_aliyun' : 'screen_recognition');
+          const result = await visionAdapter.understandImage({
+            imageData: shot.dataUrl,
+            imageMime,
+            prompt: '提取患者信息，输出严格 JSON（patient_info_v1）。',
+            provider: provider as any,
+            model: aiImage.backendModel || undefined,
+            strictJson: true,
+            allowFallback: true,
+            schemaName: 'patient_info_v1',
+            scene,
+          });
+          // 从统一结果中读取结构化信息
+          const structured = (result?.details as any)?.structured || {};
+          piRaw = structured || {};
+        } else {
+          // 兼容：旧路径（前端直连本地/云模型）
+          const resp = await apiClient.extractPatientInfo(shot.dataUrl, aiImage);
+          piRaw = resp.patient_info || {};
+        }
+      } catch (e) {
+        console.warn('Patient info extraction failed, fallback to API client:', e);
+        const resp = await apiClient.extractPatientInfo(shot.dataUrl, (config as any).aiImage);
+        piRaw = resp.patient_info || {};
+      }
       const patient = {
         name: piRaw.name || '',
         age: typeof piRaw.age === 'number' ? piRaw.age : parseInt(String(piRaw.age || '0')) || 0,
@@ -511,7 +597,15 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
         <div>
           <h2 className="text-lg font-semibold">AI助手对话</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            提供商：{config.ai?.provider ?? 'local'} · 模型：{config.ai?.model ?? '未设置'}
+            {config.ai?.routingMode === 'backend' ? (
+              <>
+                路由：后端 · 提供商：{(config as any)?.ai?.backendProvider || '后端默认'} · 模型：{(config as any)?.ai?.backendModel || '由场景决定'}
+              </>
+            ) : (
+              <>
+                路由：前端 · 提供商：{config.ai?.provider ?? 'local'} · 模型：{config.ai?.model ?? '未设置'}
+              </>
+            )}
           </p>
         </div>
         

@@ -88,19 +88,59 @@ export const OneClickDesktopChat: React.FC = () => {
       setScreenshot(shot.dataUrl);
       if (config.oneClick?.showScreenshot) addMsg('system', '截图完成');
 
-      // 识别
-      const resp = await apiClient.extractPatientInfo(shot.dataUrl, config.aiImage);
-      const piRaw: any = resp.patient_info || {};
-      const pi = {
-        name: piRaw.name || '',
-        age: typeof piRaw.age === 'number' ? piRaw.age : parseInt(String(piRaw.age || '0')) || 0,
-        gender: piRaw.gender || '',
-        patient_id: piRaw.patient_id || piRaw.patientId || `PID_${Date.now()}`,
-        department: piRaw.department || '',
-        chief_complaint: piRaw.chief_complaint || piRaw.chiefComplaint || '',
-        diagnosis: piRaw.diagnosis || '',
-        medical_history: piRaw.medical_history || piRaw.medicalHistory || piRaw.medicalNow || ''
-      };
+      // 识别：优先使用后端视觉（当 AI 图片为后端模式时）
+      let pi: any = null;
+      try {
+        const imageRouting = (config as any)?.aiImage?.routingMode || 'inherit';
+        const globalRouting = (config as any)?.ai?.routingMode || 'frontend';
+        const useBackend = imageRouting === 'backend' || (imageRouting === 'inherit' && globalRouting === 'backend');
+        if (useBackend) {
+          const { visionAdapter } = await import('../../../services/adapters/vision-adapter');
+          const backendProvider = (config as any)?.aiImage?.backendProvider || 'dashscope';
+          const backendModel = (config as any)?.aiImage?.backendModel || undefined;
+          const scene = (config as any)?.aiImage?.backendScene || (backendProvider === 'dashscope' ? 'screen_recognition_aliyun' : 'screen_recognition');
+          const res = await visionAdapter.understandImage({
+            imageData: shot.dataUrl,
+            imageMime: 'image/png',
+            // 后端模式：提示词由后端场景注入，前端不再注入系统提示
+            prompt: '',
+            provider: backendProvider as any,
+            model: backendModel,
+            strictJson: true,
+            allowFallback: true,
+            schemaName: 'patient_info_v1',
+            scene,
+          });
+          const s: any = (res as any)?.details?.structured || {};
+          const norm = (v: any) => (v === undefined || v === null) ? '' : v;
+          pi = {
+            name: norm(s.name) || norm(s.patient_name) || '',
+            age: typeof s.age === 'number' ? s.age : parseInt(String(s.age || '0')) || 0,
+            gender: norm(s.gender) || '',
+            patient_id: norm(s.patient_id) || norm(s.patientId) || norm(s.medical_record_number) || `PID_${Date.now()}`,
+            department: norm(s.department) || '',
+            chief_complaint: norm(s.chief_complaint) || norm(s.chiefComplaint) || '',
+            diagnosis: norm(s.diagnosis) || '',
+            medical_history: norm(s.medical_history) || norm(s.medicalHistory) || norm(s.medicalNow) || ''
+          };
+        }
+      } catch (e) {
+        console.warn('后端视觉识别失败，回退前端提取', e);
+      }
+      if (!pi) {
+        const resp = await apiClient.extractPatientInfo(shot.dataUrl, (config as any)?.aiImage);
+        const r: any = resp.patient_info || {};
+        pi = {
+          name: r.name || r.patient_name || '',
+          age: typeof r.age === 'number' ? r.age : parseInt(String(r.age || '0')) || 0,
+          gender: r.gender || '',
+          patient_id: r.patient_id || r.patientId || r.medical_record_number || `PID_${Date.now()}`,
+          department: r.department || '',
+          chief_complaint: r.chief_complaint || r.chiefComplaint || '',
+          diagnosis: r.diagnosis || '',
+          medical_history: r.medical_history || r.medicalHistory || r.medicalNow || ''
+        };
+      }
       setPatient(pi);
       if (config.oneClick?.showPatientInfo) {
         addMsg('system', `患者信息：\n姓名：${pi.name}  性别：${pi.gender}  年龄：${pi.age}\nID：${pi.patient_id}${pi.department?`  科室：${pi.department}`:''}`);
@@ -112,28 +152,59 @@ export const OneClickDesktopChat: React.FC = () => {
       if (config.oneClick?.generate?.exam) types.push('exam');
       if (config.oneClick?.generate?.medication) types.push('medication');
 
-      // 推荐（流式）
+      // 推荐（流式）按路由切换
+      const recRouting = (config.aiRecommend as any)?.routingMode || 'inherit';
+      const globalRouting = (config.ai as any)?.routingMode || 'frontend';
+      const useBackendRec = recRouting === 'backend' || (recRouting === 'inherit' && globalRouting === 'backend');
+
       const recMsgId = addMsg('assistant', '');
       let accumulatedContent = '';
-
-      const res = await apiClient.generateCombinedRecommendationsStream(
-        pi as any,
-        (config.oneClick?.followUpModelSameAsRecommend ? (config.aiRecommend as any) : {
-          ...config.aiRecommend,
-          provider: config.oneClick?.provider || config.aiRecommend?.provider,
-          apiUrl: config.oneClick?.apiUrl || config.aiRecommend?.apiUrl,
-          diagnosisModel: config.oneClick?.model || config.aiRecommend?.diagnosisModel,
-          examModel: config.oneClick?.model || config.aiRecommend?.examModel,
-          medicationModel: config.oneClick?.model || config.aiRecommend?.medicationModel,
-          temperature: config.oneClick?.temperature ?? config.aiRecommend?.temperature,
-          maxTokens: config.oneClick?.maxTokens ?? config.aiRecommend?.maxTokens,
-        } as any),
-        (chunk) => {
+      if (useBackendRec) {
+        // 构建一次性合成推荐提示词（与前端直连一致）
+        const selected = types.length ? types : ['diagnosis','exam','medication'];
+        const parts: string[] = [];
+        if (selected.includes('diagnosis')) parts.push('请根据患者信息生成可能的诊断列表，采用有序列表，附简短依据与置信度（0-1）。');
+        if (selected.includes('exam')) parts.push('请根据患者信息列出需要完善的检查项目（血常规、生化、影像等），采用有序列表，并说明每项的目的和预期价值。');
+        if (selected.includes('medication')) parts.push('请根据患者信息给出初步用药建议（如有禁忌需注明），采用有序列表，并说明每种药物的适应理由。');
+        let structure = '请将输出组织为以下Markdown结构：\n';
+        if (selected.includes('diagnosis')) structure += '## 诊断建议\n- 使用有序列表，简短依据与置信度（0-1）。\n\n';
+        if (selected.includes('exam')) structure += '## 检查项目推荐\n- 使用有序列表，说明目的与预期价值。\n\n';
+        if (selected.includes('medication')) structure += '## 用药建议\n- 使用有序列表，如有禁忌需注明，说明理由。\n';
+        const patientSummary = `姓名：${pi.name}\n性别：${pi.gender}\n年龄：${pi.age}\n患者ID：${pi.patient_id}\n` +
+          (pi.department ? `科室：${pi.department}\n` : '') +
+          (pi.chief_complaint ? `主诉：${pi.chief_complaint}\n` : '') +
+          (pi.diagnosis ? `诊断：${pi.diagnosis}\n` : '') +
+          (pi.medical_history ? `病史：${pi.medical_history}\n` : '');
+        const prompt = `${parts.join('\n\n')}\n\n${structure}\n\n患者信息：\n${patientSummary}\n\n只输出上述三部分的Markdown内容，不要任何额外说明。`;
+        // 通过主进程 IPC 走后端流式
+        const offChunk = (window as any).electronAPI?.ai?.onStreamChunk?.((chunk: string)=>{
           accumulatedContent += chunk;
           updateMsgContent(recMsgId, accumulatedContent);
-        },
-        types
-      );
+        });
+        const offEnd = (window as any).electronAPI?.ai?.onStreamEnd?.((_res: any)=>{
+          offChunk?.(); offEnd?.();
+        });
+        await (window as any).electronAPI?.ai?.processMessageStream?.(prompt);
+      } else {
+        const res = await apiClient.generateCombinedRecommendationsStream(
+          pi as any,
+          (config.oneClick?.followUpModelSameAsRecommend ? (config.aiRecommend as any) : {
+            ...config.aiRecommend,
+            provider: config.oneClick?.provider || config.aiRecommend?.provider,
+            apiUrl: config.oneClick?.apiUrl || config.aiRecommend?.apiUrl,
+            diagnosisModel: config.oneClick?.model || config.aiRecommend?.diagnosisModel,
+            examModel: config.oneClick?.model || config.aiRecommend?.examModel,
+            medicationModel: config.oneClick?.model || config.aiRecommend?.medicationModel,
+            temperature: config.oneClick?.temperature ?? config.aiRecommend?.temperature,
+            maxTokens: config.oneClick?.maxTokens ?? config.aiRecommend?.maxTokens,
+          } as any),
+          (chunk) => {
+            accumulatedContent += chunk;
+            updateMsgContent(recMsgId, accumulatedContent);
+          },
+          types
+        );
+      }
 
       const md = (res?.recommendations as any)?.combined || accumulatedContent || '';
 
@@ -220,35 +291,40 @@ export const OneClickDesktopChat: React.FC = () => {
         max_tokens: cfg.maxTokens || 1200,
         stream: true
       };
+      const oneClickRouting = (config.oneClick as any)?.routingMode || 'inherit';
+      const globalRouting2 = (config.ai as any)?.routingMode || 'frontend';
+      const useBackendFollowUp = oneClickRouting === 'backend' || (oneClickRouting === 'inherit' && globalRouting2 === 'backend');
+
+      if (useBackendFollowUp) {
+        const prompt = `${user.content}`;
+        const offChunk = (window as any).electronAPI?.ai?.onStreamChunk?.((chunk: string)=>{
+          accumulatedContent += chunk;
+          updateMsgContent(assistantMsgId, accumulatedContent);
+        });
+        const offEnd = (window as any).electronAPI?.ai?.onStreamEnd?.((_res: any)=>{ offChunk?.(); offEnd?.(); });
+        await (window as any).electronAPI?.ai?.processMessageStream?.(prompt);
+        return;
+      }
 
       const resp = await fetch(endpoint, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload)
+        method: 'POST', headers, body: JSON.stringify(payload)
       });
-
       if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
-
       if (resp.body) {
         const reader = resp.body.getReader();
         const decoder = new TextDecoder('utf-8');
         let buffer = '';
-
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
-
           buffer += decoder.decode(value, { stream: true });
           const parts = buffer.split('\n\n');
           buffer = parts.pop() || '';
-
           for (const part of parts) {
             const line = part.trim();
             if (!line.startsWith('data:')) continue;
-
             const data = line.replace(/^data:\s*/, '');
             if (data === '[DONE]') continue;
-
             try {
               const json = JSON.parse(data);
               const delta = json?.choices?.[0]?.delta?.content || json?.choices?.[0]?.message?.content || '';

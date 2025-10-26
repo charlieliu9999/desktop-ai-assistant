@@ -51,7 +51,7 @@ class Settings(BaseSettings):
 
     # Deepseek AI配置
     DEEPSEEK_API_KEY: str = ""
-    DEEPSEEK_API_BASE: str = "https://api.deepseek.com/v1"
+    DEEPSEEK_API_BASE: str = "https://api.deepseek.com"
     DEEPSEEK_MODEL: str = "deepseek-chat"
 
     # 本地AI配置(Ollama) - 保留用于向后兼容
@@ -109,11 +109,25 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     # CORS配置
-    CORS_ORIGINS: List[str] = ["http://localhost:9527", "http://localhost:3000", "http://127.0.0.1:5928"]
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:9527",
+        "http://localhost:3000",
+        "http://localhost:5928",  # 前端开发服务器
+        "http://127.0.0.1:5928",  # 前端开发服务器(IP)
+        "http://localhost:5173",  # Vite默认端口
+        "http://127.0.0.1:5173",  # Vite默认端口(IP)
+        "http://localhost:8080",  # 备用端口
+        "http://127.0.0.1:8080",  # 备用端口(IP)
+    ]
 
     # 日志配置
     LOG_LEVEL: str = "INFO"
-    LOG_FILE: str = "logs/app.log"
+    # 将默认日志文件统一为 logs/backend.log，便于前端/使用者定位
+    LOG_FILE: str = "logs/backend.log"
+
+    # 前端模型编辑锁（启用后，前端不能修改模型相关设置）
+    FRONTEND_MODEL_EDIT_LOCK: bool = False
+
 
     def get_model_config(self, scenario: str) -> Dict[str, Any]:
         """获取指定场景的模型配置"""

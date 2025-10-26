@@ -4,6 +4,21 @@
 
 ---
 
+## 🧭 API 版本与迁移
+
+- 规范接口：后端以 `/v1/*` 为规范接口（AI、Vision、Tools、Config、Prompts、Scenarios、Patient Extraction）。
+- 旧版 `/api/*` 路由：已移除，不再提供。过去的迁移开关 `ENABLE_LEGACY_API` 现已无效，可从 `.env` 中删除。
+- 旧 → 新映射（核心）：
+  - `/api/patient-extraction/extract` → `/v1/patient/extraction/extract`
+  - `/api/patient-extraction/recommendations` → `/v1/patient/extraction/recommendations`
+  - `/api/model-config/*` → `/v1/config/models`、`/v1/config/model-preset`、`/v1/config/flags`
+- 健康检查与模型：
+  - 视觉健康：`GET /v1/vision/health`
+  - 视觉模型：`GET /v1/vision/models`
+  - AI 提供商/模型：`GET /v1/ai/providers`、`GET /v1/ai/models`
+
+---
+
 ## 📚 文档目录
 
 ### 🚀 快速开始
