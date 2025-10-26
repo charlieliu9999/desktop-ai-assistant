@@ -109,29 +109,33 @@ const VoiceWindow: React.FC<VoiceWindowProps> = () => {
       const centerX = canvas.width / 2;
       const centerY = canvas.height / 2;
       const radius = Math.min(centerX, centerY) - 20;
-      
-      ctx.strokeStyle = voiceState.isListening ? '#3B82F6' : '#6B7280';
+
+      // 使用CSS变量获取颜色
+      const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--color-info').trim() || '#3b82f6';
+      const mutedColor = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim() || '#6b7280';
+
+      ctx.strokeStyle = voiceState.isListening ? primaryColor : mutedColor;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      
+
       for (let i = 0; i < bufferLength; i++) {
         const angle = (i / bufferLength) * 2 * Math.PI;
         const amplitude = (dataArray[i] / 255) * 30;
         const x = centerX + Math.cos(angle) * (radius + amplitude);
         const y = centerY + Math.sin(angle) * (radius + amplitude);
-        
+
         if (i === 0) {
           ctx.moveTo(x, y);
         } else {
           ctx.lineTo(x, y);
         }
       }
-      
+
       ctx.closePath();
       ctx.stroke();
-      
+
       // Draw center circle
-      ctx.fillStyle = voiceState.isListening ? '#3B82F6' : '#6B7280';
+      ctx.fillStyle = voiceState.isListening ? primaryColor : mutedColor;
       ctx.beginPath();
       ctx.arc(centerX, centerY, 10 + average / 10, 0, 2 * Math.PI);
       ctx.fill();
