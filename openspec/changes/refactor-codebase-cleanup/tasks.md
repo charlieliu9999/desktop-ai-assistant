@@ -13,19 +13,34 @@
   - [x] 删除 `.webui_secret_key`
   - [x] 检查并删除其他.backup文件 (已全部清理)
 
-- [ ] 1.1.2 整理根目录文档
-  - [ ] 创建 `docs/archive/2025-01/` 目录
-  - [ ] 移动分析报告到archive (STYLE_ANALYSIS_SUMMARY.md等)
-  - [ ] 移动测试报告到archive (TESTING_GUIDE.md等)
-  - [ ] 移动实施报告到archive (IMPROVEMENTS_SUMMARY.md等)
-  - [ ] 保留核心文档: README.md, QUICK_START.md, LICENSE
-  - [ ] 更新README.md添加文档索引链接
+- [x] 1.1.2 整理根目录文档 ✅ 已完成 (2025-10-26)
+  - [x] 创建 `docs/archive/2025-01/` 目录
+  - [x] 移动分析报告到archive (11个文件)
+    - STYLE_ANALYSIS_SUMMARY.md
+    - STYLE_OPTIMIZATION_SUMMARY.md
+    - BACKEND_INTEGRATION_TEST_REPORT.md
+    - BACKEND_REFACTOR_ANALYSIS.md
+    - DUAL_VERSION_FEASIBILITY_ANALYSIS.md
+    - GLASS_THEME_FIX.md
+    - IMPROVEMENTS_SUMMARY.md
+    - PR_REVIEW_SUMMARY.md
+    - SYSTEM_STATUS_REPORT.md
+    - TESTING_GUIDE.md
+    - 前端样式统一性分析结果.md
+  - [x] 移动启动和重构文档到archive
+    - E2E_IMPROVEMENTS.md
+    - STARTUP_GUIDE.md
+    - STARTUP_SCRIPTS_README.md
+    - REFACTOR_PROPOSAL_SUMMARY.md
+  - [x] 保留核心文档: README.md, QUICK_START.md, README_API.md, AGENTS.md
+  - [x] 创建归档索引 `docs/archive/2025-01/README.md`
+  - [x] 更新README.md添加文档索引链接
 
-- [ ] 1.1.3 清理临时文件
-  - [ ] 删除或归档 `前端样式统一性分析结果.md`
-  - [ ] 清理 `logs/` 目录中的旧日志
-  - [ ] 清理 `test-results/` 目录
-  - [ ] 清理 `htmlcov/` 目录
+- [x] 1.1.3 清理临时文件 ✅ 已完成 (2025-10-26)
+  - [x] 删除或归档 `前端样式统一性分析结果.md` (已移至archive)
+  - [x] 清理 `logs/` 目录中的旧日志 (保留1个最新日志)
+  - [x] 清理 `test-results/` 目录 (删除.last-run.json)
+  - [x] 清理 `htmlcov/` 目录 (删除所有HTML/CSS/JS/PNG文件,保留.gitignore)
 
 ### 1.2 统一样式系统 (3天)
 

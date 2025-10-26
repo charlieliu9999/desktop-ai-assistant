@@ -8,16 +8,22 @@
  * 优先级：环境变量 > 默认值
  */
 function getAPIBaseURL(): string {
-  // 优先级1: Vite 环境变量
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL;
-  }
+  const val = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8010/api';
+  return val;
+}
 
-  // 优先级2: 默认值
-  return 'http://127.0.0.1:8010/api';
+function getAPIBaseOrigin(): string {
+  const val = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8010/api';
+  try {
+    const u = new URL(val);
+    return u.origin;
+  } catch {
+    return 'http://127.0.0.1:8010';
+  }
 }
 
 const API_BASE_URL = getAPIBaseURL();
+const API_BASE_ORIGIN = getAPIBaseOrigin();
 
 /**
  * 模型配置相关类型
@@ -81,6 +87,11 @@ export interface PatientExtractionResponse {
   error?: string;
 }
 
+// 后端配置旗标
+export interface ConfigFlags {
+  model_lock: boolean;
+}
+
 /**
  * 推荐生成相关类型
  */
@@ -118,7 +129,7 @@ export interface AIRecommendConfig {
 /**
  * API 客户端类
  */
-class APIClient {
+export class APIClient {
   private baseURL: string;
 
   constructor(baseURL: string = API_BASE_URL) {
@@ -127,7 +138,8 @@ class APIClient {
 
   async ping(): Promise<boolean> {
     try {
-      const resp = await fetch(`${this.baseURL.replace(/\/$/, '')}/health`);
+      // 统一走服务根的 /health，避免出现 /api/health 404
+      const resp = await fetch(`${API_BASE_ORIGIN}/health`);
       return resp.ok;
     } catch {
       return false;
@@ -141,7 +153,10 @@ class APIClient {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const url = `${this.baseURL}${endpoint}`;
+    // /v1/* 走服务根路径；其余沿用 baseURL（通常为 /api 前缀）
+    const url = endpoint.startsWith('/v1/')
+      ? `${API_BASE_ORIGIN}${endpoint}`
+      : `${this.baseURL}${endpoint}`;
     const response = await fetch(url, {
       ...options,
       headers: {
@@ -158,41 +173,176 @@ class APIClient {
     return response.json();
   }
 
+  // Convenience HTTP helpers for adapters that need generic calls
+  async get<T = any>(endpoint: string, init?: RequestInit): Promise<T> {
+    return this.request<T>(endpoint, { ...(init || {}), method: 'GET' });
+  }
+  async post<T = any>(endpoint: string, body?: any, init?: RequestInit): Promise<T> {
+    const options: RequestInit = { ...(init || {}), method: 'POST' };
+    if (body !== undefined) {
+      (options as any).body = typeof body === 'string' ? body : JSON.stringify(body);
+    }
+    return this.request<T>(endpoint, options);
+  }
+  async put<T = any>(endpoint: string, body?: any, init?: RequestInit): Promise<T> {
+    const options: RequestInit = { ...(init || {}), method: 'PUT' };
+    if (body !== undefined) {
+      (options as any).body = typeof body === 'string' ? body : JSON.stringify(body);
+    }
+    return this.request<T>(endpoint, options);
+  }
+
   /**
    * 模型配置 API
    */
   async getAllConfigs(): Promise<AllConfigsResponse> {
-    return this.request<AllConfigsResponse>('/model-config/configs');
+    // Adapt legacy per-scenario config to v1 models config
+    const cfg = await this.getModelsConfig();
+    const data = cfg?.data || {};
+    const scenarios = [
+      'ai_chat',
+      'screen_recognition',
+      'diagnosis_suggestion',
+      'exam_recommendation',
+      'medication_recommendation',
+    ];
+    const defaults: Record<string, Pick<ModelConfig, 'temperature'|'max_tokens'>> = {
+      ai_chat: { temperature: 0.7, max_tokens: 2000 },
+      screen_recognition: { temperature: 0.1, max_tokens: 1000 },
+      diagnosis_suggestion: { temperature: 0.5, max_tokens: 2000 },
+      exam_recommendation: { temperature: 0.3, max_tokens: 2000 },
+      medication_recommendation: { temperature: 0.3, max_tokens: 2000 },
+    };
+    const configs: Record<string, ModelConfig> = {};
+    for (const sc of scenarios) {
+      const scObj = (data && (data as any)[sc]) || {};
+      configs[sc] = {
+        model_name: scObj.selected_model || '',
+        base_url: scObj.base_url || '',
+        temperature: defaults[sc]?.temperature ?? 0.7,
+        max_tokens: defaults[sc]?.max_tokens ?? 1000,
+        timeout: 60,
+      };
+    }
+    return { configs, scenarios };
   }
 
   async getScenarioConfig(scenario: string): Promise<ModelConfig> {
-    return this.request<ModelConfig>(`/model-config/configs/${scenario}`);
+    const cfg = await this.getAllConfigs();
+    return cfg.configs[scenario];
   }
 
   async testModelConnection(
     request: ModelTestRequest
   ): Promise<ModelTestResponse> {
-    return this.request<ModelTestResponse>('/model-config/test', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
+    // Client-side connectivity test against Ollama-compatible endpoint
+    const base = request.base_url.replace(/\/$/, '');
+    try {
+      // 1) list models
+      const tagsResp = await fetch(`${base}/api/tags`);
+      if (!tagsResp.ok) {
+        return { success: false, message: `服务不可用: HTTP ${tagsResp.status}`, error: String(tagsResp.status) };
+      }
+      const tags = await tagsResp.json();
+      const models = Array.isArray(tags?.models) ? tags.models : [];
+      let modelFound: any = null;
+      const names = models.map((m: any) => m?.name).filter(Boolean);
+      for (const m of models) {
+        if (!m?.name) continue;
+        if (m.name === request.model_name || String(m.name).includes(request.model_name)) {
+          modelFound = m; break;
+        }
+      }
+      if (!modelFound) {
+        return { success: false, message: `模型 '${request.model_name}' 未找到`, error: `可用模型: ${names.join(', ')}` };
+      }
+      // 2) simple generate
+      const genResp = await fetch(`${base}/api/generate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: request.model_name, prompt: 'Hello', stream: false })
+      });
+      if (!genResp.ok) {
+        return { success: false, message: `模型测试失败: HTTP ${genResp.status}`, error: await genResp.text() };
+      }
+      const mi = modelFound || {};
+      return {
+        success: true,
+        message: `模型 '${request.model_name}' 可用`,
+        model_info: {
+          name: mi.name || request.model_name,
+          size: mi.size || '',
+          parameter_size: mi.parameter_size || '',
+          quantization: mi.quantization || '',
+          family: mi.family || ''
+        }
+      };
+    } catch (e: any) {
+      return { success: false, message: `测试失败: ${e?.message || e}`, error: String(e) };
+    }
   }
 
   async updateScenarioConfig(
     scenario: string,
     config: ModelConfig
   ): Promise<any> {
-    return this.request(`/model-config/configs/${scenario}`, {
-      method: 'PUT',
-      body: JSON.stringify({ config }),
-    });
+    // Read-modify-write the v1 models config for the specific scenario
+    const current = await this.getModelsConfig();
+    const data = (current?.data as any) || {};
+    if (!data[scenario]) data[scenario] = {};
+    data[scenario].selected_model = config.model_name;
+    data[scenario].base_url = config.base_url;
+    await this.updateModelsConfig(data);
+    return { success: true };
   }
 
   async getScenarios(): Promise<{
     scenarios: string[];
     descriptions: Record<string, string>;
   }> {
-    return this.request('/model-config/scenarios');
+    const cfg = await this.getModelsConfig();
+    const data = cfg?.data || {};
+    const scenarios = Object.keys(data).filter((k) => (
+      ['ai_chat','screen_recognition','diagnosis_suggestion','exam_recommendation','medication_recommendation'].includes(k)
+    ));
+    const descriptions: Record<string, string> = {
+      ai_chat: '通用AI对话',
+      screen_recognition: '屏幕视觉识别',
+      diagnosis_suggestion: '诊断建议',
+      exam_recommendation: '检查推荐',
+      medication_recommendation: '用药推荐'
+    };
+    return { scenarios, descriptions };
+  }
+
+  // v1 config flags
+  async getConfigFlags(): Promise<{ success: boolean; data: ConfigFlags }>{
+    return this.request('/v1/config/flags');
+  }
+  async updateConfigFlags(flags: Partial<ConfigFlags>): Promise<{ success: boolean; data: ConfigFlags }>{
+    return this.request('/v1/config/flags', { method: 'PUT', body: JSON.stringify(flags) });
+  }
+
+  // v1 models
+  async getAIModels(): Promise<{ success: boolean; data: { providers: Array<{ name: string; models: string[] }> } }>{
+    return this.request('/v1/ai/models');
+  }
+  async getVisionModels(): Promise<{ success: boolean; data: { default: string; models: string[] } }>{
+    return this.request('/v1/vision/models');
+  }
+  async getVoiceModels(): Promise<{ success: boolean; data: { stt: { default: string; models: string[] }, tts: { default: string; models: string[] } } }>{
+    return this.request('/v1/voice/models');
+  }
+
+  // v1 config models (full models.json)
+  async getModelsConfig(): Promise<{ success: boolean; data: any }>{
+    return this.request('/v1/config/models');
+  }
+  async updateModelsConfig(configObj: any): Promise<{ success: boolean }>{
+    return this.request('/v1/config/models', { method: 'PUT', body: JSON.stringify(configObj) });
+  }
+  async applyModelPreset(preset: any): Promise<{ success: boolean }>{
+    return this.request('/v1/config/model-preset', { method: 'PUT', body: JSON.stringify(preset) });
   }
 
   /**
@@ -213,7 +363,7 @@ class APIClient {
 
     // 否则使用后端API
     return this.request<PatientExtractionResponse>(
-      '/patient-extraction/extract',
+      '/v1/patient/extraction/extract',
       {
         method: 'POST',
         body: JSON.stringify(request),
@@ -237,15 +387,17 @@ class APIClient {
 
       // 组装提示词：优先使用配置中的 systemPrompt，再附加结构化字段要求
       const systemPrompt = (aiImageConfig?.systemPrompt || '').trim();
-      const structuredGuide = `请仔细分析这张医疗系统的屏幕截图,提取其中主要的患者信息。
+            const structuredGuide = `请仔细分析这张医疗系统的屏幕截图,提取其中主要的患者信息。
 
-强制规则以避免混淆：
-- 只从中间或右侧的“患者信息/基本信息/诊断信息/医嘱录入”等主工作区面板提取信息。
-- 忽略左侧或边栏区域的“患者列表/历史记录/导航/候选信息/列表卡片”等内容，切勿将列表中的其他患者信息混入结果。
-- 如果画面中出现多个患者或多个卡片，优先选择包含字段“姓名/年龄/性别/ID号”的主要信息卡片；如仍存在歧义，选择居中且面积最大的卡片。
-- 优先使用标注为“当前就诊/当前病历/基本信息”的区域内容。
+强制规则（很重要）：
+- 仅从“右侧详情/信息面板”提取（如：基本信息/诊断信息/医嘱录入/病历详情）。
+- 严格忽略左侧边栏与“中间患者列表/历史记录/导航/候选卡片/表格行”等内容，绝对不要从列表或卡片集合中取值。
+- 如画面出现多个候选区域，优先选择标注为“当前就诊/当前病历/基本信息”的详情区域；若仍不确定，选择最靠右且面积最大的详情面板。
+- 字段必须来自同一位患者的同一详情面板，不要把不同患者的内容混在一起。
+- 姓名规则：必须来自详情面板内标注为“姓名/患者姓名/name”的字段，不得从患者列表/卡片标题/表格行中取值。
+- 年龄规则：优先使用详情面板中标注“年龄”的字段（如“年龄：65岁”），仅输出0-120的整数；如出现“出生日期/生日”，不要自行推算年龄，除非截图中同时有明确“年龄”字段；若数值可疑或不一致，输出0。
 
-请提取以下字段(如果图像中没有相关信息,则该字段设置为空字符串):
+请提取以下字段(没有则置空；年龄未知填0)：
 - name: 患者姓名
 - age: 年龄(数字)
 - gender: 性别(男/女/未知)
@@ -255,21 +407,19 @@ class APIClient {
 - diagnosis: 诊断(如果有)
 - medicalHistory: 病史(如果有)
 
-请严格按照以下JSON格式返回:
+请严格按照以下JSON格式返回(仅JSON，不要解释)：
 {
-  "name": "患者姓名",
-  "age": 年龄数字,
-  "gender": "男/女/未知",
-  "patientId": "患者ID",
-  "department": "科室名称",
-  "chiefComplaint": "主诉内容",
-  "diagnosis": "诊断内容",
-  "medicalNow": "现病史",
-  "medicalHistory": "既往史",
+  "name": "",
+  "age": 0,
+  "gender": "",
+  "patientId": "",
+  "department": "",
+  "chiefComplaint": "",
+  "diagnosis": "",
+  "medicalNow": "",
+  "medicalHistory": "",
   "confidence": 0.85
-}
-
-只返回JSON,不要包含其他文字。`;
+}`;
       const prompt = systemPrompt ? `${systemPrompt}
 
 ${structuredGuide}` : structuredGuide;
@@ -470,7 +620,7 @@ ${structuredGuide}` : structuredGuide;
     }
 
     return this.request<RecommendationGenerationResponse>(
-      '/patient-extraction/recommendations',
+      '/v1/patient/extraction/recommendations',
       {
         method: 'POST',
         body: JSON.stringify(request),
@@ -555,7 +705,8 @@ ${structuredGuide}` : structuredGuide;
     patient: PatientInfo,
     cfg: AIRecommendConfig,
     onChunk?: (chunk: string) => void,
-    types?: string[]
+    types?: string[],
+    rawPatientText?: string
   ): Promise<RecommendationGenerationResponse> {
     const isLocal = (cfg.provider || 'local') === 'local';
     let endpoint = cfg.apiUrl || (isLocal ? 'http://127.0.0.1:11434/v1/chat/completions' : '');
@@ -568,11 +719,22 @@ ${structuredGuide}` : structuredGuide;
       endpoint = 'http://127.0.0.1:11434/v1/chat/completions';
     }
 
-    const patientSummary = `姓名：${patient.name}\n性别：${patient.gender}\n年龄：${patient.age}\n患者ID：${patient.patient_id}\n` +
-      (patient.department ? `科室：${patient.department}\n` : '') +
-      (patient.chief_complaint ? `主诉：${patient.chief_complaint}\n` : '') +
-      (patient.diagnosis ? `诊断：${patient.diagnosis}\n` : '') +
-      (patient.medical_history ? `病史：${patient.medical_history}\n` : '');
+    // 构建患者信息摘要：优先使用模型原文文本，其次使用结构化字段
+    let patientSummary = '';
+    const allBlank = !patient?.name && !patient?.gender && !patient?.age && !patient?.patient_id
+      && !patient?.department && !patient?.chief_complaint && !patient?.diagnosis && !patient?.medical_history;
+    if (rawPatientText && rawPatientText.trim().length > 0) {
+      patientSummary = rawPatientText.trim();
+    } else if (!allBlank) {
+      patientSummary = `姓名：${patient.name}\n性别：${patient.gender}\n年龄：${patient.age}\n患者ID：${patient.patient_id}\n` +
+        (patient.department ? `科室：${patient.department}\n` : '') +
+        (patient.chief_complaint ? `主诉：${patient.chief_complaint}\n` : '') +
+        (patient.diagnosis ? `诊断：${patient.diagnosis}\n` : '') +
+        (patient.medical_history ? `病史：${patient.medical_history}\n` : '');
+    } else {
+      // 没有任何可用信息：直接返回错误，阻止无效推理
+      return { success: false, recommendations: { combined: '' } as any, error: 'empty_patient_info' };
+    }
 
     const selected = types && types.length ? types : ['diagnosis','exam','medication'];
     const parts: string[] = [];
@@ -635,6 +797,10 @@ ${structuredGuide}` : structuredGuide;
     } else {
       const data = await resp.json();
       full = data?.choices?.[0]?.message?.content || '';
+    }
+
+    if (!full || full.trim().length === 0) {
+      return { success: false, recommendations: { combined: '' } as any, error: 'empty_recommendation' };
     }
 
     return { success: true, recommendations: { combined: full } as any };

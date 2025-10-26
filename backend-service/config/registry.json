@@ -1,0 +1,189 @@
+{
+  "providers": [
+    {
+      "id": "local",
+      "name": "Ollama Local",
+      "kind": "ollama",
+      "base_url": "http://localhost:11434",
+      "enabled": true,
+      "capabilities": [
+        "llm",
+        "vl"
+      ],
+      "auth": {
+        "type": "none",
+        "env_key": null
+      },
+      "headers": {}
+    },
+    {
+      "id": "deepseek",
+      "name": "DeepSeek",
+      "kind": "deepseek",
+      "base_url": "https://api.deepseek.com",
+      "enabled": true,
+      "capabilities": [
+        "llm"
+      ],
+      "auth": {
+        "type": "env",
+        "env_key": "DEEPSEEK_API_KEY"
+      },
+      "headers": {}
+    },
+    {
+      "id": "openai",
+      "name": "OpenAI",
+      "kind": "openai",
+      "base_url": "https://api.openai.com/v1",
+      "enabled": true,
+      "capabilities": [
+        "llm"
+      ],
+      "auth": {
+        "type": "env",
+        "env_key": "OPENAI_API_KEY"
+      },
+      "headers": {}
+    },
+    {
+      "id": "dashscope",
+      "name": "Aliyun DashScope",
+      "kind": "openai",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "enabled": true,
+      "capabilities": [
+        "llm",
+        "vl"
+      ],
+      "auth": {
+        "type": "env",
+        "env_key": "DASHSCOPE_API_KEY"
+      },
+      "headers": {}
+    }
+  ],
+  "models": [
+    {
+      "id": "chat-local-qwen32",
+      "name": "qwen2.5:32b",
+      "provider_id": "local",
+      "modality": "llm",
+      "enabled": true,
+      "default_params": {
+        "temperature": 0.7,
+        "max_tokens": 2000
+      },
+      "tags": [
+        "default",
+        "dev"
+      ]
+    },
+    {
+      "id": "chat-deepseek-chat",
+      "name": "deepseek-chat",
+      "provider_id": "deepseek",
+      "modality": "llm",
+      "enabled": true,
+      "default_params": {
+        "temperature": 0.7,
+        "max_tokens": 2000
+      },
+      "tags": [
+        "cloud",
+        "prod"
+      ]
+    },
+    {
+      "id": "vision-local-qwenvl",
+      "name": "qwen2.5vl:latest",
+      "provider_id": "local",
+      "modality": "vl",
+      "enabled": true,
+      "default_params": {
+        "temperature": 0.1,
+        "max_tokens": 1000
+      },
+      "tags": [
+        "vision"
+      ]
+    },
+    {
+      "id": "chat-openai-gpt4o-mini",
+      "name": "gpt-4o-mini",
+      "provider_id": "openai",
+      "modality": "llm",
+      "enabled": true,
+      "default_params": {
+        "temperature": 0.7,
+        "max_tokens": 2000
+      },
+      "tags": [
+        "cloud",
+        "prod"
+      ]
+    },
+    {
+      "id": "stt-whisper-large-v3",
+      "name": "large-v3",
+      "provider_id": "local",
+      "modality": "stt",
+      "enabled": true,
+      "default_params": {
+        "language": "zh"
+      },
+      "tags": [
+        "voice",
+        "stt"
+      ]
+    },
+    {
+      "id": "tts-default",
+      "name": "tts-1",
+      "provider_id": "openai",
+      "modality": "tts",
+      "enabled": true,
+      "default_params": {
+        "voice": "alloy",
+        "speed": 1.0,
+        "pitch": 1.0
+      },
+      "tags": [
+        "voice",
+        "tts"
+      ]
+    },
+    {
+      "id": "qwen-max",
+      "name": "qwen-max",
+      "provider_id": "dashscope",
+      "modality": "llm",
+      "enabled": true,
+      "default_params": {
+        "temperature": 0.7,
+        "max_tokens": 2000
+      },
+      "tags": [
+        "aliyun",
+        "qwen",
+        "llm"
+      ]
+    },
+    {
+      "id": "qwen-vl-plus",
+      "name": "qwen-vl-plus",
+      "provider_id": "dashscope",
+      "modality": "vl",
+      "enabled": true,
+      "default_params": {
+        "temperature": 0.2,
+        "max_tokens": 1000
+      },
+      "tags": [
+        "aliyun",
+        "qwen",
+        "vl"
+      ]
+    }
+  ]
+}

@@ -70,7 +70,15 @@ export class AgentServiceAdapter {
   private backendUrl: string;
   private legacyService?: BishengService;
 
-  constructor(backendUrl: string = 'http://localhost:8010') {
+  constructor(backendUrl: string = (() => {
+    try {
+      const raw = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://127.0.0.1:8010/api';
+      const u = new URL(raw);
+      return u.origin;
+    } catch {
+      return 'http://127.0.0.1:8010';
+    }
+  })()) {
     this.useBackend = FEATURE_FLAGS.USE_BACKEND_AGENT;
     this.backendUrl = backendUrl;
     
@@ -162,20 +170,13 @@ export class AgentServiceAdapter {
   ): Promise<AgentWorkflow[]> {
     if (this.useBackend) {
       try {
-        const response = await fetch(
-          `${this.backendUrl}/v1/agent/workflows?page_size=${pageSize}&page_num=${pageNum}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+        const url = `${this.backendUrl}/v1/agent/workflows?page_size=${pageSize}&page_num=${pageNum}`;
+        let resp = await fetch(url, token ? { headers: { 'Authorization': `Bearer ${token}` } } : undefined);
+        if (!resp.ok && (resp.status === 401 || resp.status === 403)) {
+          resp = await fetch(url);
         }
-
-        return await response.json();
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        return await resp.json();
       } catch (error) {
         console.error('Backend getWorkflows failed:', error);
         // 降级到legacy实现
@@ -221,18 +222,19 @@ export class AgentServiceAdapter {
   ): Promise<void> {
     if (this.useBackend) {
       try {
-        const response = await fetch(`${this.backendUrl}/v1/agent/invoke`, {
+        const makeReq = (withAuth: boolean) => fetch(`${this.backendUrl}/v1/agent/invoke`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            ...(withAuth && token ? { 'Authorization': `Bearer ${token}` } : {}),
             'Content-Type': 'application/json',
           },
           body: JSON.stringify(request),
         });
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+        let response = await makeReq(true);
+        if (!response.ok && (response.status === 401 || response.status === 403)) {
+          response = await makeReq(false);
         }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
         // 处理SSE流
         const reader = response.body?.getReader();
@@ -311,21 +313,16 @@ export class AgentServiceAdapter {
   ): Promise<boolean> {
     if (this.useBackend) {
       try {
-        const response = await fetch(
+        const makeReq2 = (withAuth: boolean) => fetch(
           `${this.backendUrl}/v1/agent/stop?workflow_id=${workflowId}&session_id=${sessionId}`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            },
-          }
+          { method: 'POST', headers: (withAuth && token) ? { 'Authorization': `Bearer ${token}` } : undefined }
         );
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+        let response2 = await makeReq2(true);
+        if (!response2.ok && (response2.status === 401 || response2.status === 403)) {
+          response2 = await makeReq2(false);
         }
-
-        const result = await response.json();
+        if (!response2.ok) throw new Error(`HTTP ${response2.status}`);
+        const result = await response2.json();
         return result.success;
       } catch (error) {
         console.error('Backend stopWorkflow failed:', error);
@@ -396,4 +393,3 @@ export class AgentServiceAdapter {
 
 // 导出单例
 export const agentService = new AgentServiceAdapter();
-

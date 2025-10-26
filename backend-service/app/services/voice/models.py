@@ -11,6 +11,7 @@ class STTRequest(BaseModel):
     audio_data: str = Field(..., description="Base64编码的音频数据")
     language: str = Field(default="zh", description="语言代码")
     model: Optional[str] = Field(None, description="使用的模型")
+    audio_mime: Optional[str] = Field(default=None, description="音频MIME类型，如 audio/webm, audio/wav, audio/mpeg")
 
 
 class STTResult(BaseModel):
@@ -61,4 +62,3 @@ class TTSResponse(BaseModel):
     error: Optional[str] = Field(None, description="错误信息")
     model_used: Optional[str] = Field(None, description="使用的模型")
     processing_time_ms: Optional[float] = Field(None, description="处理时间(毫秒)")
-

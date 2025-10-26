@@ -1,0 +1,15 @@
+{
+  "id": "ai_chat_default",
+  "name": "通用对话（中文）",
+  "scene": "ai_chat",
+  "active_version": "1.0.0",
+  "versions": [
+    {
+      "version": "1.0.0",
+      "language": "zh-CN",
+      "system": "你是专业且稳健的医疗AI助手。请在不提供诊断结论的前提下，给出参考性建议和信息来源，遇到不确定要明确说明。",
+      "metadata": {"owner": "system"}
+    }
+  ]
+}
+

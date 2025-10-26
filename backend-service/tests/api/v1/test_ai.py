@@ -113,17 +113,32 @@ class TestAIAPI:
             call_kwargs = mock_ai_manager.chat.call_args.kwargs
             assert call_kwargs["provider"] == "openai"
 
-    @pytest.mark.skip(reason="需要适配新的AI服务实现")
-    def test_chat_endpoint_validation_error(self, client):
-        """测试对话端点验证错误"""
+    def test_chat_endpoint_rejects_empty_messages(self, client):
+        """空消息列表应返回 400"""
         response = client.post(
             "/v1/ai/chat",
-            json={
-                "messages": [],  # 空消息列表
-            },
+            json={"messages": []},
+        )
+        assert response.status_code == 400
+        assert "Messages cannot be empty" in response.json().get("detail", "")
+
+    def test_chat_endpoint_surfaces_provider_error(self, client, monkeypatch):
+        """提供商异常时应返回 500 并带有错误明细"""
+
+        async def _broken_chat(*_args, **_kwargs):
+            raise RuntimeError("provider explode")
+
+        monkeypatch.setattr("app.api.v1.ai.ai_manager.chat", _broken_chat)
+
+        response = client.post(
+            "/v1/ai/chat",
+            json={"messages": [{"role": "user", "content": "test"}]},
         )
 
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 500
+        detail = response.json().get("detail", "")
+        assert "AI chat failed" in detail
+        assert "provider explode" in detail
 
     @pytest.mark.skip(reason="需要适配新的AI服务实现")
     def test_chat_endpoint_server_error(self, client, mock_ai_manager):
@@ -307,4 +322,3 @@ class TestErrorHandling:
             data = response.json()
             assert data["success"] is False
             assert "not found" in data["error"]["message"].lower()
-

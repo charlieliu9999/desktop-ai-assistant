@@ -7,17 +7,30 @@
  */
 
 import type { Logger } from '../../utils/logger';
-import type { AIConfig, AIMessage, AIResponse } from '../../shared/types';
+import type { AIConfig } from '../../shared/types';
 import { AIService } from '../legacy/ai';
 
-// 功能开关
-const FEATURE_FLAGS = {
-  USE_BACKEND_AI: false, // 默认禁用，待测试通过后启用
-};
+let API_BASE_OVERRIDE: string | null = null;
 
-// API配置
+export function setBackendApiOrigin(origin: string) {
+  if (origin && typeof origin === 'string') {
+    API_BASE_OVERRIDE = origin.replace(/\/$/, '');
+  }
+}
+
+// API配置（后端基址）
 const API_CONFIG = {
-  baseURL: 'http://localhost:8010',
+  get baseURL() {
+    if (API_BASE_OVERRIDE) return API_BASE_OVERRIDE;
+    // 与 SettingsPanel 同步：从 VITE_API_BASE_URL 取 origin，默认 http://127.0.0.1:8010
+    try {
+      const raw = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://127.0.0.1:8010/api';
+      const u = new URL(raw);
+      return u.origin;
+    } catch {
+      return 'http://127.0.0.1:8010';
+    }
+  },
   timeout: 30000,
   retryAttempts: 3,
 };
@@ -74,10 +87,20 @@ export class AIServiceAdapter {
   constructor(config: AIConfig, logger: Logger) {
     this.config = config;
     this.logger = logger;
-    this.useBackend = FEATURE_FLAGS.USE_BACKEND_AI;
+    // 根据配置决定是否走后端
+    this.useBackend = (config as any)?.routingMode === 'backend';
     this.legacyService = new AIService(config, logger);
+    this.logger.info(`AI Service Adapter initialized, routingMode=${(config as any)?.routingMode || 'frontend'}, useBackend=${this.useBackend}`);
+  }
 
-    this.logger.info(`AI Service Adapter initialized, useBackend: ${this.useBackend}`);
+  /** 更新配置（运行期） */
+  updateConfig(updates: Partial<AIConfig>) {
+    this.config = { ...this.config, ...(updates as any) } as AIConfig;
+    const prev = this.useBackend;
+    this.useBackend = (this.config as any)?.routingMode === 'backend';
+    if (prev !== this.useBackend) {
+      this.logger.info(`AI Adapter routing switched to ${this.useBackend ? 'backend' : 'frontend'}`);
+    }
   }
 
   /**
@@ -106,7 +129,7 @@ export class AIServiceAdapter {
    * 测试后端连接
    */
   private async testBackendConnection(): Promise<void> {
-    const response = await fetch(`${API_CONFIG.baseURL}/api/v1/ai/providers`, {
+    const response = await fetch(`${API_CONFIG.baseURL}/v1/ai/providers`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -130,12 +153,38 @@ export class AIServiceAdapter {
   }
 
   /**
+   * 统一获取安全的 max_tokens，避免超过提供商限制。
+   */
+  private getSafeMaxTokens(): number | undefined {
+    const raw = (this.config as any)?.maxTokens;
+    const fallback = 2000;
+    const numeric = typeof raw === 'number' ? raw : parseInt(String(raw ?? fallback), 10);
+    const value = Number.isFinite(numeric) && numeric > 0 ? numeric : fallback;
+    const provider = ((this.config as any)?.backendProvider || '').toLowerCase();
+    const model = ((this.config as any)?.backendModel || '').toLowerCase();
+    // DashScope/Qwen 与 DeepSeek 均限制在 8192 以内
+    if (provider === 'dashscope' || provider === 'aliyun' || model.includes('qwen')) {
+      return Math.min(value, 8192);
+    }
+    if (provider === 'deepseek' || (model.includes('deepseek'))) {
+      return Math.min(value, 8192);
+    }
+    if (value <= 0) return fallback;
+    return value;
+  }
+
+  /**
    * 使用后端API处理消息
    */
   private async processMessageWithBackend(message: string, context?: string[]): Promise<string> {
     try {
       // 构建消息列表
       const messages: Message[] = [];
+
+      // 系统提示
+      if (this.config?.systemPrompt) {
+        messages.push({ role: 'system', content: this.config.systemPrompt });
+      }
 
       // 添加上下文
       if (context && context.length > 0) {
@@ -148,16 +197,22 @@ export class AIServiceAdapter {
       messages.push({ role: 'user', content: message });
 
       // 调用后端API
-      const response = await fetch(`${API_CONFIG.baseURL}/api/v1/ai/chat`, {
+      const scene = (this.config as any)?.backendScene
+        || (((this.config as any)?.backendProvider) === 'dashscope' ? 'ai_chat_aliyun' : 'ai_chat');
+      const maxTokens = this.getSafeMaxTokens();
+      const response = await fetch(`${API_CONFIG.baseURL}/v1/ai/chat?scene=${encodeURIComponent(scene)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          provider: (this.config as any)?.backendProvider || undefined,
           messages,
+          // 不携带 provider 与 model，交给后端默认与场景配置决定
           options: {
+            model: (this.config as any)?.backendModel || undefined,
             temperature: this.config.temperature || 0.7,
-            max_tokens: this.config.maxTokens || 2000,
+            max_tokens: maxTokens || 2000,
           },
         }),
       });
@@ -199,8 +254,22 @@ export class AIServiceAdapter {
     context?: string[]
   ): AsyncIterableIterator<string> {
     try {
+      // 诊断信息（开发时查看控制台）
+      try {
+        console.info('[AIAdapter] backend stream', {
+          baseURL: API_CONFIG.baseURL,
+          provider: (this.config as any)?.backendProvider || 'default',
+          model: (this.config as any)?.backendModel || 'scene/default',
+          scene: (this.config as any)?.backendScene || (((this.config as any)?.backendProvider) === 'dashscope' ? 'ai_chat_aliyun' : 'ai_chat')
+        });
+      } catch {}
       // 构建消息列表
       const messages: Message[] = [];
+
+      // 系统提示
+      if (this.config?.systemPrompt) {
+        messages.push({ role: 'system', content: this.config.systemPrompt });
+      }
 
       if (context && context.length > 0) {
         context.forEach((ctx) => {
@@ -211,16 +280,22 @@ export class AIServiceAdapter {
       messages.push({ role: 'user', content: message });
 
       // 调用流式API
-      const response = await fetch(`${API_CONFIG.baseURL}/api/v1/ai/chat/stream`, {
+      const scene = (this.config as any)?.backendScene
+        || (((this.config as any)?.backendProvider) === 'dashscope' ? 'ai_chat_aliyun' : 'ai_chat');
+      const maxTokens = this.getSafeMaxTokens();
+      const response = await fetch(`${API_CONFIG.baseURL}/v1/ai/chat/stream?scene=${encodeURIComponent(scene)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
         },
         body: JSON.stringify({
+          provider: (this.config as any)?.backendProvider || undefined,
           messages,
           options: {
+            model: (this.config as any)?.backendModel || undefined,
             temperature: this.config.temperature || 0.7,
-            max_tokens: this.config.maxTokens || 2000,
+            max_tokens: maxTokens || 2000,
             stream: true,
           },
         }),
@@ -231,36 +306,52 @@ export class AIServiceAdapter {
       }
 
       // 解析SSE流
-      const reader = response.body?.getReader();
-      if (!reader) {
-        throw new Error('No response body');
-      }
+      const reader = (response as any).body?.getReader?.();
+      if (reader && typeof reader.read === 'function') {
+        const decoder = new TextDecoder();
+        let buffer = '';
 
-      const decoder = new TextDecoder();
-      let buffer = '';
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const data = line.slice(6);
+              try {
+                const chunk: StreamChunk = JSON.parse(data);
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            try {
-              const chunk: StreamChunk = JSON.parse(data);
-
-              if (chunk.type === 'chunk' && chunk.content) {
-                yield chunk.content;
-              } else if (chunk.type === 'error') {
-                throw new Error(chunk.error || 'Stream error');
+                if (chunk.type === 'chunk' && chunk.content) {
+                  yield chunk.content;
+                } else if (chunk.type === 'error') {
+                  throw new Error(chunk.error || 'Stream error');
+                }
+              } catch {
+                // 忽略解析错误
               }
-            } catch (e) {
-              // 忽略解析错误
             }
+          }
+        }
+      } else {
+        // 兼容环境：不支持 getReader，一次性读取并解析
+        const text = await response.text();
+        const lines = text.split('\n');
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const json = line.slice(6);
+            const chunk: StreamChunk = JSON.parse(json);
+            if (chunk.type === 'chunk' && chunk.content) {
+              yield chunk.content;
+            } else if (chunk.type === 'error') {
+              throw new Error(chunk.error || 'Stream error');
+            }
+          } catch {
+            // 忽略解析错误
           }
         }
       }
@@ -290,15 +381,17 @@ export class AIServiceAdapter {
    */
   private async analyzeContentWithBackend(content: string, analysisType: string): Promise<any> {
     try {
-      const response = await fetch(`${API_CONFIG.baseURL}/api/v1/ai/analyze`, {
+      const response = await fetch(`${API_CONFIG.baseURL}/v1/ai/analyze`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          provider: (this.config as any)?.backendProvider || undefined,
           content,
           analysis_type: analysisType,
           options: {
+            model: (this.config as any)?.backendModel || undefined,
             temperature: 0.3, // 分析任务使用较低温度
             max_tokens: 2000,
           },
@@ -345,4 +438,3 @@ export class AIServiceAdapter {
     }
   }
 }
-

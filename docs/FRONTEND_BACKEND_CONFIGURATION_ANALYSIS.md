@@ -100,9 +100,9 @@ LOCAL_AI_ENDPOINT=http://localhost:11434
 LOCAL_AI_MODEL=qwen2.5vl:latest
 LOCAL_AI_TIMEOUT=60
 
-# Deepseek AI配置(云端API)
+# Deepseek AI配置(云端API，基址不带 /v1)
 DEEPSEEK_API_KEY=your_api_key_here
-DEEPSEEK_API_BASE=https://api.deepseek.com/v1
+DEEPSEEK_API_BASE=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-chat
 
 # 数据库配置

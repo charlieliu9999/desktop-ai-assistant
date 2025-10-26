@@ -1,0 +1,293 @@
+{
+  "base": "http://localhost:8010",
+  "ai": {
+    "providers": [],
+    "runs": [
+      {
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "base_url": "https://api.openai.com/v1",
+        "result": {
+          "ok": true,
+          "status": 200,
+          "elapsed_ms": 1401.3302326202393,
+          "url": "http://localhost:8010/v1/ai/chat",
+          "data": {
+            "success": true,
+            "data": {
+              "message": {
+                "role": "assistant",
+                "content": "Hello! How can I assist you today?",
+                "name": null
+              },
+              "usage": {
+                "prompt_tokens": 11,
+                "completion_tokens": 9,
+                "total_tokens": 20
+              },
+              "model": "gpt-4o-mini-2024-07-18",
+              "finish_reason": "stop",
+              "provider": "openai"
+            },
+            "error": null,
+            "meta": {
+              "request_id": "4dee8910-073e-49fd-9d35-804c5dd808f4",
+              "timestamp": "2025-10-13T22:55:23.691045",
+              "processing_time_ms": 1397.145,
+              "version": "1.1.0"
+            }
+          }
+        }
+      },
+      {
+        "provider": "deepseek",
+        "model": "deepseek-chat",
+        "base_url": "https://api.deepseek.com",
+        "result": {
+          "ok": true,
+          "status": 200,
+          "elapsed_ms": 3508.037805557251,
+          "url": "http://localhost:8010/v1/ai/chat",
+          "data": {
+            "success": true,
+            "data": {
+              "message": {
+                "role": "assistant",
+                "content": "Hello! It looks like you're testing the provider connection. I'm here and ready to help! \n\nIs there anything specific you'd like to test or ask about? I can assist with questions, problem-solving, explanations, or just have a conversation. Feel free to try out any features or ask whatever you'd like",
+                "name": null
+              },
+              "usage": {
+                "prompt_tokens": 8,
+                "completion_tokens": 64,
+                "total_tokens": 72
+              },
+              "model": "deepseek-chat",
+              "finish_reason": "length",
+              "provider": "deepseek"
+            },
+            "error": null,
+            "meta": {
+              "request_id": "b3167382-bf55-40df-8865-5c0c85c5c7a9",
+              "timestamp": "2025-10-13T22:55:27.199247",
+              "processing_time_ms": 3501.833,
+              "version": "1.1.0"
+            }
+          }
+        }
+      },
+      {
+        "provider": "dashscope",
+        "model": "qwen3-max",
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "result": {
+          "ok": true,
+          "status": 200,
+          "elapsed_ms": 3347.2750186920166,
+          "url": "http://localhost:8010/v1/ai/chat",
+          "data": {
+            "success": true,
+            "data": {
+              "message": {
+                "role": "assistant",
+                "content": "Hello! It looks like you're testing a provider or integration. How can I assist you today? Let me know if you need help with anything specific! 😊",
+                "name": null
+              },
+              "usage": {
+                "prompt_tokens": 12,
+                "completion_tokens": 33,
+                "total_tokens": 45
+              },
+              "model": "qwen3-max",
+              "finish_reason": "stop",
+              "provider": "dashscope"
+            },
+            "error": null,
+            "meta": {
+              "request_id": "52d49770-5489-46d6-9bd6-c91dc95d096a",
+              "timestamp": "2025-10-13T22:55:30.546570",
+              "processing_time_ms": 3342.58,
+              "version": "1.1.0"
+            }
+          }
+        }
+      },
+      {
+        "provider": "local",
+        "model": "qwen3-embedding:latest",
+        "base_url": "http://127.0.0.1:11434/v1",
+        "result": {
+          "ok": false,
+          "status": 500,
+          "elapsed_ms": 5821.702241897583,
+          "url": "http://localhost:8010/v1/ai/chat",
+          "data": {
+            "detail": "AI chat failed: Connection error."
+          }
+        }
+      }
+    ],
+    "providers_response": {
+      "ok": true,
+      "status": 200,
+      "elapsed_ms": 5.0258636474609375,
+      "url": "http://localhost:8010/v1/ai/providers",
+      "data": {
+        "success": true,
+        "data": {
+          "providers": [
+            "openai",
+            "deepseek",
+            "dashscope",
+            "local"
+          ]
+        },
+        "error": null,
+        "meta": {
+          "timestamp": "2025-10-13T22:55:22.265948"
+        }
+      }
+    },
+    "models_response": {
+      "ok": true,
+      "status": 200,
+      "elapsed_ms": 24.16396141052246,
+      "url": "http://localhost:8010/v1/ai/models",
+      "data": {
+        "success": true,
+        "data": {
+          "providers": [
+            {
+              "name": "openai",
+              "base_url": "https://api.openai.com/v1",
+              "models": [
+                "gpt-4o-mini"
+              ]
+            },
+            {
+              "name": "deepseek",
+              "base_url": "https://api.deepseek.com",
+              "models": [
+                "deepseek-chat"
+              ]
+            },
+            {
+              "name": "dashscope",
+              "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+              "models": [
+                "qwen3-max",
+                "qwen3-vl-plus",
+                "qwen-plus"
+              ]
+            },
+            {
+              "name": "local",
+              "base_url": "http://127.0.0.1:11434/v1",
+              "models": [
+                "qwen3-embedding:latest",
+                "gpt-oss:20b",
+                "dengcao/bge-reranker-v2-m3:latest",
+                "bge-m3:latest",
+                "qwen3:30b",
+                "gpt-oss:120b",
+                "medgemma:turbo",
+                "medgemma:ultra-optimized",
+                "medgemma:optimized",
+                "nomic-embed-text:latest",
+                "qwen3:14b",
+                "medgemma:4b",
+                "gemma3:4b",
+                "medgemma:latest",
+                "qwen2.5vl:latest",
+                "qwen3:8b",
+                "qwen3:32b",
+                "qwen2.5:7b",
+                "gemma3:27b",
+                "qwen2.5:14b",
+                "qwen2.5:32b"
+              ]
+            }
+          ]
+        }
+      }
+    }
+  },
+  "vision": {
+    "models": {
+      "ok": true,
+      "status": 200,
+      "elapsed_ms": 29.86884117126465,
+      "url": "http://localhost:8010/v1/vision/models",
+      "data": {
+        "success": true,
+        "data": {
+          "default": "qwen2.5vl:latest",
+          "models": [
+            "bge-m3:latest",
+            "dengcao/bge-reranker-v2-m3:latest",
+            "gemma3:27b",
+            "gemma3:4b",
+            "gpt-oss:120b",
+            "gpt-oss:20b",
+            "medgemma:4b",
+            "medgemma:latest",
+            "medgemma:optimized",
+            "medgemma:turbo",
+            "medgemma:ultra-optimized",
+            "nomic-embed-text:latest",
+            "qwen2.5:14b",
+            "qwen2.5:32b",
+            "qwen2.5:7b",
+            "qwen2.5vl:latest",
+            "qwen3-embedding:latest",
+            "qwen3-vl-plus",
+            "qwen3:14b",
+            "qwen3:30b",
+            "qwen3:32b",
+            "qwen3:8b"
+          ]
+        }
+      }
+    },
+    "ocr_health": null,
+    "vision_health": {
+      "ok": true,
+      "status": 200,
+      "elapsed_ms": 77.9728889465332,
+      "url": "http://localhost:8010/v1/vision/health",
+      "data": {
+        "success": true,
+        "services": {
+          "ocr": {
+            "healthy": true,
+            "available": true
+          },
+          "vision": {
+            "healthy": true,
+            "available": true
+          }
+        }
+      }
+    },
+    "vision_run": {
+      "ok": true,
+      "status": 200,
+      "elapsed_ms": 3865.529775619507,
+      "url": "http://localhost:8010/v1/vision/understand?scene=screen_recognition_aliyun",
+      "data": {
+        "success": true,
+        "result": {
+          "description": "{\n  \"summary\": \"该图片为医疗信息系统界面截图，显示患者基本信息、就诊记录及部分临床数据，但未完整展示姓名、病历号、主诉或诊断等关键字段。\"\n}\n\n{\n  \"patient_name\": \"\",\n  \"gender\": \"\",\n  \"age\": \"\",\n  \"medical_record_number\": \"\",\n  \"chief_complaint\": \"\",\n  \"diagnosis\": \"\",\n  \"confidence\": 0.3\n}",
+          "confidence": 0.8,
+          "details": {
+            "model": "qwen3-vl-plus",
+            "tokens_used": 203
+          },
+          "structured": null
+        },
+        "error": null,
+        "model_used": "qwen3-vl-plus",
+        "processing_time_ms": 3861.3641262054443
+      }
+    }
+  }
+}

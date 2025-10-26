@@ -1,0 +1,68 @@
+{
+  "scenarios": [
+    {
+      "name": "ai_chat",
+      "modality": "llm",
+      "model_id": "chat-openai-gpt4o-mini",
+      "param_overrides": {
+        "temperature": 0.6
+      },
+      "prompt_id": "ai_chat_default",
+      "prompt_version": "1.0.0"
+    },
+    {
+      "name": "screen_recognition",
+      "modality": "vl",
+      "model_id": "vision-local-qwenvl",
+      "param_overrides": {
+        "temperature": 0.1,
+        "max_tokens": 800
+      },
+      "prompt_id": "screen_recognition_cn",
+      "prompt_version": "20251023T10081"
+    },
+    {
+      "name": "voice_stt",
+      "modality": "stt",
+      "model_id": "stt-whisper-large-v3",
+      "param_overrides": {
+        "language": "zh"
+      },
+      "prompt_id": null,
+      "prompt_version": null
+    },
+    {
+      "name": "voice_tts",
+      "modality": "tts",
+      "model_id": "tts-default",
+      "param_overrides": {
+        "voice": "alloy",
+        "speed": 1.0,
+        "pitch": 1.0
+      },
+      "prompt_id": null,
+      "prompt_version": null
+    },
+    {
+      "name": "ai_chat_aliyun",
+      "modality": "llm",
+      "model_id": "qwen-max",
+      "param_overrides": {
+        "temperature": 0.6
+      },
+      "prompt_id": "ai_chat_default",
+      "prompt_version": "1.0.0"
+    },
+    {
+      "name": "screen_recognition_aliyun",
+      "modality": "vl",
+      "model_id": "qwen-vl-plus",
+      "param_overrides": {
+        "temperature": 0.2,
+        "max_tokens": 800
+      },
+      "prompt_id": "screen_recognition_cn",
+      "prompt_version": "20251023T10081"
+    }
+  ]
+}

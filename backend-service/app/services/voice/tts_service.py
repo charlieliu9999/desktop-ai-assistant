@@ -38,6 +38,10 @@ class TTSService:
         start_time = time.time()
 
         try:
+            # 如果请求指定模型，更新当前模型名称（占位实现）
+            if request.model and request.model != self.model_name:
+                self.model_name = request.model
+
             # TODO: 实现实际的TTS服务
             # 这里使用占位符实现
             # 实际应该调用TTS API或本地TTS引擎
@@ -88,4 +92,3 @@ class TTSService:
         except Exception as e:
             logger.error(f"语音合成服务健康检查失败: {e}")
             return False
-

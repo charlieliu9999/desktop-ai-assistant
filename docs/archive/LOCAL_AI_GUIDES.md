@@ -1110,7 +1110,7 @@ LOCAL_AI_MAX_RETRIES=3
 
 # 云端API配置(hybrid模式需要)
 DEEPSEEK_API_KEY=your_api_key_here
-DEEPSEEK_API_BASE=https://api.deepseek.com/v1
+DEEPSEEK_API_BASE=https://api.deepseek.com
 DEEPSEEK_MODEL=deepseek-chat
 ```
 
@@ -1514,4 +1514,3 @@ LOCAL_AI_TIMEOUT=120
 **版本**: v2.0  
 **更新日期**: 2025-10-03  
 **状态**: ✅ 生产就绪
-

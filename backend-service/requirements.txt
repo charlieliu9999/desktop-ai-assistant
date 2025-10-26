@@ -41,7 +41,8 @@ pytesseract==0.3.10
 Pillow==10.1.0
 
 # 语音处理
-openai-whisper==20231117
+# openai-whisper==20231117  # 本地Whisper (需要ffmpeg,较重)
+# faster-whisper==0.10.0  # 更快的本地Whisper (可选)
 pydub==0.25.1
 
 # 异步任务队列

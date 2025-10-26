@@ -1,0 +1,13 @@
+[
+  {
+    "path": "tests/test_patient_image.png",
+    "mime": "image/png",
+    "schema": "patient_info_v1"
+  },
+  {
+    "path": "tests/截屏2025-10-02 19.49.44.png",
+    "mime": "image/png",
+    "schema": "patient_info_v1"
+  }
+]
+

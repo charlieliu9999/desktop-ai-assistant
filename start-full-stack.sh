@@ -74,6 +74,7 @@ CLEAN_MODE=false
 
 BACKEND_PID=""
 FRONTEND_PID=""
+ROUTING_MODE=""
 
 # ============================================================================
 # 工具函数
@@ -222,6 +223,15 @@ parse_arguments() {
                 CLEAN_MODE=true
                 shift
                 ;;
+            --routing)
+                if [[ -n "$2" ]]; then
+                    ROUTING_MODE="$2"
+                    shift 2
+                else
+                    print_error "--routing 需要参数: frontend|backend"
+                    exit 1
+                fi
+                ;;
             --help)
                 show_help
                 exit 0
@@ -244,6 +254,7 @@ show_help() {
   --skip-checks       跳过环境检查
   --backend-only      仅启动后端服务
   --frontend-only     仅启动前端应用（假设后端已运行）
+  --routing <mode>    AI调用路由(frontend|backend)，传递给前端
   --auto-kill         自动清理占用端口的进程
   --clean             启动前清理所有相关进程和缓存
   --help              显示此帮助信息
@@ -251,6 +262,7 @@ show_help() {
 示例:
   $0                  # 启动完整应用栈
   $0 --backend-only   # 仅启动后端
+  $0 --routing backend# 前端走后端AI
   $0 --auto-kill      # 自动清理端口并启动
   $0 --clean          # 清理模式启动
 
@@ -574,9 +586,9 @@ start_frontend() {
 
     # 使用 npm run dev 启动完整的 Electron 应用
     if command_exists pnpm; then
-        pnpm run dev > "$FRONTEND_LOG" 2>&1 &
+        APP_ROUTING_MODE="$ROUTING_MODE" pnpm run dev > "$FRONTEND_LOG" 2>&1 &
     else
-        npm run dev > "$FRONTEND_LOG" 2>&1 &
+        APP_ROUTING_MODE="$ROUTING_MODE" npm run dev > "$FRONTEND_LOG" 2>&1 &
     fi
 
     FRONTEND_PID=$!
@@ -704,4 +716,3 @@ main() {
 
 # 运行主函数
 main "$@"
-

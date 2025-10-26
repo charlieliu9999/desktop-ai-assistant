@@ -15,6 +15,7 @@ export interface STTRequest {
   audioData: string; // Base64编码的音频数据
   language?: string; // 语言代码
   model?: string; // 使用的模型
+  audioMime?: string; // 音频MIME类型（如 audio/webm, audio/wav, audio/mpeg）
 }
 
 /**
@@ -99,10 +100,11 @@ export class VoiceServiceAdapter {
    */
   private async speechToTextWithBackend(request: STTRequest): Promise<STTResult> {
     try {
-      const response = await this.apiClient.post('/api/v1/voice/stt', {
+      const response = await this.apiClient.post('/v1/voice/stt', {
         audio_data: request.audioData,
         language: request.language || 'zh',
         model: request.model,
+        audio_mime: request.audioMime,
       });
 
       if (!response.success || !response.result) {
@@ -157,7 +159,7 @@ export class VoiceServiceAdapter {
    */
   private async textToSpeechWithBackend(request: TTSRequest): Promise<TTSResult> {
     try {
-      const response = await this.apiClient.post('/api/v1/voice/tts', {
+      const response = await this.apiClient.post('/v1/voice/tts', {
         text: request.text,
         language: request.language || 'zh',
         voice: request.voice,
@@ -265,7 +267,7 @@ export class VoiceServiceAdapter {
    */
   async testBackendConnection(): Promise<boolean> {
     try {
-      const response = await this.apiClient.get('/api/v1/voice/health');
+      const response = await this.apiClient.get('/v1/voice/health');
       return response.success === true;
     } catch (error) {
       console.error('语音服务后端连接测试失败:', error);
@@ -276,4 +278,3 @@ export class VoiceServiceAdapter {
 
 // 导出单例
 export const voiceAdapter = new VoiceServiceAdapter();
-

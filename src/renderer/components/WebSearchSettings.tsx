@@ -77,6 +77,22 @@ export const WebSearchSettings: React.FC<WebSearchSettingsProps> = ({ onClose })
           </div>
 
           <div className="space-y-6">
+            {/* 路由模式（模块级） */}
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">调用路由</label>
+                <p className="text-xs text-gray-500 dark:text-gray-400">继承全局/前端直连/后端服务</p>
+              </div>
+              <select
+                value={webSearchConfig?.routingMode ?? 'inherit'}
+                onChange={(e) => handleConfigChange('routingMode', e.target.value as any)}
+                className="px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300"
+              >
+                <option value="inherit">继承全局</option>
+                <option value="frontend">前端直连</option>
+                <option value="backend">后端服务</option>
+              </select>
+            </div>
             {/* 启用网络搜索 */}
             <div className="flex items-center justify-between">
               <div>

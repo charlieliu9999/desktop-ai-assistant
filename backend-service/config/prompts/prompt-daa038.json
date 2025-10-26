@@ -1,0 +1,22 @@
+{
+  "id": "prompt-daa038",
+  "name": "临时提示词",
+  "scene": "ai_chat",
+  "versions": [
+    {
+      "version": "0.1.0",
+      "language": "zh-CN",
+      "system": "测试系统提示",
+      "user_template": null,
+      "metadata": {}
+    },
+    {
+      "version": "0.2.0",
+      "language": "zh-CN",
+      "system": "新版系统提示",
+      "user_template": null,
+      "metadata": {}
+    }
+  ],
+  "active_version": "0.2.0"
+}

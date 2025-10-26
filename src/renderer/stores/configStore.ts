@@ -167,7 +167,8 @@ const defaultConfig: AppConfig = {
     retryAttempts: 3,
     retryDelay: 1000,
     rateLimitRpm: 30,
-    rateLimitTpm: 5000
+    rateLimitTpm: 5000,
+    extractionMode: 'freeform'
   },
   aiRecommend: {
     enabled: true,
@@ -185,7 +186,7 @@ const defaultConfig: AppConfig = {
   },
   oneClick: {
     enabled: true,
-    showScreenshot: true,
+    showScreenshot: false,
     showPatientInfo: true,
     generate: { diagnosis: true, exam: true, medication: true },
     allowFollowUp: true,
@@ -248,7 +249,7 @@ const defaultConfig: AppConfig = {
     ocrEnabled: true,
     accessibilityEnabled: true,
     screenCaptureInterval: 5000,
-    autoAnalyze: true,
+    autoAnalyze: false,
     monitoringInterval: 30,
     screenshotQuality: 'medium',
     ocrLanguages: ['zh-CN', 'en-US'],

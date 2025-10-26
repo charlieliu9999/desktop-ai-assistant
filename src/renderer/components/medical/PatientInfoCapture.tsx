@@ -30,6 +30,7 @@ export const PatientInfoCapture: React.FC = () => {
   const [isExtracting, setIsExtracting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [hasCachedScreenshot, setHasCachedScreenshot] = useState(false);
+  const [patientText, setPatientText] = useState<string>('');
 
   // 初始化检查是否有缓存的截图
   React.useEffect(() => {
@@ -99,6 +100,7 @@ export const PatientInfoCapture: React.FC = () => {
       } catch (e) {
         console.warn('Failed to cache screenshot locally:', e);
       }
+      // 医疗系统期望按步骤显示（截图→识别→选择→推荐）
       setCurrentStep('preview');
     } catch (err) {
       setError(err instanceof Error ? err.message : '截图失败');
@@ -150,61 +152,27 @@ export const PatientInfoCapture: React.FC = () => {
     setCurrentStep('extracting');
 
     try {
-      // 路由选择：aiImage.routingMode -> backend/frontend；inherit 时跟随 ai.routingMode
-      const globalRouting = (config?.ai?.routingMode || 'frontend');
-      const imageRouting = (config?.aiImage as any)?.routingMode || 'inherit';
-      const useBackendForImage = imageRouting === 'backend' || (imageRouting === 'inherit' && globalRouting === 'backend');
-
-      if (!useBackendForImage && config?.aiImage?.enabled) {
-        console.log('🔍 使用配置的AI图片模型进行识别:', config.aiImage);
-        // 使用配置的图片模型直接提取患者信息
-        const response = await apiClient.extractPatientInfo(screenshot, config.aiImage);
-        
-        // 打印完整接收数据
-        console.log('🔍 医疗系统接收的完整数据:', {
-          timestamp: new Date().toISOString(),
-          success: response.success,
-          patient_info: response.patient_info,
-          raw_content: response.raw_content,
-          full_response: response.full_response,
-          error: response.error
-        });
-        
-        // 转换字段名以匹配PatientInfo接口
-        const pi: any = response.patient_info || {};
-        const convertedPatientInfo = response.patient_info ? {
-          name: pi.name || pi.patient_name || '',
-          age: typeof pi.age === 'number' ? pi.age : parseInt(String(pi.age || '0')) || 0,
-          gender: pi.gender || '',
-          patient_id: pi.patient_id || pi.patientId || pi.medical_record_number || '',
-          department: pi.department || '',
-          chief_complaint: pi.chief_complaint || pi.chiefComplaint || '',
-          diagnosis: pi.diagnosis || '',
-          medical_history: pi.medical_history || pi.medicalHistory || pi.medicalNow || ''
-        } : null;
-        
-        setPatientInfo(convertedPatientInfo);
-        saveSession({ patientInfo: convertedPatientInfo, currentStep: 'editing' });
-      } else {
-        console.log('🔍 使用后端视觉进行识别');
-        // 使用 visionAdapter 走后端严格 JSON（patient_info_v1）
-        const { visionAdapter } = await import('../../../services/adapters/vision-adapter');
-        const backendProvider = (config as any)?.aiImage?.backendProvider || 'dashscope';
-        const backendModel = (config as any)?.aiImage?.backendModel || undefined;
-        const scene = (config as any)?.aiImage?.backendScene || (backendProvider === 'dashscope' ? 'screen_recognition_aliyun' : 'screen_recognition');
-        const res = await visionAdapter.understandImage({
-          imageData: screenshot,
-          imageMime: 'image/png',
-          // 后端模式：提示词由后端场景注入
-          prompt: '',
-          provider: backendProvider as any,
-          model: backendModel,
-          strictJson: true,
-          // 允许后端在严格JSON失败时走OCR+LLM/正则兜底，提高命中率
-          allowFallback: true,
-          schemaName: 'patient_info_v1',
-          scene,
-        });
+      // 通过后端视觉（VL）进行识别；根据 extractionMode 选择严格JSON或自由文本
+      const extractionMode = (config as any)?.aiImage?.extractionMode || 'freeform';
+      const useStrict = extractionMode === 'strict';
+      console.log('🔍 使用后端视觉进行识别（VL, mode=%s）', extractionMode);
+      const { visionAdapter } = await import('../../../services/adapters/vision-adapter');
+      const backendProvider = (config as any)?.aiImage?.backendProvider || 'dashscope';
+      const backendModel = (config as any)?.aiImage?.backendModel || undefined;
+      const scene = (config as any)?.aiImage?.backendScene || (backendProvider === 'dashscope' ? 'screen_recognition_aliyun' : 'screen_recognition');
+      const freeformPrompt = '只从中部或右侧的“患者信息/基本信息/诊断信息/医嘱录入/病历详情”等详情面板提取本次就诊患者的完整信息，忽略左侧的患者列表、中部的患者列表和表格/卡片集合。仅输出清晰的中文文本，逐行列出姓名、性别、年龄、患者ID/病历号、科室、日期、主诉、诊断、现病史、既往史等要点，保持与界面一致的用词，不要JSON，不要解释。';
+      const res = await visionAdapter.understandImage({
+        imageData: screenshot,
+        imageMime: 'image/png',
+        prompt: useStrict ? '' : freeformPrompt,
+        provider: backendProvider as any,
+        model: backendModel,
+        strictJson: useStrict,
+        allowFallback: false,
+        schemaName: useStrict ? 'patient_info_v1' : undefined as any,
+        scene,
+      });
+      if (useStrict) {
         const s: any = (res as any)?.details?.structured || {};
         const norm = (v: any) => (v === undefined || v === null) ? '' : v;
         const convertedPatientInfo = {
@@ -218,14 +186,57 @@ export const PatientInfoCapture: React.FC = () => {
           medical_history: norm(s.medical_history) || norm(s.medicalHistory) || norm(s.medicalNow) || ''
         };
         setPatientInfo(convertedPatientInfo);
+        setPatientText('');
+        saveSession({ patientInfo: convertedPatientInfo, currentStep: 'editing' });
+      } else {
+        const text = (res as any)?.description || '';
+        setPatientText(text);
+        // 尝试最小提取关键信息用于摘要展示（不强制）
+        const tryPick = (label: RegExp) => {
+          const m = text.match(label);
+          return m ? String(m[1]).trim() : '';
+        };
+        const convertedPatientInfo = {
+          name: tryPick(/(?:姓名|患者姓名|name)[：: ]+([^\n，,]+)/i),
+          age: parseInt(tryPick(/(?:年龄|age)[：: ]+(\d{1,3})/i)) || 0,
+          gender: tryPick(/(?:性别|gender)[：: ]+([^\n，,]+)/i),
+          patient_id: tryPick(/(?:患者ID|病历号|ID)[：: ]+([^\n，,]+)/i),
+          department: tryPick(/(?:科室|department)[：: ]+([^\n，,]+)/i),
+          chief_complaint: tryPick(/(?:主诉|chief\s*complaint)[：: ]+([^\n]+)/i),
+          diagnosis: tryPick(/(?:诊断|diagnosis)[：: ]+([^\n]+)/i),
+          medical_history: tryPick(/(?:现病史|既往史|病史|medical\s*history)[：: ]+([^\n]+)/i)
+        } as any;
+        setPatientInfo(convertedPatientInfo);
         saveSession({ patientInfo: convertedPatientInfo, currentStep: 'editing' });
       }
+      // 自动进入生成推荐（跳过确认/选择）
+      try {
+        const auto = !!(config?.desktopRecognition?.autoAnalyze);
+        if (auto) {
+          const genCfg = (config?.oneClick?.generate || {}) as any;
+          const types: any[] = [];
+          if (genCfg.diagnosis) types.push('diagnosis');
+          if (genCfg.exam) types.push('exam');
+          if (genCfg.medication) types.push('medication');
+          setSelectedTypes(types.length ? types : ['diagnosis','exam','medication']);
+          setTimeout(() => {
+            handleConfirmPatientInfo();
+            setTimeout(() => { handleGenerateRecommendations().catch(()=>{}); }, 30);
+          }, 10);
+        }
+      } catch {}
       
       setCurrentStep('editing');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '患者信息提取失败');
-      console.error('Patient info extraction error:', err);
-      setCurrentStep('preview');
+    } catch (err: any) {
+      const emsg = (err && (err.message || err?.error)) ? (err.message || err.error) : String(err);
+      console.error('Patient info extraction error:', emsg);
+      if (String(emsg).includes('strict_json_parse_failed')) {
+        setError('识别失败：未得到严格 JSON 结构。请确保截图包含右侧详情/信息面板，避免包含左侧边栏或中部患者列表后重试。');
+      } else {
+        setError(emsg || '患者信息提取失败');
+      }
+      // 失败时回到初始，提示重新截图（右侧详情面板）
+      setCurrentStep('initial');
     } finally {
       setIsExtracting(false);
     }
@@ -284,7 +295,9 @@ export const PatientInfoCapture: React.FC = () => {
               // 也写入对话历史（合并在同一条）——简单做法：在完成时再写入一次完整内容
               return next;
             });
-          }
+          },
+          undefined,
+          patientText && patientText.trim().length > 0 ? patientText : undefined
         );
         // 流式完成后一次性保存“助手”消息
         try {
@@ -437,6 +450,7 @@ export const PatientInfoCapture: React.FC = () => {
           </div>
           <div className="flex items-center justify-center space-x-3">
             <button
+              data-testid="capture-start-btn"
               onClick={handleCaptureScreen}
               disabled={isCapturing}
               className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-lg font-medium"
@@ -480,8 +494,19 @@ export const PatientInfoCapture: React.FC = () => {
 
       {/* 步骤 4: 编辑患者信息 */}
       {/* 紧凑文本显示替代输入表单 */}
-      {(currentStep === 'editing' || currentStep === 'selecting') && patientInfo && (
-        <PatientInfoText patientInfo={patientInfo} onConfirm={handleConfirmPatientInfo} />
+      {(currentStep === 'editing' || currentStep === 'selecting') && (
+        <>
+          {patientText ? (
+            <div className="p-4 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-md whitespace-pre-wrap text-sm">
+              {patientText}
+              <div className="mt-3 text-right">
+                <button onClick={handleConfirmPatientInfo} className="px-3 py-1 bg-blue-600 text-white rounded-md">确认</button>
+              </div>
+            </div>
+          ) : patientInfo ? (
+            <PatientInfoText patientInfo={patientInfo} onConfirm={handleConfirmPatientInfo} />
+          ) : null}
+        </>
       )}
 
       {/* 步骤 5: 选择推荐类型 */}
@@ -511,14 +536,16 @@ export const PatientInfoCapture: React.FC = () => {
       {currentStep === 'results' && (
         <>
           {/* 患者信息摘要 */}
-          {patientInfo && (
-            <div className="p-4 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-md">
-              <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
-                患者信息
-              </h4>
-              <div className="text-sm text-blue-800 dark:text-blue-200">
-                {patientInfo.name} | {patientInfo.gender} | {patientInfo.age}岁 | ID: {patientInfo.patient_id}
-              </div>
+          {(patientText || patientInfo) && (
+            <div className="p-4 bg-blue-50 dark:bg-blue-900 border border-blue-200 dark:border-blue-700 rounded-md whitespace-pre-wrap">
+              <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">患者信息</h4>
+              {patientText ? (
+                <div className="text-sm text-blue-800 dark:text-blue-200">{patientText}</div>
+              ) : (
+                <div className="text-sm text-blue-800 dark:text-blue-200">
+                  {patientInfo?.name} | {patientInfo?.gender} | {patientInfo?.age}岁 | ID: {patientInfo?.patient_id}
+                </div>
+              )}
             </div>
           )}
 
@@ -532,4 +559,3 @@ export const PatientInfoCapture: React.FC = () => {
     </div>
   );
 };
-

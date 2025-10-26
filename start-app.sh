@@ -41,10 +41,33 @@ ELECTRON_LOG="$LOG_DIR/electron.log"
 > "$VITE_LOG"
 > "$ELECTRON_LOG"
 
+# 解析可选参数（仅支持 --routing frontend|backend）
+ROUTING_MODE=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --routing)
+      if [[ -n "$2" ]]; then
+        ROUTING_MODE="$2"
+        shift 2
+      else
+        echo -e "${YELLOW}⚠ 缺少 --routing 的取值（frontend|backend），已忽略${NC}"
+        shift 1
+      fi
+      ;;
+    *)
+      # 其他参数忽略
+      shift 1
+      ;;
+  esac
+done
+
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo -e "${BLUE}       🚀 桌面AI助手完整启动器 v3.0 🚀${NC}"
 echo -e "${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
+if [[ -n "$ROUTING_MODE" ]]; then
+  echo -e "${CYAN}AI 调用路由: ${ROUTING_MODE}${NC}"
+fi
 
 # ============================================================================
 # 1. 环境检查
@@ -109,12 +132,22 @@ echo -e "${BLUE}🔧 启动后端服务 (FastAPI)...${NC}"
 cd "$BACKEND_DIR"
 
 # 检查Python环境
+if [ ! -d "venv" ]; then
+    echo -e "${YELLOW}首次运行: 创建虚拟环境 venv${NC}"
+    $PYTHON_CMD -m venv venv
+fi
+
 if [ -d "venv" ]; then
     echo -e "${YELLOW}使用虚拟环境: venv${NC}"
+    # shellcheck disable=SC1091
     source venv/bin/activate
+    PYTHON_CMD="$(command -v python)"
+    pip install --quiet --disable-pip-version-check -r requirements.txt
 elif [ -f "/opt/anaconda3/envs/deer-flow-env/bin/python" ]; then
     echo -e "${YELLOW}使用Conda环境: deer-flow-env${NC}"
     PYTHON_CMD="/opt/anaconda3/envs/deer-flow-env/bin/python"
+else
+    PYTHON_CMD="${PYTHON_CMD:-$(command -v python3 || command -v python)}"
 fi
 
 # 启动后端
@@ -154,7 +187,7 @@ cd ..
 
 # 启动前端开发服务器
 echo -e "${BLUE}📦 启动前端开发服务器 (Vite)...${NC}"
-npm run dev:renderer > "$VITE_LOG" 2>&1 &
+APP_ROUTING_MODE="$ROUTING_MODE" npm run dev:renderer > "$VITE_LOG" 2>&1 &
 VITE_PID=$!
 echo -e "${GREEN}✅ Vite进程已启动 (PID: $VITE_PID)${NC}"
 
@@ -197,7 +230,7 @@ echo -e "${CYAN}📋 步骤 4/4: 启动Electron应用${NC}"
 sleep 1  # 确保服务器稳定
 
 echo -e "${BLUE}🖥️  启动Electron应用...${NC}"
-npm run dev > "$ELECTRON_LOG" 2>&1 &
+APP_ROUTING_MODE="$ROUTING_MODE" npm run dev > "$ELECTRON_LOG" 2>&1 &
 ELECTRON_PID=$!
 echo -e "${GREEN}✅ Electron已启动 (PID: $ELECTRON_PID)${NC}"
 
@@ -242,4 +275,3 @@ wait $ELECTRON_PID 2>/dev/null
 
 # 自动清理
 cleanup
-

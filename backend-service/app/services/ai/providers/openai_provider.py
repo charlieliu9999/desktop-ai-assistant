@@ -39,6 +39,33 @@ class OpenAIProvider(AIProviderBase):
         )
         logger.info(f"OpenAI provider initialized with model: {config.model}")
 
+    @staticmethod
+    def _extract_text(content) -> str:
+        """
+        将OpenAI兼容的content字段统一转换为字符串。
+
+        DashScope 等兼容服务可能返回 list[dict] 结构，需手动拼接。
+        """
+        if content is None:
+            return ""
+        if isinstance(content, str):
+            return content
+        if isinstance(content, (list, tuple)):
+            parts: list[str] = []
+            for item in content:
+                if isinstance(item, str):
+                    parts.append(item)
+                elif isinstance(item, dict):
+                    text_value = item.get("text") or item.get("content") or ""
+                    if isinstance(text_value, str):
+                        parts.append(text_value)
+                    elif isinstance(text_value, (list, tuple)):
+                        parts.append(OpenAIProvider._extract_text(text_value))
+                else:
+                    parts.append(str(item))
+            return "".join(parts)
+        return str(content)
+
     async def chat(
         self, messages: List[Message], options: Optional[ChatOptions] = None
     ) -> ChatResponse:
@@ -55,8 +82,13 @@ class OpenAIProvider(AIProviderBase):
         try:
             opts = options or ChatOptions()
             model = opts.model or self.config.model
+            max_tokens = self._resolve_max_tokens(opts)
 
-            logger.info(f"OpenAI chat request with model: {model}")
+            logger.info(
+                "OpenAI chat request with model: %s, max_tokens=%s",
+                model,
+                max_tokens,
+            )
 
             # 转换消息格式
             openai_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
@@ -66,7 +98,7 @@ class OpenAIProvider(AIProviderBase):
                 model=model,
                 messages=openai_messages,
                 temperature=opts.temperature,
-                max_tokens=opts.max_tokens,
+                max_tokens=max_tokens,
                 top_p=opts.top_p,
                 frequency_penalty=opts.frequency_penalty,
                 presence_penalty=opts.presence_penalty,
@@ -78,7 +110,8 @@ class OpenAIProvider(AIProviderBase):
 
             return ChatResponse(
                 message=Message(
-                    role=choice.message.role, content=choice.message.content or ""
+                    role=choice.message.role,
+                    content=self._extract_text(choice.message.content),
                 ),
                 usage=Usage(
                     prompt_tokens=usage_data.prompt_tokens,
@@ -110,8 +143,13 @@ class OpenAIProvider(AIProviderBase):
         try:
             opts = options or ChatOptions()
             model = opts.model or self.config.model
+            max_tokens = self._resolve_max_tokens(opts)
 
-            logger.info(f"OpenAI stream chat request with model: {model}")
+            logger.info(
+                "OpenAI stream chat request with model: %s, max_tokens=%s",
+                model,
+                max_tokens,
+            )
 
             # 转换消息格式
             openai_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
@@ -124,7 +162,7 @@ class OpenAIProvider(AIProviderBase):
                 model=model,
                 messages=openai_messages,
                 temperature=opts.temperature,
-                max_tokens=opts.max_tokens,
+                max_tokens=max_tokens,
                 top_p=opts.top_p,
                 frequency_penalty=opts.frequency_penalty,
                 presence_penalty=opts.presence_penalty,
@@ -136,9 +174,10 @@ class OpenAIProvider(AIProviderBase):
             async for chunk in stream:
                 if chunk.choices and len(chunk.choices) > 0:
                     delta = chunk.choices[0].delta
-                    if delta.content:
-                        total_content += delta.content
-                        yield StreamChunk(type="chunk", content=delta.content)
+                    text_piece = self._extract_text(getattr(delta, "content", ""))
+                    if text_piece:
+                        total_content += text_piece
+                        yield StreamChunk(type="chunk", content=text_piece)
 
             # 发送完成事件
             # 注意: 流式模式下OpenAI不返回usage，这里使用估算值
@@ -155,6 +194,57 @@ class OpenAIProvider(AIProviderBase):
         except Exception as e:
             logger.error(f"OpenAI stream chat error: {e}")
             yield StreamChunk(type="error", error=str(e))
+
+    def _resolve_max_tokens(self, opts: ChatOptions) -> int | None:
+        """
+        规范化 max_tokens，避免触发各家提供商的范围限制。
+        DashScope (Qwen) 与 Deepseek 均限定在 8192 以内。
+        """
+        raw_value = opts.max_tokens if opts and opts.max_tokens is not None else self.config.max_tokens
+
+        if raw_value is None:
+            return None
+
+        try:
+            value = int(raw_value)
+        except (TypeError, ValueError):
+            logger.warning(
+                "Invalid max_tokens value %r, fallback to provider default %s",
+                raw_value,
+                self.config.max_tokens,
+            )
+            value = int(self.config.max_tokens or 1024)
+
+        if value <= 0:
+            logger.warning(
+                "max_tokens (%s) must be positive, fallback to provider default %s",
+                value,
+                self.config.max_tokens,
+            )
+            value = int(self.config.max_tokens or 1024)
+
+        provider_name = (self.config.name or "").lower()
+        model_name = (opts.model or self.config.model or "").lower()
+
+        # 针对 DashScope/Qwen 与 Deepseek 的已知上限做兜底限制
+        if "qwen" in model_name or provider_name in ("dashscope", "ali", "aliyun"):
+            limit = 8192
+        elif provider_name in ("deepseek",):
+            limit = 8192
+        else:
+            # 其他 OpenAI 兼容提供商默认保留调用值
+            limit = None
+
+        if limit is not None and value > limit:
+            logger.warning(
+                "max_tokens %s exceeds provider limit %s for %s, clamping to safe range",
+                value,
+                limit,
+                provider_name or model_name,
+            )
+            value = limit
+
+        return value
 
     async def analyze(
         self,
@@ -240,4 +330,3 @@ class OpenAIProvider(AIProviderBase):
                 last_check=datetime.now(),
                 error=str(e),
             )
-

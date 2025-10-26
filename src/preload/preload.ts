@@ -150,6 +150,8 @@ const electronAPI: ElectronAPI = {
   config: {
     get: (path) => ipcRenderer.invoke('get-config', path),
     set: (path, value) => ipcRenderer.invoke('set-config', path, value),
+    // 新增：批量更新配置（与主进程 config-update 保持一致）
+    update: (updates) => ipcRenderer.invoke('config-update', updates),
     onChange: (callback) => {
       ipcRenderer.on('config-changed', (_, path, value) => callback(path, value));
     },

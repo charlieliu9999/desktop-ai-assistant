@@ -7,6 +7,8 @@ import ModelConfigPanel from './ModelConfigPanel';
 import { WebSearchSettings } from './WebSearchSettings';
 import { VoiceRecognitionTest } from './VoiceRecognitionTest';
 import { BishengStatusIndicator } from './BishengStatusIndicator';
+import { apiClient } from '../../services/api-client';
+import { AISettingsSection } from './settings/AISettingsSection';
 
 type SettingsSection = 'general' | 'theme' | 'voice' | 'ai' | 'aiImage' | 'aiRecommend' | 'oneClick' | 'desktop' | 'medical' | 'bisheng' | 'websearch' | 'advanced';
 
@@ -39,6 +41,19 @@ const SettingsPanel: React.FC = () => {
   const [micTesting, setMicTesting] = useState(false);
   const [micLevel, setMicLevel] = useState(0); // 0-100
   const [micError, setMicError] = useState('');
+  // 最近一次后端视觉识别结果（用于调试展示）
+  const [lastVisionResult, setLastVisionResult] = useState<any | null>(null);
+
+  const [modelLock, setModelLock] = useState<boolean>(false);
+  const API_ORIGIN = (() => {
+    try {
+      const raw = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://127.0.0.1:8010/api';
+      const u = new URL(raw);
+      return u.origin;
+    } catch {
+      return 'http://127.0.0.1:8010';
+    }
+  })();
 
   const stopMicTest = () => {
     if (rafRef.current) {
@@ -62,6 +77,19 @@ const SettingsPanel: React.FC = () => {
       try { recognitionRef.current?.stop?.(); } catch {}
       stopMicTest();
     };
+  }, []);
+
+  // 读取后端 flags（model lock）
+  useEffect(() => {
+    (async () => {
+      try {
+        const resp = await fetch(`${API_ORIGIN}/v1/config/flags`);
+        if (resp.ok) {
+          const data = await resp.json();
+          setModelLock(!!data?.data?.model_lock);
+        }
+      } catch {}
+    })();
   }, []);
 
   // Handle config changes
@@ -278,6 +306,8 @@ const SettingsPanel: React.FC = () => {
     <div className="space-y-6">
       <div>
         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">语音功能</h3>
+        {/* 后端语音模型（当后端供给时可一键设置） */}
+        <BackendVoiceSection />
         
         {/* 语音识别模型选择 */}
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-6">
@@ -553,138 +583,70 @@ const SettingsPanel: React.FC = () => {
     </div>
   );
 
-  const renderAISettings = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">AI 对话配置（本地/云端）</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
-            <label className="inline-flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={!!config?.ai?.enabled}
-                onChange={(e) => handleConfigChange('ai.enabled', e.target.checked)}
-                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-              />
-              <span className="text-sm text-gray-700 dark:text-gray-300">启用 AI 对话</span>
-            </label>
-          </div>
+  const BackendVoiceSection: React.FC = () => {
+    const [sttModels, setSttModels] = useState<string[]>([]);
+    const [ttsModels, setTtsModels] = useState<string[]>([]);
+    const [sttSel, setSttSel] = useState<string>('');
+    const [ttsSel, setTtsSel] = useState<string>('');
+    useEffect(()=>{
+      (async()=>{
+        try{
+          const res = await apiClient.getVoiceModels();
+          if (res?.success){
+            setSttModels(res.data.stt.models||[]); setTtsModels(res.data.tts.models||[]);
+            setSttSel(res.data.stt.default||''); setTtsSel(res.data.tts.default||'');
+          }
+        }catch{}
+      })();
+    },[]);
+    return (
+      <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 mb-4">
+        <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">后端语音模型</h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">提供商</label>
-            <select
-              value={config?.ai?.provider ?? 'local'}
-              onChange={(e) => handleConfigChange('ai.provider', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
-            >
-              <option value="local">本地（Ollama）</option>
-              <option value="openai">OpenAI</option>
-              <option value="claude">Claude</option>
-              <option value="gemini">Gemini</option>
+            <label className="block text-sm mb-2">STT 模型</label>
+            <select value={sttSel} onChange={(e)=>setSttSel(e.target.value)} className="w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300">
+              {sttModels.map(m=> <option key={m} value={m}>{m}</option>)}
             </select>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">选择对话使用的模型提供商</p>
           </div>
-
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">模型</label>
-            <input
-              type="text"
-              value={config?.ai?.model ?? 'qwen3:30b'}
-              onChange={(e) => handleConfigChange('ai.model', e.target.value)}
-              placeholder="例如: qwen3:30b"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
-            />
+            <label className="block text-sm mb-2">TTS 模型</label>
+            <select value={ttsSel} onChange={(e)=>setTtsSel(e.target.value)} className="w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300">
+              {ttsModels.map(m=> <option key={m} value={m}>{m}</option>)}
+            </select>
           </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">系统提示词（对话上下文）</label>
-            <textarea
-              value={config?.ai?.systemPrompt ?? ''}
-              onChange={(e) => handleConfigChange('ai.systemPrompt', e.target.value)}
-              rows={4}
-              placeholder="你是一个智能助手，请以简洁专业的口吻回答用户问题..."
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">此提示词会自动用于 AI 对话。</p>
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">API 地址</label>
-            <input
-              type="url"
-              value={config?.ai?.apiUrl ?? 'http://127.0.0.1:11434/v1/chat/completions'}
-              onChange={(e) => handleConfigChange('ai.apiUrl', e.target.value)}
-              placeholder="http://127.0.0.1:11434/v1/chat/completions"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">本地 Ollama 请使用 OpenAI 兼容端点</p>
-          </div>
-
-          {config?.ai?.provider !== 'local' && (
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">API Key</label>
-              <input
-                type="password"
-                value={config?.ai?.apiKey ?? ''}
-                onChange={(e) => handleConfigChange('ai.apiKey', e.target.value)}
-                placeholder="sk-..."
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">温度（Temperature）</label>
-            <input
-              type="number"
-              step="0.1"
-              min={0}
-              max={2}
-              value={config?.ai?.temperature ?? 0.7}
-              onChange={(e) => handleConfigChange('ai.temperature', parseFloat(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">最大 Tokens</label>
-            <input
-              type="number"
-              step="1"
-              min={128}
-              max={32000}
-              value={config?.ai?.maxTokens ?? 2048}
-              onChange={(e) => handleConfigChange('ai.maxTokens', parseInt(e.target.value))}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
-            />
-          </div>
-
-          <div className="md:col-span-2">
+          <div className="flex items-end">
             <button
               type="button"
-              onClick={async () => {
-                try {
-                  const resp: string = await window.electronAPI?.ai?.processMessage?.('测试连接，请仅回复OK')
-                    ?? '';
-                  if ((resp || '').toUpperCase().includes('OK')) {
-                    toast.success('AI对话连接正常');
-                  } else {
-                    toast.info(`收到回复：${(resp || '').slice(0, 80)}`);
-                  }
-                } catch (e) {
-                  toast.error('测试对话失败，请检查模型或端点');
-                }
+              onClick={async()=>{
+                try{
+                  const cfg = await apiClient.getModelsConfig();
+                  const data = cfg?.data || {};
+                  data.voice = data.voice || {}; data.voice.stt = data.voice.stt || {}; data.voice.tts = data.voice.tts || {};
+                  data.voice.stt.selected_model = sttSel; data.voice.tts.selected_model = ttsSel;
+                  await apiClient.updateModelsConfig(data);
+                  toast.success('已设置后端默认语音模型');
+                }catch(e:any){ toast.error('设置后端语音模型失败: ' + (e?.message || String(e))); }
               }}
-              className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+              className="px-3 py-2 h-10 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
             >
-              测试对话连接
+              设为后端默认（语音）
             </button>
           </div>
         </div>
       </div>
+    );
+  };
 
-      {/* 后端多场景模型配置（可选） */}
-      <ModelConfigPanel onSave={handleSave} />
-    </div>
+  const renderAISettings = () => (
+    <AISettingsSection
+      config={config}
+      disabled={modelLock}
+      onChange={(next) => {
+        updateConfig({ ai: next.ai });
+        setHasUnsavedChanges(true);
+      }}
+    />
   );
 
   const renderAIImageSettings = () => (
@@ -692,6 +654,19 @@ const SettingsPanel: React.FC = () => {
       <div>
         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">AI 图片识别配置</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* 路由模式（继承/前端/后端） */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">调用路由</label>
+            <select
+              value={config?.aiImage?.routingMode ?? 'inherit'}
+              onChange={(e) => handleConfigChange('aiImage.routingMode', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
+            >
+              <option value="inherit">继承全局</option>
+              <option value="frontend">前端直连（图片模型）</option>
+              <option value="backend">后端服务（使用后端场景模型）</option>
+            </select>
+          </div>
           <div className="md:col-span-2">
             <label className="inline-flex items-center space-x-2">
               <input
@@ -709,6 +684,7 @@ const SettingsPanel: React.FC = () => {
             <select
               value={config?.aiImage?.provider ?? 'local'}
               onChange={(e) => handleConfigChange('aiImage.provider', e.target.value)}
+              disabled={config?.aiImage?.routingMode === 'backend' || modelLock}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
             >
               <option value="local">本地（Ollama）</option>
@@ -725,11 +701,30 @@ const SettingsPanel: React.FC = () => {
               type="text"
               value={config?.aiImage?.model ?? 'qwen2.5vl:latest'}
               onChange={(e) => handleConfigChange('aiImage.model', e.target.value)}
+              disabled={config?.aiImage?.routingMode === 'backend' || modelLock}
               placeholder="例如: qwen2.5vl:latest"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">支持视觉的多模态模型</p>
           </div>
+
+          {config?.aiImage?.routingMode === 'backend' && (
+            <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">后端提供商</label>
+                <select
+                  value={(config as any)?.aiImage?.backendProvider || ''}
+                  onChange={(e)=>handleConfigChange('aiImage.backendProvider', e.target.value)}
+                  className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300"
+                >
+                  <option value="">（由后端默认/场景决定）</option>
+                  <option value="dashscope">dashscope（阿里云）</option>
+                  <option value="local">local（Ollama）</option>
+                </select>
+              </div>
+              <BackendVisionSelector />
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">API 地址</label>
@@ -737,6 +732,7 @@ const SettingsPanel: React.FC = () => {
               type="text"
               value={config?.aiImage?.apiUrl ?? 'http://127.0.0.1:11434/api/generate'}
               onChange={(e) => handleConfigChange('aiImage.apiUrl', e.target.value)}
+              disabled={config?.aiImage?.routingMode === 'backend' || modelLock}
               placeholder="http://127.0.0.1:11434/api/generate (Ollama)"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
             />
@@ -748,6 +744,7 @@ const SettingsPanel: React.FC = () => {
               type="password"
               value={config?.aiImage?.apiKey ?? ''}
               onChange={(e) => handleConfigChange('aiImage.apiKey', e.target.value)}
+              disabled={config?.aiImage?.routingMode === 'backend' || modelLock}
               placeholder="输入API密钥（本地模型可为空）"
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
             />
@@ -763,6 +760,7 @@ const SettingsPanel: React.FC = () => {
               value={config?.aiImage?.temperature ?? 0.1}
               onChange={(e) => handleConfigChange('aiImage.temperature', parseFloat(e.target.value))}
               className="w-full"
+              disabled={modelLock}
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">当前: {config?.aiImage?.temperature ?? 0.1}</p>
           </div>
@@ -775,21 +773,24 @@ const SettingsPanel: React.FC = () => {
               max="8000"
               value={config?.aiImage?.maxTokens ?? 1000}
               onChange={(e) => handleConfigChange('aiImage.maxTokens', parseInt(e.target.value))}
+              disabled={modelLock}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
             />
           </div>
 
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">系统提示词（图片识别专用）</label>
-            <textarea
-              value={config?.aiImage?.systemPrompt ?? ''}
-              onChange={(e) => handleConfigChange('aiImage.systemPrompt', e.target.value)}
-              rows={4}
-              placeholder="你是一个专业的医疗信息提取助手。请从医疗文档截图中提取患者信息，包括姓名、年龄、性别、患者ID、科室、主诉、诊断和病史。请以JSON格式返回结果。"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
-            />
-            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">专门用于图片识别的提示词，影响识别结果的准确性和格式</p>
-          </div>
+          {((config?.aiImage as any)?.routingMode || 'inherit') !== 'backend' && (
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">系统提示词（图片识别专用）</label>
+              <textarea
+                value={config?.aiImage?.systemPrompt ?? ''}
+                onChange={(e) => handleConfigChange('aiImage.systemPrompt', e.target.value)}
+                rows={4}
+                placeholder="你是一个专业的医疗信息提取助手。请从医疗文档截图中提取患者信息，包括姓名、年龄、性别、患者ID、科室、主诉、诊断和病史。请以JSON格式返回结果。"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-gray-300"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">专门用于图片识别的提示词（仅前端直连模式生效）。后端转发模式请在下方“后端视觉提示词”中编辑。</p>
+            </div>
+          )}
 
           <div className="md:col-span-2">
             <button
@@ -797,117 +798,83 @@ const SettingsPanel: React.FC = () => {
               onClick={async () => {
                 try {
                   toast.info('正在测试图片识别连接...');
-                  
-                  // 创建测试图片
+                  // 创建一张简单测试图（用于连通性校验）
                   const canvas = document.createElement('canvas');
-                  canvas.width = 200;
-                  canvas.height = 100;
+                  canvas.width = 200; canvas.height = 100;
                   const ctx = canvas.getContext('2d');
                   if (ctx) {
-                    ctx.fillStyle = '#f0f0f0';
-                    ctx.fillRect(0, 0, 200, 100);
-                    ctx.fillStyle = '#333';
-                    ctx.font = '16px Arial';
-                    ctx.fillText('测试图片', 50, 50);
-                    ctx.fillText('Test Image', 50, 70);
+                    ctx.fillStyle = '#f0f0f0'; ctx.fillRect(0, 0, 200, 100);
+                    ctx.fillStyle = '#333'; ctx.font = '16px Arial';
+                    ctx.fillText('测试图片', 50, 50); ctx.fillText('Test Image', 50, 70);
                   }
-                  
                   const testImageData = canvas.toDataURL('image/png');
-                  
-                  // 根据提供商选择请求格式
-                  const isLocal = (config?.aiImage?.provider || 'local') === 'local';
-                  let endpoint = config?.aiImage?.apiUrl || (isLocal ? 'http://127.0.0.1:11434/api/generate' : '');
-                  if (isLocal) {
-                    try {
-                      const u = new URL(endpoint);
-                      if (u.pathname.startsWith('/v1')) {
-                        endpoint = `${u.origin}/api/generate`;
-                      } else if (!u.pathname.startsWith('/api/generate')) {
-                        endpoint = `${u.origin}/api/generate`;
-                      }
-                    } catch {
-                      endpoint = 'http://127.0.0.1:11434/api/generate';
-                    }
-                  }
 
-                  let payload: any;
-                  if (isLocal) {
-                    // Ollama generate 方式
-                    payload = {
-                      model: config?.aiImage?.model || 'qwen2.5vl:latest',
-                      prompt: (config?.aiImage?.systemPrompt || '请描述图片内容并指出可识别的信息。'),
-                      images: [testImageData.split(',')[1]],
-                      stream: false,
-                      format: 'json',
-                      options: {
-                        temperature: config?.aiImage?.temperature || 0.1,
-                        num_predict: config?.aiImage?.maxTokens || 1000
-                      }
-                    };
+                  const routing = (config?.aiImage as any)?.routingMode || 'inherit';
+                  const globalRouting = (config?.ai as any)?.routingMode || 'frontend';
+                  const useBackend = routing === 'backend' || (routing === 'inherit' && globalRouting === 'backend');
+
+                  if (useBackend) {
+                    // 后端模式：通过 visionAdapter 调用 /v1/vision/understand
+                    const { visionAdapter } = await import('../../services/adapters/vision-adapter');
+                    const backendProvider = (config as any)?.aiImage?.backendProvider || 'dashscope';
+                    const backendModel = (config as any)?.aiImage?.backendModel || undefined;
+                    const scene = (config as any)?.aiImage?.backendScene || (backendProvider === 'dashscope' ? 'screen_recognition_aliyun' : 'screen_recognition');
+                    const res = await visionAdapter.understandImage({
+                      imageData: testImageData,
+                      imageMime: 'image/png',
+                      prompt: (config?.aiImage as any)?.systemPrompt || '请提取患者核心信息（姓名/性别/年龄/病历号/主诉/诊断/病史）并返回严格 JSON',
+                      provider: backendProvider as any,
+                      model: backendModel,
+                      strictJson: true,
+                      schemaName: 'patient_info_v1',
+                      scene,
+                    });
+                    console.log('✅ 后端模式识别成功：', res);
+                    const desc = (res as any)?.description || '';
+                    toast.success(`后端识别成功（${backendProvider}/${backendModel||'默认'}）：${desc.substring(0, 120)}...`);
                   } else {
-                    // OpenAI 兼容 Chat Completions 方式
-                    payload = {
-                      model: config?.aiImage?.model || 'gpt-4o-mini',
-                      messages: [
-                        { role: 'system', content: config?.aiImage?.systemPrompt || '你是一个专业的医疗信息提取助手。' },
-                        {
-                          role: 'user',
-                          content: [
-                            { type: 'text', text: '请描述这张图片的内容，并说明你能识别哪些信息。' },
-                            { type: 'image_url', image_url: { url: testImageData } }
-                          ]
-                        }
-                      ],
-                      temperature: config?.aiImage?.temperature || 0.1,
-                      max_tokens: config?.aiImage?.maxTokens || 1000,
-                      stream: false
-                    };
+                    // 前端直连：保留原逻辑（本地/OAI 兼容）
+                    const isLocal = (config?.aiImage?.provider || 'local') === 'local';
+                    let endpoint = config?.aiImage?.apiUrl || (isLocal ? 'http://127.0.0.1:11434/api/generate' : '');
+                    if (isLocal) {
+                      try { const u = new URL(endpoint);
+                        if (u.pathname.startsWith('/v1')) endpoint = `${u.origin}/api/generate`;
+                        else if (!u.pathname.startsWith('/api/generate')) endpoint = `${u.origin}/api/generate`;
+                      } catch { endpoint = 'http://127.0.0.1:11434/api/generate'; }
+                    }
+                    let payload: any;
+                    if (isLocal) {
+                      payload = {
+                        model: config?.aiImage?.model || 'qwen2.5vl:latest',
+                        prompt: (config?.aiImage?.systemPrompt || '请描述图片内容并指出可识别的信息。'),
+                        images: [testImageData.split(',')[1]],
+                        stream: false,
+                        format: 'json',
+                        options: { temperature: config?.aiImage?.temperature || 0.1, num_predict: config?.aiImage?.maxTokens || 1000 }
+                      };
+                    } else {
+                      payload = {
+                        model: config?.aiImage?.model || 'gpt-4o-mini',
+                        messages: [
+                          { role: 'system', content: config?.aiImage?.systemPrompt || '你是一个专业的医疗信息提取助手。' },
+                          { role: 'user', content: [ { type: 'text', text: '请描述这张图片的内容，并说明你能识别哪些信息。' }, { type: 'image_url', image_url: { url: testImageData } } ] }
+                        ],
+                        temperature: config?.aiImage?.temperature || 0.1,
+                        max_tokens: config?.aiImage?.maxTokens || 1000,
+                        stream: false
+                      };
+                    }
+                    console.log('🔍 发送图片识别测试请求:', { endpoint, payload });
+                    const response = await fetch(endpoint || (config?.aiImage?.apiUrl ?? ''), {
+                      method: 'POST', headers: { 'Content-Type': 'application/json', ...(config?.aiImage?.apiKey && { 'Authorization': `Bearer ${config.aiImage.apiKey}` }) }, body: JSON.stringify(payload)
+                    });
+                    console.log('🔍 图片识别测试响应状态:', response.status);
+                    if (!response.ok) { const errorText = await response.text(); throw new Error(`HTTP ${response.status}: ${errorText}`); }
+                    const result = await response.json();
+                    console.log('✅ 图片识别测试成功:', result);
+                    const content = isLocal ? (result?.response || '') : (result.choices?.[0]?.message?.content || '');
+                    toast.success(`前端直连识别成功：${content.substring(0, 120)}...`);
                   }
-
-                  console.log('🔍 发送图片识别测试请求:', { endpoint, payload });
-
-                  // 调用图片模型API
-                  const response = await fetch(endpoint || (config?.aiImage?.apiUrl ?? ''), {
-                    method: 'POST',
-                    headers: {
-                      'Content-Type': 'application/json',
-                      ...(config?.aiImage?.apiKey && { 'Authorization': `Bearer ${config.aiImage.apiKey}` })
-                    },
-                    body: JSON.stringify(payload)
-                  });
-
-                  console.log('🔍 图片识别测试响应状态:', response.status);
-
-                  if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('❌ 图片识别测试失败:', errorText);
-                    throw new Error(`HTTP ${response.status}: ${errorText}`);
-                  }
-
-                  const result = await response.json();
-                  console.log('✅ 图片识别测试成功:', result);
-                  
-                  const content = isLocal ? (result?.response || '') : (result.choices?.[0]?.message?.content || '');
-                  
-                  // 保存测试图片到本地
-                  const link = document.createElement('a');
-                  link.download = `test-image-${Date.now()}.png`;
-                  link.href = testImageData;
-                  link.click();
-                  
-                  // 保存识别结果到本地
-                  const resultBlob = new Blob([JSON.stringify({
-                    timestamp: new Date().toISOString(),
-                    testImage: testImageData,
-                    modelResponse: result,
-                    extractedContent: content
-                  }, null, 2)], { type: 'application/json' });
-                  const resultLink = document.createElement('a');
-                  resultLink.download = `test-result-${Date.now()}.json`;
-                  resultLink.href = URL.createObjectURL(resultBlob);
-                  resultLink.click();
-                  
-                  toast.success(`图片识别连接正常！已保存测试图片和结果。响应: ${content.substring(0, 100)}...`);
                 } catch (e) {
                   console.error('❌ 图片识别测试失败:', e);
                   toast.error(`测试图片识别失败: ${e instanceof Error ? e.message : '未知错误'}`);
@@ -918,10 +885,191 @@ const SettingsPanel: React.FC = () => {
               测试图片识别连接
             </button>
           </div>
+
+          {config?.aiImage?.routingMode === 'backend' && (
+            <div className="md:col-span-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">选择本地图片（后端识别测试）</label>
+              <input
+                type="file"
+                accept="image/*"
+                className="block w-full text-sm text-gray-700 dark:text-gray-300"
+                onChange={async (e)=>{
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  try{
+                    // 使用 FileReader 以避免大文件触发最大调用栈
+                    const dataUrl: string = await new Promise((resolve, reject) => {
+                      const reader = new FileReader();
+                      reader.onload = () => resolve(String(reader.result || ''));
+                      reader.onerror = (err) => reject(err);
+                      reader.readAsDataURL(file);
+                    });
+                    const scene = ((config as any)?.aiImage?.backendScene) || (((config as any)?.aiImage?.backendProvider)==='dashscope' ? 'screen_recognition_aliyun' : 'screen_recognition');
+                    const { visionAdapter } = await import('../../services/adapters/vision-adapter');
+                    const res = await visionAdapter.understandImage({
+                      imageData: dataUrl,
+                      imageMime: file.type || 'image/png',
+                      // 后端模式下不再从前端注入系统提示词，完全由后端场景提示词控制
+                      prompt: '',
+                      provider: (((config as any)?.aiImage?.backendProvider)||'dashscope') as any,
+                      model: ((config as any)?.aiImage?.backendModel)||undefined,
+                      strictJson: true,
+                      // 启用兜底（OCR+LLM / 正则）以提升结构化命中
+                      allowFallback: true,
+                      scene,
+                      schemaName: 'patient_info_v1',
+                    });
+                    console.log('✅ 后端识别详情：', res);
+                    setLastVisionResult(res);
+                    toast.success('后端识别成功：' + (res?.description||'')?.slice(0,120));
+                  }catch(err:any){
+                    setLastVisionResult(null);
+                    toast.error('后端识别失败：' + (err?.message||String(err)));
+                  }
+                }}
+              />
+              {lastVisionResult && (
+                <div className="mt-3 p-3 rounded-md border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+                  <div className="text-xs text-muted-foreground mb-1">后端识别结果（调试）</div>
+                  <div className="text-sm whitespace-pre-wrap break-words mb-2">{lastVisionResult.description || ''}</div>
+                  {lastVisionResult.details?.structured && (
+                    <pre className="text-xs overflow-auto max-h-48 p-2 rounded bg-white/50 dark:bg-black/30 border border-gray-200 dark:border-gray-700">
+{JSON.stringify(lastVisionResult.details.structured, null, 2)}
+                    </pre>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* 后端视觉提示词（来自 /v1/scenarios -> prompt_id -> /v1/prompts/{id}） */}
+      {config?.aiImage?.routingMode === 'backend' && (
+        <BackendVisionPromptEditor />
+      )}
     </div>
   );
+
+  const BackendVisionSelector: React.FC = () => {
+    const [visionModels, setVisionModels] = useState<string[]>([]);
+    const [selected, setSelected] = useState<string>('');
+    useEffect(()=>{
+      (async()=>{
+        try{
+          const res = await apiClient.getVisionModels();
+          if (res?.success){
+            setVisionModels(res.data.models||[]);
+            setSelected(res.data.default||'');
+          }
+        }catch{}
+      })();
+    },[]);
+    return (
+      <>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">后端视觉模型</label>
+          <select value={selected} onChange={(e)=>setSelected(e.target.value)} className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300">
+            {visionModels.map(m=> <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+        <div className="flex items-end">
+          <button
+            type="button"
+            onClick={async ()=>{
+              try{
+                await apiClient.applyModelPreset({ screen_recognition: { model_name: selected } });
+                toast.success('已设置后端默认视觉模型');
+              }catch(e:any){ toast.error('设置后端视觉模型失败: ' + (e?.message||String(e))); }
+            }}
+            className="px-3 py-2 h-10 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700"
+          >
+            设为后端默认（视觉）
+          </button>
+        </div>
+      </>
+    );
+  };
+
+  const BackendVisionPromptEditor: React.FC = () => {
+    const [loading, setLoading] = useState(false);
+    const [promptId, setPromptId] = useState<string>('');
+    const [activeVersion, setActiveVersion] = useState<string>('');
+    const [systemText, setSystemText] = useState<string>('');
+    const [saveMsg, setSaveMsg] = useState<string>('');
+
+    useEffect(() => {
+      (async () => {
+        try {
+          setLoading(true);
+          // 1) 读取场景，定位 screen_recognition_aliyun 优先
+          const scRes = await fetch(`${API_ORIGIN}/v1/scenarios`);
+          const scJson = scRes.ok ? await scRes.json() : { data: [] };
+          const scenes = (scJson?.data || []) as any[];
+          const sceneName = (config as any)?.aiImage?.backendScene || 'screen_recognition_aliyun';
+          const s = scenes.find(x => x.name === sceneName) || scenes.find(x => x.name === 'screen_recognition');
+          const pid = s?.prompt_id || 'screen_recognition_cn';
+          setPromptId(pid);
+          // 2) 读取 prompt 内容
+          const pRes = await fetch(`${API_ORIGIN}/v1/prompts/${pid}`);
+          if (pRes.ok) {
+            const pJson = await pRes.json();
+            const p = pJson?.data;
+            const ver = p?.active_version || (p?.versions?.[0]?.version || '');
+            setActiveVersion(ver);
+            const verObj = (p?.versions || []).find((v: any) => v.version === ver) || p?.versions?.[0];
+            setSystemText(verObj?.system || '');
+          }
+        } catch (e) {
+          console.warn('Load backend vision prompt failed', e);
+        } finally {
+          setLoading(false);
+        }
+      })();
+    }, [config?.aiImage?.backendScene]);
+
+    const save = async () => {
+      try {
+        setSaveMsg(''); setLoading(true);
+        const newVer = new Date().toISOString().replace(/[:.Z-]/g, '').slice(0,14);
+        // 写入新版本
+        await fetch(`${API_ORIGIN}/v1/prompts/${promptId}/versions`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ version: newVer, language: 'zh-CN', system: systemText, metadata: { updated_by: 'ui' } })
+        });
+        // 发布为 active_version
+        await fetch(`${API_ORIGIN}/v1/prompts/${promptId}/publish?version=${encodeURIComponent(newVer)}`, { method: 'POST' });
+        setActiveVersion(newVer);
+        setSaveMsg('已保存并发布');
+        toast.success('后端视觉提示词已更新');
+      } catch (e: any) {
+        setSaveMsg('保存失败: ' + (e?.message || String(e)));
+        toast.error('保存提示词失败');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    return (
+      <div className="mt-4 p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100">后端视觉提示词（场景注入）</h4>
+          <div className="text-xs text-gray-500 dark:text-gray-400">{loading ? '加载中…' : `Prompt: ${promptId} · 版本: ${activeVersion || '-'}`}</div>
+        </div>
+        <textarea
+          value={systemText}
+          onChange={(e)=>setSystemText(e.target.value)}
+          className="w-full h-40 px-3 py-2 rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+          placeholder="请在此定义结构化抽取规则与返回格式（仅系统提示词）"
+        />
+        <div className="mt-2 flex items-center space-x-2">
+          <button type="button" onClick={save} disabled={loading} className="px-3 py-2 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50">保存并发布</button>
+          {saveMsg && <span className="text-xs text-gray-500 dark:text-gray-400">{saveMsg}</span>}
+        </div>
+        <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">提示：后端将优先使用此处提示词（来自场景绑定的 prompt）。前端不再注入系统提示词。</p>
+      </div>
+    );
+  };
 
   const renderAIRecommendSettings = () => (
     <div className="space-y-6">
@@ -940,11 +1088,26 @@ const SettingsPanel: React.FC = () => {
             </label>
           </div>
 
+          {/* 路由模式（继承/前端/后端） */}
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">调用路由</label>
+            <select
+              value={config?.aiRecommend?.routingMode ?? 'inherit'}
+              onChange={(e) => handleConfigChange('aiRecommend.routingMode', e.target.value)}
+              className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300"
+            >
+              <option value="inherit">继承全局</option>
+              <option value="frontend">前端直连（OpenAI 兼容）</option>
+              <option value="backend">后端服务（使用后端场景模型）</option>
+            </select>
+          </div>
+
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">提供商</label>
             <select
               value={config?.aiRecommend?.provider ?? 'local'}
               onChange={(e) => handleConfigChange('aiRecommend.provider', e.target.value)}
+              disabled={config?.aiRecommend?.routingMode === 'backend' || modelLock}
               className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300"
             >
               <option value="local">本地（Ollama）</option>
@@ -960,6 +1123,7 @@ const SettingsPanel: React.FC = () => {
               type="text"
               value={config?.aiRecommend?.apiUrl ?? 'http://127.0.0.1:11434/v1/chat/completions'}
               onChange={(e) => handleConfigChange('aiRecommend.apiUrl', e.target.value)}
+              disabled={config?.aiRecommend?.routingMode === 'backend' || modelLock}
               className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300"
             />
           </div>
@@ -970,6 +1134,7 @@ const SettingsPanel: React.FC = () => {
               type="password"
               value={config?.aiRecommend?.apiKey ?? ''}
               onChange={(e) => handleConfigChange('aiRecommend.apiKey', e.target.value)}
+              disabled={config?.aiRecommend?.routingMode === 'backend' || modelLock}
               className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300"
             />
           </div>
@@ -981,6 +1146,7 @@ const SettingsPanel: React.FC = () => {
               step="0.1"
               value={config?.aiRecommend?.temperature ?? 0.3}
               onChange={(e) => handleConfigChange('aiRecommend.temperature', parseFloat(e.target.value))}
+              disabled={config?.aiRecommend?.routingMode === 'backend' || modelLock}
               className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300"
             />
           </div>
@@ -991,6 +1157,7 @@ const SettingsPanel: React.FC = () => {
               type="number"
               value={config?.aiRecommend?.maxTokens ?? 1200}
               onChange={(e) => handleConfigChange('aiRecommend.maxTokens', parseInt(e.target.value))}
+              disabled={config?.aiRecommend?.routingMode === 'backend' || modelLock}
               className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300"
             />
           </div>
@@ -1003,6 +1170,7 @@ const SettingsPanel: React.FC = () => {
                 type="text"
                 value={config?.aiRecommend?.diagnosisModel ?? ''}
                 onChange={(e) => handleConfigChange('aiRecommend.diagnosisModel', e.target.value)}
+                disabled={config?.aiRecommend?.routingMode === 'backend' || modelLock}
                 placeholder="模型名称"
                 className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300"
               />
@@ -1010,6 +1178,7 @@ const SettingsPanel: React.FC = () => {
                 type="text"
                 value={config?.aiRecommend?.diagnosisPrompt ?? ''}
                 onChange={(e) => handleConfigChange('aiRecommend.diagnosisPrompt', e.target.value)}
+                disabled={config?.aiRecommend?.routingMode === 'backend' || modelLock}
                 placeholder="可选：诊断提示词覆盖"
                 className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300"
               />
@@ -1024,6 +1193,7 @@ const SettingsPanel: React.FC = () => {
                 type="text"
                 value={config?.aiRecommend?.examModel ?? ''}
                 onChange={(e) => handleConfigChange('aiRecommend.examModel', e.target.value)}
+                disabled={config?.aiRecommend?.routingMode === 'backend' || modelLock}
                 placeholder="模型名称"
                 className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300"
               />
@@ -1031,6 +1201,7 @@ const SettingsPanel: React.FC = () => {
                 type="text"
                 value={config?.aiRecommend?.examPrompt ?? ''}
                 onChange={(e) => handleConfigChange('aiRecommend.examPrompt', e.target.value)}
+                disabled={config?.aiRecommend?.routingMode === 'backend' || modelLock}
                 placeholder="可选：检查提示词覆盖"
                 className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300"
               />
@@ -1045,6 +1216,7 @@ const SettingsPanel: React.FC = () => {
                 type="text"
                 value={config?.aiRecommend?.medicationModel ?? ''}
                 onChange={(e) => handleConfigChange('aiRecommend.medicationModel', e.target.value)}
+                disabled={config?.aiRecommend?.routingMode === 'backend' || modelLock}
                 placeholder="模型名称"
                 className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300"
               />
@@ -1052,6 +1224,7 @@ const SettingsPanel: React.FC = () => {
                 type="text"
                 value={config?.aiRecommend?.medicationPrompt ?? ''}
                 onChange={(e) => handleConfigChange('aiRecommend.medicationPrompt', e.target.value)}
+                disabled={config?.aiRecommend?.routingMode === 'backend' || modelLock}
                 placeholder="可选：用药提示词覆盖"
                 className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300"
               />
@@ -1088,7 +1261,17 @@ const SettingsPanel: React.FC = () => {
                     setWebSearchTesting(true);
                     setWebSearchTestResult(null);
                     try {
-                      const res: any = await (window as any).electronAPI?.ai?.searchWeb?.('测试', 2);
+                      let res: any;
+                      const routing = (config?.ai?.webSearch as any)?.routingMode || 'inherit';
+                      const globalRouting = (config?.ai as any)?.routingMode || 'frontend';
+                      const useBackend = routing === 'backend' || (routing === 'inherit' && globalRouting === 'backend');
+                      if (useBackend) {
+                        const origin = (() => { try { const u = new URL((import.meta as any).env?.VITE_API_BASE_URL || 'http://127.0.0.1:8010/api'); return u.origin; } catch { return 'http://127.0.0.1:8010'; } })();
+                        const r = await fetch(`${origin}/v1/tools/search?q=${encodeURIComponent('测试')}&provider=${config?.ai?.webSearch?.provider || 'duckduckgo'}&max_results=2`);
+                        res = await r.json();
+                      } else {
+                        res = await (window as any).electronAPI?.ai?.searchWeb?.('测试', 2);
+                      }
                       if (res?.success) {
                         const cnt = res?.data?.results?.length ?? 0;
                         setWebSearchTestResult({ ok: true, detail: `成功，返回 ${cnt} 条结果` });
@@ -1227,28 +1410,36 @@ const SettingsPanel: React.FC = () => {
 
         <div>
           <label className="block text-sm font-medium mb-1">提供商</label>
-          <select value={config?.oneClick?.provider ?? 'local'} onChange={(e)=>handleConfigChange('oneClick.provider', e.target.value)} className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300">
+          <select value={config?.oneClick?.provider ?? 'local'} onChange={(e)=>handleConfigChange('oneClick.provider', e.target.value)} disabled={(config?.oneClick?.routingMode || 'inherit') === 'backend' || modelLock} className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300">
             <option value="local">本地（Ollama）</option>
             <option value="openai">OpenAI</option>
             <option value="claude">Claude</option>
             <option value="gemini">Gemini</option>
           </select>
         </div>
+        <div className="md:col-span-2">
+          <label className="block text-sm font-medium mb-1">调用路由</label>
+          <select value={config?.oneClick?.routingMode ?? 'inherit'} onChange={(e)=>handleConfigChange('oneClick.routingMode', e.target.value)} className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300">
+            <option value="inherit">继承全局</option>
+            <option value="frontend">前端直连（用上面 Provider/模型）</option>
+            <option value="backend">后端服务（使用后端场景模型）</option>
+          </select>
+        </div>
         <div>
           <label className="block text-sm font-medium mb-1">API 地址</label>
-          <input type="text" value={config?.oneClick?.apiUrl ?? 'http://127.0.0.1:11434/v1/chat/completions'} onChange={(e)=>handleConfigChange('oneClick.apiUrl', e.target.value)} className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300" />
+          <input type="text" value={config?.oneClick?.apiUrl ?? 'http://127.0.0.1:11434/v1/chat/completions'} onChange={(e)=>handleConfigChange('oneClick.apiUrl', e.target.value)} disabled={(config?.oneClick?.routingMode || 'inherit') === 'backend' || modelLock} className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300" />
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">模型</label>
-          <input type="text" value={config?.oneClick?.model ?? 'qwen3:30b'} onChange={(e)=>handleConfigChange('oneClick.model', e.target.value)} className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300" />
+          <input type="text" value={config?.oneClick?.model ?? 'qwen3:30b'} onChange={(e)=>handleConfigChange('oneClick.model', e.target.value)} disabled={(config?.oneClick?.routingMode || 'inherit') === 'backend' || modelLock} className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300" />
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">温度</label>
-          <input type="number" step="0.1" value={config?.oneClick?.temperature ?? 0.3} onChange={(e)=>handleConfigChange('oneClick.temperature', parseFloat(e.target.value))} className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300" />
+          <input type="number" step="0.1" value={config?.oneClick?.temperature ?? 0.3} onChange={(e)=>handleConfigChange('oneClick.temperature', parseFloat(e.target.value))} disabled={modelLock} className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300" />
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">最大Tokens</label>
-          <input type="number" value={config?.oneClick?.maxTokens ?? 1500} onChange={(e)=>handleConfigChange('oneClick.maxTokens', parseInt(e.target.value))} className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300" />
+          <input type="number" value={config?.oneClick?.maxTokens ?? 1500} onChange={(e)=>handleConfigChange('oneClick.maxTokens', parseInt(e.target.value))} disabled={modelLock} className="w-full px-3 py-2 border rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300" />
         </div>
         <div className="md:col-span-2">
           <label className="inline-flex items-center space-x-2">
@@ -1391,6 +1582,12 @@ const SettingsPanel: React.FC = () => {
         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">Bisheng 智能体平台</h3>
 
         <div className="space-y-4">
+          {/* 路由说明（智能体固定使用后端） */}
+          <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+            <p className="text-xs text-gray-700 dark:text-gray-300">
+              调用路由：后端服务（固定）。智能体功能通过后端 /v1/agent/* 接口接入，不支持前端直连。
+            </p>
+          </div>
           {/* 服务状态指示器 */}
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
             <BishengStatusIndicator showLabel={true} autoRefresh={true} />

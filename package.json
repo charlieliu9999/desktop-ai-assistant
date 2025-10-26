@@ -20,6 +20,10 @@
     "automation"
   ],
   "scripts": {
+    "start": "bash start.sh",
+    "start:all": "bash start.sh",
+    "start:backend": "cd backend-service && ./run.sh",
+    "start:frontend": "vite",
     "dev": "vite",
     "dev:renderer": "vite",
     "dev:main": "electron-builder install-app-deps && electron .",
@@ -39,10 +43,17 @@
     "lint:fix": "eslint . --ext ts,tsx --fix",
     "type-check": "tsc --noEmit",
     "test": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "e2e:install": "playwright install",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
+    "smoke:frontend": "node scripts/frontend-e2e-test.js",
+    "test:api": "node scripts/test-ui-api-calls.js",
+    "test:integration": "node scripts/test-frontend-integration.js",
     "clean": "rimraf dist build",
-    "postinstall": "electron-builder install-app-deps"
+    "postinstall": "electron-builder install-app-deps",
+    "check": "pnpm lint"
   },
   "dependencies": {
     "@electron/remote": "^2.1.2",
@@ -65,6 +76,7 @@
     "ws": "^8.14.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.2",
     "@types/http-proxy": "^1.17.16",
     "@types/node": "^20.10.4",
     "@types/react": "^18.2.43",
@@ -73,16 +85,23 @@
     "@typescript-eslint/eslint-plugin": "^6.14.0",
     "@typescript-eslint/parser": "^6.14.0",
     "@vitejs/plugin-react": "^4.2.1",
+    "@vitest/coverage-v8": "^1.6.1",
+    "@vitest/ui": "^1.6.1",
     "autoprefixer": "^10.4.16",
     "concurrently": "^8.2.2",
     "electron": "^28.1.0",
     "electron-builder": "^24.9.1",
     "eslint": "^8.55.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "eslint-plugin-react": "^7.34.1",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
     "http-proxy": "^1.18.1",
+    "jsdom": "^27.0.1",
     "lucide-react": "^0.294.0",
     "postcss": "^8.4.32",
+    "prettier": "^3.3.2",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.20.1",
@@ -93,7 +112,7 @@
     "vite": "^5.0.8",
     "vite-plugin-electron": "^0.15.5",
     "vite-plugin-electron-renderer": "^0.14.5",
-    "vitest": "^1.0.4",
+    "vitest": "^1.6.1",
     "zustand": "^4.4.7"
   },
   "build": {

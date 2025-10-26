@@ -2,14 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { X, Save, RotateCcw, Check, AlertTriangle } from 'lucide-react';
 import { useConfigStore } from '../stores/configStore';
 import { ThemeSettings } from '../components/ThemeSettings';
+import { AISettingsSection } from '../components/settings/AISettingsSection';
 import { toast } from 'sonner';
 import type { AppConfig } from '../../shared/types';
+import { apiClient } from '../../services/api-client';
 
 interface SettingsWindowProps {
   // Props can be passed from main process
 }
 
-type SettingsTab = 'general' | 'voice' | 'shortcuts' | 'ui' | 'theme' | 'privacy' | 'medical' | 'ai' | 'desktop';
+type SettingsTab = 'general' | 'voice' | 'vision' | 'shortcuts' | 'ui' | 'theme' | 'privacy' | 'medical' | 'ai' | 'desktop';
 
 const SettingsWindow: React.FC<SettingsWindowProps> = () => {
   const { config, updateConfig, resetConfig } = useConfigStore();
@@ -22,6 +24,7 @@ const SettingsWindow: React.FC<SettingsWindowProps> = () => {
   const settingsTabs = [
     { id: 'general' as const, label: '常规设置', icon: '⚙️' },
     { id: 'voice' as const, label: '语音设置', icon: '🎤' },
+    { id: 'vision' as const, label: '视觉模型', icon: '🖼️' },
     { id: 'shortcuts' as const, label: '快捷键', icon: '⌨️' },
     { id: 'ui' as const, label: '界面设置', icon: '🎨' },
     { id: 'theme' as const, label: '主题设置', icon: '🌈' },
@@ -81,6 +84,13 @@ const SettingsWindow: React.FC<SettingsWindowProps> = () => {
     setIsSaving(true);
     try {
       await updateConfig(localConfig);
+      // 持久化保存至主进程配置
+      try {
+        await useConfigStore.getState().saveConfig();
+      } catch (e) {
+        // 若桥接不可用，则回退到直接调用 preload 暴露的 update
+        try { await (window as any).electronAPI?.config?.update?.(localConfig); } catch {}
+      }
       setHasChanges(false);
       toast.success('设置已保存');
     } catch (error) {
@@ -269,6 +279,12 @@ const SettingsWindow: React.FC<SettingsWindowProps> = () => {
                 className="w-full px-3 py-2 border border-border rounded-md bg-background"
               />
             </div>
+
+            {/* 后端 STT/TTS 模型（从 /v1/voice/models 加载） */}
+            <VoiceBackendModelsSection
+              config={localConfig}
+              onChange={(next) => { setLocalConfig(next); setHasChanges(true); }}
+            />
           </div>
         );
 
@@ -341,6 +357,25 @@ const SettingsWindow: React.FC<SettingsWindowProps> = () => {
 
       case 'theme':
         return <ThemeSettings />;
+
+      case 'ai':
+        return (
+          <AISettingsSection
+            config={localConfig}
+            onChange={(next) => {
+              setLocalConfig(next);
+              setHasChanges(true);
+            }}
+          />
+        );
+
+      case 'vision':
+        return (
+          <VisionSettingsPanel
+            config={localConfig}
+            onChange={(next) => { setLocalConfig(next); setHasChanges(true); }}
+          />
+        );
 
       default:
         return (
@@ -456,5 +491,300 @@ const SettingsWindow: React.FC<SettingsWindowProps> = () => {
     </div>
   );
 };
+
+// =============== Voice 后端模型子面板 ===============
+interface VoiceBackendModelsSectionProps {
+  config: AppConfig;
+  onChange: (next: AppConfig) => void;
+}
+
+const VoiceBackendModelsSection: React.FC<VoiceBackendModelsSectionProps> = ({ config, onChange }) => {
+  const [sttModels, setSttModels] = React.useState<string[]>([]);
+  const [ttsModels, setTtsModels] = React.useState<string[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const backendStt: string = (config as any)?.voice?.backendSttModel || '';
+  const backendTts: string = (config as any)?.voice?.backendTtsModel || '';
+
+  React.useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await apiClient.getVoiceModels();
+        if (!mounted) return;
+        const stt = res?.data?.stt?.models || [];
+        const tts = res?.data?.tts?.models || [];
+        setSttModels(stt);
+        setTtsModels(tts);
+      } catch (e: any) {
+        setError(e?.message || '加载语音模型失败');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
+
+  const updateVoiceBackend = (patch: any) => {
+    const next = { ...config } as any;
+    next.voice = next.voice || {};
+    for (const k of Object.keys(patch)) {
+      next.voice[k] = patch[k];
+    }
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="font-medium">后端语音模型（/v1/voice/*）</div>
+      {error && <div className="text-xs text-red-500">{error}</div>}
+      <div>
+        <label className="block text-sm font-medium mb-2">STT 模型</label>
+        <select
+          value={backendStt}
+          onChange={(e) => updateVoiceBackend({ backendSttModel: e.target.value })}
+          disabled={loading}
+          className="w-full px-3 py-2 border border-border rounded-md bg-background"
+        >
+          <option value="">（使用后端默认）</option>
+          {sttModels.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-medium mb-2">TTS 模型</label>
+        <select
+          value={backendTts}
+          onChange={(e) => updateVoiceBackend({ backendTtsModel: e.target.value })}
+          disabled={loading}
+          className="w-full px-3 py-2 border border-border rounded-md bg-background"
+        >
+          <option value="">（使用后端默认）</option>
+          {ttsModels.map(m => <option key={m} value={m}>{m}</option>)}
+        </select>
+      </div>
+    </div>
+  );
+};
+
+// =============== Vision 设置子面板 ===============
+interface VisionSettingsPanelProps {
+  config: AppConfig;
+  onChange: (next: AppConfig) => void;
+}
+
+const VisionSettingsPanel: React.FC<VisionSettingsPanelProps> = ({ config, onChange }) => {
+  const [models, setModels] = React.useState<string[]>([]);
+  const [loading, setLoading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [testResult, setTestResult] = React.useState<string>('');
+
+  const aiImage: any = (config as any).aiImage || {};
+  const routing: string = aiImage.routingMode || 'inherit';
+  const backendProvider: string = aiImage.backendProvider || '';
+  const backendModel: string = aiImage.backendModel || '';
+  const backendScene: string = aiImage.backendScene || (backendProvider === 'dashscope' ? 'screen_recognition_aliyun' : 'screen_recognition');
+
+  React.useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const res = await apiClient.getVisionModels();
+        if (!mounted) return;
+        setModels(res?.data?.models || []);
+      } catch (e: any) {
+        setError(e?.message || '加载视觉模型失败');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+    return () => { mounted = false; };
+  }, []);
+
+  const updateAIImage = (patch: any) => {
+    const next = { ...config } as any;
+    next.aiImage = { ...(next.aiImage || {}), ...patch };
+    onChange(next);
+  };
+
+  return (
+    <div className="space-y-6">
+      {routing === 'backend' && (
+        <div>
+          <label className="block text-sm font-medium mb-2">后端提供商</label>
+          <select
+            value={backendProvider}
+            onChange={(e) => updateAIImage({ backendProvider: e.target.value })}
+            className="w-full px-3 py-2 border border-border rounded-md bg-background"
+          >
+            <option value="">（由后端默认/场景决定）</option>
+            <option value="dashscope">dashscope（阿里云）</option>
+            <option value="local">local（Ollama）</option>
+          </select>
+          <div className="text-xs text-muted-foreground mt-1">选择后端视觉提供商（仅在后端转发时生效）</div>
+        </div>
+      )}
+      <div>
+        <label className="block text-sm font-medium mb-2">调用路由模式（视觉）</label>
+        <div className="flex items-center space-x-4">
+          <label className="inline-flex items-center space-x-2">
+            <input type="radio" name="vision-routing" checked={routing === 'frontend'} onChange={() => updateAIImage({ routingMode: 'frontend' })} />
+            <span className="text-sm">前端直连（本地/云）</span>
+          </label>
+          <label className="inline-flex items-center space-x-2">
+            <input type="radio" name="vision-routing" checked={routing === 'backend'} onChange={() => updateAIImage({ routingMode: 'backend' })} />
+            <span className="text-sm">后端转发（统一配置，推荐）</span>
+          </label>
+        </div>
+      </div>
+
+      {routing === 'backend' && (
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">业务场景（scene）</label>
+            <input
+              type="text"
+              value={backendScene}
+              onChange={(e) => updateAIImage({ backendScene: e.target.value })}
+              placeholder="screen_recognition 或 screen_recognition_aliyun"
+              className="w-full px-3 py-2 border border-border rounded-md bg-background"
+            />
+            <div className="text-xs text-muted-foreground mt-1">不填则根据 Provider 选择</div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">后端模型</label>
+            <select
+              value={backendModel}
+              onChange={(e) => updateAIImage({ backendModel: e.target.value })}
+              disabled={loading}
+              className="w-full px-3 py-2 border border-border rounded-md bg-background"
+            >
+              <option value="">（由后端/场景决定）</option>
+              {models.map(m => <option key={m} value={m}>{m}</option>)}
+            </select>
+            {error && <div className="text-xs text-red-500 mt-1">{error}</div>}
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">本地测试（选择图片进行识别）</label>
+            <input
+              type="file"
+              accept="image/*"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                try {
+                  const buf = await file.arrayBuffer();
+                  const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+                  const dataUrl = `data:${file.type || 'image/png'};base64,${b64}`;
+                  // 使用 visionAdapter 走后端 understand
+                  const scene = backendScene || (backendProvider === 'dashscope' ? 'screen_recognition_aliyun' : 'screen_recognition');
+                  const res = await (await import('../../services/adapters/vision-adapter')).visionAdapter.understandImage({
+                    imageData: dataUrl,
+                    imageMime: file.type || 'image/png',
+                    // 后端模式：提示词由后端场景注入
+                    prompt: '',
+                    provider: (backendProvider || 'dashscope') as any,
+                    model: backendModel || undefined,
+                    // 测试时开启严格JSON，失败即报错，不使用回退
+                    strictJson: true,
+                    allowFallback: false,
+                    schemaName: 'patient_info_v1',
+                    scene,
+                  });
+                  setTestResult(JSON.stringify(res, null, 2));
+                } catch (err: any) {
+                  const emsg = (err && (err.message || err?.error)) ? (err.message || err.error) : String(err);
+                  if (String(emsg).includes('strict_json_parse_failed')) {
+                    setTestResult('测试失败（严格JSON）：未得到严格 JSON 结构。请确保测试图片为右侧详情/信息面板区域，避免包含左侧边栏或中部患者列表。');
+                  } else {
+                    setTestResult('测试失败：' + emsg);
+                  }
+                }
+              }}
+              className="block w-full text-sm text-muted-foreground"
+            />
+            {testResult && (
+              <pre className="mt-2 p-2 bg-muted text-xs rounded overflow-auto max-h-48">{testResult}</pre>
+            )}
+            <div className="text-xs text-muted-foreground mt-1">不会下载图片。选择本地图片后，直接上传到后端 /v1/vision/understand 进行识别测试。</div>
+          </div>
+        </div>
+      )}
+
+      {/* 后端视觉提示词（与设置面板一致） */}
+      {routing === 'backend' && (
+        <BackendVisionPromptEditorWin config={config as any} />
+      )}
+    </div>
+  );
+};
+
+// 与 SettingsPanel 中的编辑器相同逻辑，复用于 SettingsWindow
+const BackendVisionPromptEditorWin: React.FC<{ config: any }> = ({ config }) => {
+  const API_ORIGIN = (() => { try { const u = new URL((import.meta as any).env?.VITE_API_BASE_URL || 'http://127.0.0.1:8010/api'); return u.origin; } catch { return 'http://127.0.0.1:8010'; } })();
+  const [loading, setLoading] = React.useState(false);
+  const [promptId, setPromptId] = React.useState('');
+  const [activeVersion, setActiveVersion] = React.useState('');
+  const [systemText, setSystemText] = React.useState('');
+  const scene = (config?.aiImage?.backendScene) || ((config?.aiImage?.backendProvider) === 'dashscope' ? 'screen_recognition_aliyun' : 'screen_recognition');
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        setLoading(true);
+        const scRes = await fetch(`${API_ORIGIN}/v1/scenarios`);
+        const scJson = scRes.ok ? await scRes.json() : { data: [] };
+        const scenes = (scJson?.data || []) as any[];
+        const s = scenes.find(x => x.name === scene) || scenes.find(x => x.name === 'screen_recognition');
+        const pid = s?.prompt_id || 'screen_recognition_cn';
+        setPromptId(pid);
+        const pRes = await fetch(`${API_ORIGIN}/v1/prompts/${pid}`);
+        if (pRes.ok) {
+          const pJson = await pRes.json();
+          const p = pJson?.data;
+          // 优先使用场景绑定的 prompt_version，其次回退到 active_version，再次回退到首个版本
+          const sceneVer = s?.prompt_version;
+          const ver = sceneVer || p?.active_version || (p?.versions?.[0]?.version || '');
+          setActiveVersion(ver);
+          const verObj = (p?.versions || []).find((v: any) => v.version === ver)
+            || (p?.versions || []).find((v: any) => v.version === (p?.active_version || ''))
+            || p?.versions?.[0];
+          setSystemText(verObj?.system || '');
+        }
+      } finally { setLoading(false); }
+    })();
+  }, [scene]);
+
+  const save = async () => {
+    try {
+      setLoading(true);
+      const newVer = new Date().toISOString().replace(/[:.Z-]/g, '').slice(0,14);
+      await fetch(`${API_ORIGIN}/v1/prompts/${promptId}/versions`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ version: newVer, language: 'zh-CN', system: systemText, metadata: { updated_by: 'ui' } }) });
+      await fetch(`${API_ORIGIN}/v1/prompts/${promptId}/publish?version=${encodeURIComponent(newVer)}`, { method: 'POST' });
+      setActiveVersion(newVer);
+    } finally { setLoading(false); }
+  };
+
+  return (
+    <div className="p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+      <div className="flex items-center justify-between mb-2">
+        <h4 className="text-sm font-medium">后端视觉提示词（场景注入）</h4>
+        <div className="text-xs text-muted-foreground">{loading ? '加载中…' : `Prompt: ${promptId} · 版本: ${activeVersion || '-'}`}</div>
+      </div>
+      <textarea value={systemText} onChange={e=>setSystemText(e.target.value)} className="w-full h-32 px-3 py-2 rounded-md border border-border bg-background text-sm" />
+      <div className="mt-2">
+        <button onClick={save} disabled={loading} className="px-3 py-2 text-xs font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">保存并发布</button>
+      </div>
+    </div>
+  );
+};
+
+
 
 export default SettingsWindow;

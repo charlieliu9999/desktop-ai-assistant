@@ -236,6 +236,7 @@ export interface WebSearchConfig {
   language: string;
   region: string;
   customHeaders?: Record<string, string>;
+  routingMode?: 'inherit' | 'frontend' | 'backend';
 }
 
 /**
@@ -286,6 +287,11 @@ export interface AIConfig {
   retryDelay: number;
   rateLimitRpm: number;
   rateLimitTpm: number;
+  // 后端模式专用（可选选择）
+  backendProvider?: string;
+  backendModel?: string;
+  // 调用路由模式：frontend=前端直连模型；backend=转发到后端，由后端决定模型
+  routingMode?: 'frontend' | 'backend';
   // 网络搜索配置
   webSearch?: WebSearchConfig;
   // 工具调用配置
@@ -311,6 +317,9 @@ export interface AIImageConfig {
   retryDelay: number;
   rateLimitRpm: number;
   rateLimitTpm: number;
+  routingMode?: 'inherit' | 'frontend' | 'backend';
+  backendProvider?: string;
+  backendModel?: string;
 }
 
 /**
@@ -329,6 +338,9 @@ export interface AIRecommendConfig {
   examPrompt?: string;
   medicationModel: string;
   medicationPrompt?: string;
+  routingMode?: 'inherit' | 'frontend' | 'backend';
+  backendProvider?: string;
+  backendModel?: string;
 }
 
 /**
@@ -350,6 +362,9 @@ export interface OneClickConfig {
   maxTokens?: number;
   voiceTrigger?: boolean; // 预留：语音唤起
   voiceHotword?: string;
+  routingMode?: 'inherit' | 'frontend' | 'backend';
+  backendProvider?: string;
+  backendModel?: string;
 }
 
 /**

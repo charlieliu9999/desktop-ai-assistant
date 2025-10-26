@@ -44,29 +44,43 @@ class BishengService:
         """
         try:
             async with httpx.AsyncClient(timeout=self.config.timeout) as client:
-                response = await client.post(
+                # 优先使用前端已验证路径 /api/v1/user/login，其次回退 /api/v1/login
+                login_paths = [
+                    f"{self.config.base_url}/api/v1/user/login",
                     f"{self.config.base_url}/api/v1/login",
-                    json={"username": username, "password": password}
-                )
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    self.access_token = data.get("access_token")
-                    self.token_expiry = data.get("expiry")
-                    
-                    logger.info(f"Bisheng登录成功: {username}")
-                    return LoginResponse(
-                        success=True,
-                        token=self.access_token,
-                        expiry=self.token_expiry
-                    )
-                else:
-                    error_msg = f"登录失败: {response.status_code}"
-                    logger.error(error_msg)
-                    return LoginResponse(
-                        success=False,
-                        error=error_msg
-                    )
+                ]
+                last_error = None
+                for url in login_paths:
+                    try:
+                        response = await client.post(url, json={"user_name": username, "password": password})
+                        if response.status_code != 200:
+                            last_error = f"HTTP {response.status_code}"
+                            continue
+                        data = response.json()
+                        # 尝试多种响应结构提取 token/expiry
+                        token = (
+                            data.get("access_token")
+                            or (data.get("data") or {}).get("access_token")
+                            or (data.get("data") or {}).get("token")
+                        )
+                        expiry = (
+                            data.get("expiry")
+                            or (data.get("data") or {}).get("expiry")
+                            or int(time.time() + 86400)
+                        )
+                        if token:
+                            self.access_token = token
+                            self.token_expiry = expiry
+                            logger.info(f"Bisheng登录成功: {username}")
+                            return LoginResponse(success=True, token=token, expiry=expiry)
+                        else:
+                            last_error = "no_token_in_response"
+                    except Exception as e:
+                        last_error = str(e)
+                        continue
+                error_msg = f"登录失败: {last_error or 'unknown'}"
+                logger.error(error_msg)
+                return LoginResponse(success=False, error=error_msg)
                     
         except Exception as e:
             error_msg = f"登录异常: {str(e)}"
@@ -278,4 +292,3 @@ class BishengService:
                 last_check=datetime.now(),
                 error=str(e)
             )
-

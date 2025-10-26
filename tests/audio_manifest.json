@@ -1,0 +1,8 @@
+[
+  {
+    "path": "tests/audio/en_vosk_test.wav",
+    "text": "",
+    "lang": "en",
+    "mime": "audio/wav"
+  }
+]

@@ -43,6 +43,12 @@ export interface VisionRequest {
   model?: string; // 使用的模型
   maxTokens?: number; // 最大token数
   temperature?: number; // 温度参数
+  imageMime?: string; // 图像MIME类型
+  provider?: 'dashscope' | 'openai' | 'local'; // 指定后端提供商
+  strictJson?: boolean; // 是否要求严格JSON
+  schemaName?: 'patient_info_v1' | string; // 内置结构化模式名
+  scene?: string; // 指定业务场景（优先级最高）
+  allowFallback?: boolean; // 是否允许后备策略（文本/ OCR），默认不允许
 }
 
 /**
@@ -92,7 +98,7 @@ export class VisionServiceAdapter {
    */
   private async recognizeTextWithBackend(request: OCRRequest): Promise<OCRResult> {
     try {
-      const response = await this.apiClient.post('/api/v1/vision/ocr', {
+      const response = await this.apiClient.post('/v1/vision/ocr', {
         image_data: request.imageData,
         language: request.language || 'chi_sim+eng',
         psm: request.psm || 3,
@@ -149,27 +155,40 @@ export class VisionServiceAdapter {
    */
   private async understandImageWithBackend(request: VisionRequest): Promise<VisionResult> {
     try {
-      const response = await this.apiClient.post('/api/v1/vision/understand', {
+      const scene = request.scene
+        || (request.provider === 'dashscope' ? 'screen_recognition_aliyun' : 'screen_recognition');
+      const body: any = {
         image_data: request.imageData,
+        image_mime: request.imageMime || 'image/png',
         prompt: request.prompt,
         model: request.model,
-        max_tokens: request.maxTokens || 1000,
-        temperature: request.temperature || 0.7,
-      });
+        provider: request.provider,
+        max_tokens: request.maxTokens ?? 1000,
+        temperature: request.temperature ?? 0.7,
+      };
+      if (request.strictJson !== undefined) body.strict_json = request.strictJson;
+      if (request.schemaName) body.schema_name = request.schemaName;
+      // 默认不启用回退（严格JSON失败即报错）
+      const allowFallback = request.allowFallback === true;
+      if (allowFallback) body.allow_fallback = true;
 
+      const response = await this.apiClient.post(`/v1/vision/understand?scene=${encodeURIComponent(scene)}`, body);
       if (!response.success || !response.result) {
-        throw new Error(response.error || '图像理解失败');
+        throw new Error((response as any)?.error || '图像理解失败');
       }
 
       return {
         description: response.result.description,
         confidence: response.result.confidence,
-        details: response.result.details,
+        details: {
+          ...(response.result.details || {}),
+          structured: response.result.structured,
+        },
       };
     } catch (error) {
       console.error('后端图像理解失败:', error);
-      // 自动降级到legacy实现
-      return this.understandImageWithLegacy(request);
+      // 不再自动降级，直接抛出给上层处理
+      throw error;
     }
   }
 
@@ -204,7 +223,7 @@ export class VisionServiceAdapter {
     focus?: string
   ): Promise<VisionResult> {
     try {
-      const response = await this.apiClient.post('/api/v1/vision/analyze-medical', {
+      const response = await this.apiClient.post('/v1/vision/analyze-medical', {
         image_data: imageData,
         focus,
       });
@@ -260,7 +279,7 @@ export class VisionServiceAdapter {
    */
   private async extractTextFromImageWithBackend(imageData: string): Promise<VisionResult> {
     try {
-      const response = await this.apiClient.post('/api/v1/vision/extract-text', {
+      const response = await this.apiClient.post('/v1/vision/extract-text', {
         image_data: imageData,
       });
 
@@ -289,7 +308,7 @@ export class VisionServiceAdapter {
    */
   async testBackendConnection(): Promise<boolean> {
     try {
-      const response = await this.apiClient.get('/api/v1/vision/health');
+      const response = await this.apiClient.get('/v1/vision/health');
       return response.success === true;
     } catch (error) {
       console.error('视觉服务后端连接测试失败:', error);
@@ -300,4 +319,3 @@ export class VisionServiceAdapter {
 
 // 导出单例
 export const visionAdapter = new VisionServiceAdapter();
-

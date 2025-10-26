@@ -87,7 +87,10 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
 
   // Auto scroll to bottom when new messages arrive + persist to localStorage
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = messagesEndRef.current as any;
+    if (el && typeof el.scrollIntoView === 'function') {
+      try { el.scrollIntoView({ behavior: 'smooth' }); } catch {}
+    }
     try {
       const serializable = messages.map(m => ({
         ...m,

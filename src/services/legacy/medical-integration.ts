@@ -436,7 +436,17 @@ export class MedicalIntegrationService extends EventEmitter {
     method: 'GET' | 'POST' | 'PUT' | 'DELETE' = 'GET',
     body?: any
   ): Promise<MedicalApiResponse> {
-    const url = `${this.config.apiUrl}${endpoint}`;
+    // 统一根路径选择：/v1/* 与 /health 走服务根（避免 /api/health 404）
+    let base = this.config.apiUrl || '';
+    try {
+      const origin = new URL(base).origin;
+      if (endpoint === '/health' || endpoint.startsWith('/v1/')) {
+        base = origin;
+      }
+    } catch {
+      // ignore URL parse error; fallback to original base
+    }
+    const url = `${base.replace(/\/$/, '')}${endpoint.startsWith('/') ? endpoint : '/' + endpoint}`;
     
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',

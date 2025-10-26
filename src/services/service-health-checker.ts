@@ -90,7 +90,8 @@ export class ServiceHealthChecker {
    * 检查后端服务
    */
   private async checkBackendService(apiUrl: string): Promise<ServiceStatus> {
-    const healthUrl = `${apiUrl.replace(/\/api$/, '')}/health`;
+    // 兼容 /api 或 /api/ 结尾
+    const healthUrl = `${apiUrl.replace(/\/api\/?$/, '')}/health`;
     
     try {
       const controller = new AbortController();
@@ -293,4 +294,3 @@ export class ServiceHealthChecker {
     }
   }
 }
-

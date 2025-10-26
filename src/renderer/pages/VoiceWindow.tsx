@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Mic, MicOff, Send, X, Volume2, VolumeX } from 'lucide-react';
 import { useConfigStore } from '../stores/configStore';
 import { toast } from 'sonner';
+import { VoiceServiceAdapter } from '../../services/adapters/voice-adapter';
 
 interface VoiceWindowProps {
   // Props can be passed from main process
@@ -32,6 +33,10 @@ const VoiceWindow: React.FC<VoiceWindowProps> = () => {
   const animationRef = useRef<number>();
   const audioContextRef = useRef<AudioContext>();
   const analyserRef = useRef<AnalyserNode>();
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
+  const recordStreamRef = useRef<MediaStream | null>(null);
+  const voiceAdapterRef = useRef<VoiceServiceAdapter | null>(null);
 
   // recognition instance (Web Speech API)
   const recognitionRef = useRef<any>(null);
@@ -45,6 +50,9 @@ const VoiceWindow: React.FC<VoiceWindowProps> = () => {
 
         // Initialize audio visualization (mic level)
         initializeAudioVisualization();
+
+        // init backend voice adapter
+        voiceAdapterRef.current = new VoiceServiceAdapter();
 
         return () => {
           document.removeEventListener('keydown', handleKeyDown);
@@ -139,8 +147,7 @@ const VoiceWindow: React.FC<VoiceWindowProps> = () => {
     try {
       const SR: any = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       if (!SR) {
-        console.warn('[Voice] SpeechRecognition API not available');
-        toast.error('当前环境不支持语音识别');
+        console.warn('[Voice] SpeechRecognition API not available, will fallback to backend STT');
         return null;
       }
 
@@ -260,21 +267,18 @@ const VoiceWindow: React.FC<VoiceWindowProps> = () => {
         return;
       }
 
-      // 创建或重用识别实例
+      // 优先使用浏览器识别；不可用则回退后端 STT 录音
       if (!recognitionRef.current) {
-        console.log('[Voice] Building new recognition instance');
         recognitionRef.current = buildRecognition();
       }
-
-      if (!recognitionRef.current) {
-        console.error('[Voice] Failed to create recognition instance');
-        return;
+      if (recognitionRef.current) {
+        console.log('[Voice] Starting recognition...');
+        recognitionRef.current.start();
+        console.log('[Voice] Recognition started successfully');
+      } else {
+        // 后端 STT：使用 MediaRecorder 录音
+        await startBackendRecording();
       }
-
-      // 启动识别
-      console.log('[Voice] Starting recognition...');
-      recognitionRef.current.start();
-      console.log('[Voice] Recognition started successfully');
 
     } catch (error: any) {
       console.error('[Voice] Failed to start voice recognition:', error);
@@ -307,8 +311,10 @@ const VoiceWindow: React.FC<VoiceWindowProps> = () => {
       if (rec) {
         rec.stop();
         console.log('[Voice] Recognition stopped');
-      } else {
-        console.warn('[Voice] No recognition instance to stop');
+      }
+      // 停止后端录音并发送识别
+      if (mediaRecorderRef.current) {
+        await stopBackendRecordingAndTranscribe();
       }
       setVoiceState(prev => ({ ...prev, isListening: false }));
     } catch (error) {
@@ -317,6 +323,80 @@ const VoiceWindow: React.FC<VoiceWindowProps> = () => {
       setVoiceState(prev => ({ ...prev, isListening: false }));
     }
   };
+
+  // Backend STT: start recording via MediaRecorder
+  const startBackendRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recordStreamRef.current = stream;
+      const mime = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
+      const mr = new MediaRecorder(stream, { mimeType: mime });
+      recordedChunksRef.current = [];
+      mr.ondataavailable = (e: BlobEvent) => {
+        if (e.data && e.data.size > 0) recordedChunksRef.current.push(e.data);
+      };
+      mr.onstart = () => setVoiceState(prev => ({ ...prev, isListening: true, transcript: '' }));
+      mr.start();
+      mediaRecorderRef.current = mr;
+      console.log('[Voice] Backend recording started', mime);
+    } catch (e) {
+      console.error('[Voice] Failed to start backend recording', e);
+      toast.error('无法开始录音');
+    }
+  };
+
+  const stopBackendRecordingAndTranscribe = async () => {
+    return new Promise<void>((resolve) => {
+      try {
+        const mr = mediaRecorderRef.current!;
+        mr.onstop = async () => {
+          try {
+            const blob = new Blob(recordedChunksRef.current, { type: mr.mimeType || 'audio/webm' });
+            const base64 = await blobToBase64(blob);
+            const adapter = voiceAdapterRef.current!;
+            setVoiceState(prev => ({ ...prev, isProcessing: true }));
+            const stt = await adapter.speechToText({
+              audioData: base64,
+              language: ((config as any)?.voice?.recognition?.language || 'zh-CN').startsWith('zh') ? 'zh' : 'en',
+              audioMime: blob.type,
+              // 传递后端模型（如果在设置中选择了）
+              model: (config as any)?.voice?.backendSttModel || undefined,
+            });
+            const text = (stt?.text || '').trim();
+            setVoiceState(prev => ({ ...prev, transcript: text, confidence: stt?.confidence || 0 }));
+            if (text) await processVoiceInput(text);
+          } catch (err) {
+            console.error('[Voice] Backend STT failed', err);
+            toast.error('语音识别失败');
+          } finally {
+            setVoiceState(prev => ({ ...prev, isProcessing: false }));
+            // cleanup stream
+            recordStreamRef.current?.getTracks().forEach(t => t.stop());
+            recordStreamRef.current = null;
+            mediaRecorderRef.current = null;
+            recordedChunksRef.current = [];
+            resolve();
+          }
+        };
+        mr.stop();
+        setVoiceState(prev => ({ ...prev, isListening: false }));
+      } catch (e) {
+        console.error('[Voice] Failed to stop backend recording', e);
+        resolve();
+      }
+    });
+  };
+
+  const blobToBase64 = (blob: Blob) => new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const res = (reader.result as string) || '';
+      const comma = res.indexOf(',');
+      resolve(comma >= 0 ? res.slice(comma + 1) : res);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
 
   // Process voice input
   const processVoiceInput = async (transcript: string) => {

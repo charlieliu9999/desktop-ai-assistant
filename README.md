@@ -402,6 +402,30 @@ npm run dist:linux
 
 MIT License - 详见 [LICENSE](LICENSE) 文件
 
+## 📚 文档索引
+
+### 核心文档
+- **[README.md](README.md)** - 项目主文档（本文件）
+- **[QUICK_START.md](QUICK_START.md)** - 快速开始指南
+- **[README_API.md](README_API.md)** - API文档
+- **[AGENTS.md](AGENTS.md)** - AI Agent开发指南
+
+### 详细文档
+- **[docs/](docs/)** - 详细技术文档目录
+  - [DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) - 设计系统规范
+  - [GLASS_STYLE_GUIDE.md](docs/GLASS_STYLE_GUIDE.md) - 玻璃效果样式指南
+  - [PROJECT_STARTUP_GUIDE.md](docs/PROJECT_STARTUP_GUIDE.md) - 项目启动指南
+  - 更多文档请查看 [docs/](docs/) 目录
+
+### OpenSpec变更提案
+- **[openspec/](openspec/)** - 项目变更提案和规范
+  - [openspec/AGENTS.md](openspec/AGENTS.md) - OpenSpec工作流程说明
+  - [openspec/changes/](openspec/changes/) - 所有变更提案
+
+### 归档文档
+- **[docs/archive/](docs/archive/)** - 历史文档归档
+  - [2025-01归档](docs/archive/2025-01/) - 2025年1月之前的分析和改进文档
+
 ## 🔗 相关链接
 
 - [Electron 文档](https://www.electronjs.org/docs)
@@ -412,6 +436,6 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 
 ---
 
-**版本**: 1.0.0  
-**最后更新**: 2024-01-08
+**版本**: 3.0.0
+**最后更新**: 2025-10-26
 

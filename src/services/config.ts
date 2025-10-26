@@ -140,7 +140,62 @@ const DEFAULT_CONFIG: AppConfig = {
     retryAttempts: 3,
     retryDelay: 1000,
     rateLimitRpm: 60,
-    rateLimitTpm: 10000
+    rateLimitTpm: 10000,
+    backendProvider: '',
+    backendModel: '',
+    // 新增：调用路由模式（默认前端直连）
+    routingMode: 'frontend'
+  },
+  aiImage: {
+    enabled: true,
+    provider: 'local',
+    apiKey: '',
+    apiUrl: 'http://127.0.0.1:11434/api/generate',
+    model: 'qwen2.5vl:latest',
+    temperature: 0.1,
+    maxTokens: 1000,
+    systemPrompt: '',
+    contextLength: 10,
+    timeout: 30000,
+    retryAttempts: 3,
+    retryDelay: 1000,
+    rateLimitRpm: 60,
+    rateLimitTpm: 10000,
+    // 新增：识别抽取模式（strict-严格JSON；freeform-自由文本，推荐使用）
+    extractionMode: 'freeform',
+    routingMode: 'inherit',
+    backendProvider: '',
+    backendModel: ''
+  },
+  aiRecommend: {
+    enabled: false,
+    provider: 'local',
+    apiKey: '',
+    apiUrl: 'http://127.0.0.1:11434/v1/chat/completions',
+    temperature: 0.3,
+    maxTokens: 1200,
+    diagnosisModel: 'qwen3:30b',
+    examModel: 'qwen3:30b',
+    medicationModel: 'qwen3:30b',
+    routingMode: 'inherit',
+    backendProvider: '',
+    backendModel: ''
+  },
+  oneClick: {
+    enabled: true,
+    showScreenshot: false,
+    showPatientInfo: true,
+    generate: { diagnosis: true, exam: true, medication: true },
+    allowFollowUp: true,
+    followUpModelSameAsRecommend: true,
+    provider: 'local',
+    apiUrl: 'http://127.0.0.1:11434/v1/chat/completions',
+    model: 'qwen3:30b',
+    temperature: 0.3,
+    maxTokens: 1200,
+    routingMode: 'inherit',
+    backendProvider: '',
+    backendModel: ''
   },
   medical: {
     enabled: true,
@@ -174,7 +229,8 @@ const DEFAULT_CONFIG: AppConfig = {
     ocrEnabled: true,
     accessibilityEnabled: true,
     screenCaptureInterval: 5000,
-    autoAnalyze: true,
+    // 医疗系统期望按步骤显示（截图→识别→选择→推荐），默认关闭自动分析
+    autoAnalyze: false,
     monitoringInterval: 30,
     screenshotQuality: 'medium',
     ocrLanguages: ['zh-CN', 'en-US'],
