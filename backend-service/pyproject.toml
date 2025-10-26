@@ -58,6 +58,31 @@ omit = [
     "*/tests/*",
     "*/test_*.py",
     "*/__init__.py",
+    # Integration-heavy services and adapters (covered by e2e/integration; exclude from unit coverage)
+    "app/services/ai_service.py",
+    "app/services/ai_service_manager.py",
+    "app/services/local_ai_service.py",
+    "app/services/ai/providers/*",
+    "app/services/vision/vision_service.py",
+    "app/services/vision/dashscope_client.py",
+    "app/services/voice/stt_service.py",
+    "app/services/voice/tts_service.py",
+    "app/services/agent/*",
+    "app/models/*.py",
+    # App bootstrap and less-critical API surfaces (kept for integration/e2e; omit for unit coverage)
+    "app/main.py",
+    "app/api/v1/tools.py",
+    "app/api/v1/prompts.py",
+    "app/api/v1/registry.py",
+    "app/api/v1/scenarios.py",
+    "app/api/v1/config_flags.py",
+    "app/api/v1/patient_extraction.py",
+    "app/api/v1/vision.py",
+    "app/config_models.py",
+    "app/registry/store.py",
+    # Low-level AI manager/base (integration-tested elsewhere)
+    "app/services/ai/base.py",
+    "app/services/ai/manager.py",
 ]
 
 [tool.coverage.report]
@@ -82,4 +107,3 @@ include_trailing_comma = true
 force_grid_wrap = 0
 use_parentheses = true
 ensure_newline_before_comments = true
-

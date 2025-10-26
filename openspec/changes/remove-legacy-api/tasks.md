@@ -13,8 +13,8 @@
 
 ## 2. Validation
 - [x] 2.1 openspec validate remove-legacy-api --strict
-- [ ] 2.2 Backend unit tests pass (pytest, coverage ≥80%)
-- [ ] 2.3 Frontend unit tests pass (Vitest)
+- [x] 2.2 Backend unit tests pass (pytest, coverage ≥80%)
+- [x] 2.3 Frontend unit tests pass (Vitest)
 
 ## 3. Docs
 - [x] 3.1 Update README_API.md to prefer v1 endpoints

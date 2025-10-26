@@ -13,13 +13,22 @@ import { UNIFIED_TEXTAREA_STYLES } from '../../styles/unified-input-styles';
 
 export const OneClickDesktopChat: React.FC = () => {
   const { config } = useConfigStore();
+  // 订阅会话 Map 以驱动渲染更新；同时获取需要的操作方法
   const {
+    sessions,
     getSession,
     addMessage,
     updateMessage,
     clearSession,
-    persistSession
-  } = useChatStore();
+    persistSession,
+  } = useChatStore((state) => ({
+    sessions: state.sessions,
+    getSession: state.getSession,
+    addMessage: state.addMessage,
+    updateMessage: state.updateMessage,
+    clearSession: state.clearSession,
+    persistSession: state.persistSession,
+  }));
 
   const [running, setRunning] = useState(false);
   const [screenshot, setScreenshot] = useState<string>('');
@@ -32,12 +41,22 @@ export const OneClickDesktopChat: React.FC = () => {
     ? `desktop-${patient.patient_id}`
     : 'desktop-temp';
 
-  const session = getSession(currentSessionId, '桌面识别对话');
-  const messages = session.messages;
+  // 确保会话已创建
+  React.useEffect(() => {
+    getSession(currentSessionId, '桌面识别对话');
+    // 不依赖 sessions，避免无限循环
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSessionId]);
+
+  // 精确订阅该会话的消息，确保更新即时触发渲染
+  const messages = useChatStore((state) => state.sessions.get(currentSessionId)?.messages || []);
 
   // 自动滚动到底部
   useEffect(() => {
-    listRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = listRef.current as any;
+    if (el && typeof el.scrollIntoView === 'function') {
+      try { el.scrollIntoView({ behavior: 'smooth' }); } catch { /* jsdom 无该实现时忽略 */ }
+    }
   }, [messages]);
 
   // 自动持久化
@@ -88,62 +107,85 @@ export const OneClickDesktopChat: React.FC = () => {
       setScreenshot(shot.dataUrl);
       if (config.oneClick?.showScreenshot) addMsg('system', '截图完成');
 
-      // 识别：优先使用后端视觉（当 AI 图片为后端模式时）
+      // 识别：后端视觉（VL）；根据 extractionMode 选择严格JSON或自由文本
       let pi: any = null;
+      let blockFallback = false;
       try {
-        const imageRouting = (config as any)?.aiImage?.routingMode || 'inherit';
-        const globalRouting = (config as any)?.ai?.routingMode || 'frontend';
-        const useBackend = imageRouting === 'backend' || (imageRouting === 'inherit' && globalRouting === 'backend');
-        if (useBackend) {
-          const { visionAdapter } = await import('../../../services/adapters/vision-adapter');
-          const backendProvider = (config as any)?.aiImage?.backendProvider || 'dashscope';
-          const backendModel = (config as any)?.aiImage?.backendModel || undefined;
-          const scene = (config as any)?.aiImage?.backendScene || (backendProvider === 'dashscope' ? 'screen_recognition_aliyun' : 'screen_recognition');
-          const res = await visionAdapter.understandImage({
-            imageData: shot.dataUrl,
-            imageMime: 'image/png',
-            // 后端模式：提示词由后端场景注入，前端不再注入系统提示
-            prompt: '',
-            provider: backendProvider as any,
-            model: backendModel,
-            strictJson: true,
-            allowFallback: true,
-            schemaName: 'patient_info_v1',
-            scene,
-          });
+        const { visionAdapter } = await import('../../../services/adapters/vision-adapter');
+        const backendProvider = (config as any)?.aiImage?.backendProvider || 'dashscope';
+        const backendModel = (config as any)?.aiImage?.backendModel || undefined;
+        const scene = (config as any)?.aiImage?.backendScene || (backendProvider === 'dashscope' ? 'screen_recognition_aliyun' : 'screen_recognition');
+        let rawTextLocal: string | undefined;
+        const extractionMode = (config as any)?.aiImage?.extractionMode || 'freeform';
+        const useStrict = extractionMode === 'strict';
+        const freeformPrompt = '只从中部或右侧的“患者信息/基本信息/诊断信息/医嘱录入/病历详情”等详情面板提取本次就诊患者的完整信息，忽略左侧的患者列表、中部的患者列表和表格/卡片集合。仅输出清晰的中文文本，逐行列出姓名、性别、年龄、患者ID/病历号、科室、日期、主诉、诊断、现病史、既往史等要点，保持与界面一致的用词，不要JSON，不要解释。';
+        const res = await visionAdapter.understandImage({
+          imageData: shot.dataUrl,
+          imageMime: 'image/png',
+          prompt: useStrict ? '' : freeformPrompt,
+          provider: backendProvider as any,
+          model: backendModel,
+          strictJson: useStrict,
+          allowFallback: false,
+          schemaName: useStrict ? 'patient_info_v1' : (undefined as any),
+          scene,
+        });
+        if (useStrict) {
           const s: any = (res as any)?.details?.structured || {};
           const norm = (v: any) => (v === undefined || v === null) ? '' : v;
           pi = {
             name: norm(s.name) || norm(s.patient_name) || '',
             age: typeof s.age === 'number' ? s.age : parseInt(String(s.age || '0')) || 0,
             gender: norm(s.gender) || '',
-            patient_id: norm(s.patient_id) || norm(s.patientId) || norm(s.medical_record_number) || `PID_${Date.now()}`,
+            patient_id: norm(s.patient_id) || norm(s.patientId) || norm(s.medical_record_number) || '',
             department: norm(s.department) || '',
             chief_complaint: norm(s.chief_complaint) || norm(s.chiefComplaint) || '',
             diagnosis: norm(s.diagnosis) || '',
             medical_history: norm(s.medical_history) || norm(s.medicalHistory) || norm(s.medicalNow) || ''
           };
+        } else {
+          const text = (res as any)?.description || '';
+          rawTextLocal = text;
+          const tryPick = (label: RegExp) => {
+            const m = text.match(label);
+            return m ? String(m[1]).trim() : '';
+          };
+          pi = {
+            name: tryPick(/(?:姓名|患者姓名|name)[：: ]+([^\n，,]+)/i),
+            age: parseInt(tryPick(/(?:年龄|age)[：: ]+(\d{1,3})/i)) || 0,
+            gender: tryPick(/(?:性别|gender)[：: ]+([^\n，,]+)/i),
+            patient_id: tryPick(/(?:患者ID|病历号|ID)[：: ]+([^\n，,]+)/i),
+            department: tryPick(/(?:科室|department)[：: ]+([^\n，,]+)/i),
+            chief_complaint: tryPick(/(?:主诉|chief\s*complaint)[：: ]+([^\n]+)/i),
+            diagnosis: tryPick(/(?:诊断|diagnosis)[：: ]+([^\n]+)/i),
+            medical_history: tryPick(/(?:现病史|既往史|病史|medical\s*history)[：: ]+([^\n]+)/i)
+          } as any;
         }
-      } catch (e) {
-        console.warn('后端视觉识别失败，回退前端提取', e);
+        try { (window as any).__patientRawText = rawTextLocal; } catch {}
+      } catch (e: any) {
+        const emsg = (e && (e.message || e?.error)) ? (e.message || e.error) : String(e);
+        console.warn('后端视觉识别失败', emsg);
+        if (String(emsg).includes('strict_json_parse_failed')) {
+          blockFallback = true;
+          addMsg('system', '识别失败：未得到严格JSON结构。请确保截图包含右侧详情/信息面板，避免左侧边栏或中部患者列表后重试。');
+        } else {
+          blockFallback = true;
+          addMsg('system', `识别失败：${emsg}`);
+        }
       }
       if (!pi) {
-        const resp = await apiClient.extractPatientInfo(shot.dataUrl, (config as any)?.aiImage);
-        const r: any = resp.patient_info || {};
-        pi = {
-          name: r.name || r.patient_name || '',
-          age: typeof r.age === 'number' ? r.age : parseInt(String(r.age || '0')) || 0,
-          gender: r.gender || '',
-          patient_id: r.patient_id || r.patientId || r.medical_record_number || `PID_${Date.now()}`,
-          department: r.department || '',
-          chief_complaint: r.chief_complaint || r.chiefComplaint || '',
-          diagnosis: r.diagnosis || '',
-          medical_history: r.medical_history || r.medicalHistory || r.medicalNow || ''
-        };
+        // 严格模式失败且不允许回退：结束流程
+        setRunning(false);
+        return;
       }
       setPatient(pi);
       if (config.oneClick?.showPatientInfo) {
-        addMsg('system', `患者信息：\n姓名：${pi.name}  性别：${pi.gender}  年龄：${pi.age}\nID：${pi.patient_id}${pi.department?`  科室：${pi.department}`:''}`);
+        const raw = (window as any).__patientRawText as string | undefined;
+        if (raw && raw.trim().length > 0) {
+          addMsg('system', `患者信息（原文）：\n${raw.trim()}`);
+        } else {
+          addMsg('system', `患者信息：\n姓名：${pi.name}  性别：${pi.gender}  年龄：${pi.age}\nID：${pi.patient_id}${pi.department?`  科室：${pi.department}`:''}`);
+        }
       }
 
       // 推荐类型
@@ -154,8 +196,8 @@ export const OneClickDesktopChat: React.FC = () => {
 
       // 推荐（流式）按路由切换
       const recRouting = (config.aiRecommend as any)?.routingMode || 'inherit';
-      const globalRouting = (config.ai as any)?.routingMode || 'frontend';
-      const useBackendRec = recRouting === 'backend' || (recRouting === 'inherit' && globalRouting === 'backend');
+      const globalRoutingRec = (config.ai as any)?.routingMode || 'frontend';
+      const useBackendRec = recRouting === 'backend' || (recRouting === 'inherit' && globalRoutingRec === 'backend');
 
       const recMsgId = addMsg('assistant', '');
       let accumulatedContent = '';
@@ -170,11 +212,18 @@ export const OneClickDesktopChat: React.FC = () => {
         if (selected.includes('diagnosis')) structure += '## 诊断建议\n- 使用有序列表，简短依据与置信度（0-1）。\n\n';
         if (selected.includes('exam')) structure += '## 检查项目推荐\n- 使用有序列表，说明目的与预期价值。\n\n';
         if (selected.includes('medication')) structure += '## 用药建议\n- 使用有序列表，如有禁忌需注明，说明理由。\n';
-        const patientSummary = `姓名：${pi.name}\n性别：${pi.gender}\n年龄：${pi.age}\n患者ID：${pi.patient_id}\n` +
-          (pi.department ? `科室：${pi.department}\n` : '') +
-          (pi.chief_complaint ? `主诉：${pi.chief_complaint}\n` : '') +
-          (pi.diagnosis ? `诊断：${pi.diagnosis}\n` : '') +
-          (pi.medical_history ? `病史：${pi.medical_history}\n` : '');
+        // 优先使用自由文本患者信息
+        let patientSummary = '';
+        const raw = (window as any).__patientRawText as string | undefined; // 可选：若前面识别阶段设置
+        if (raw && raw.trim().length > 0) {
+          patientSummary = raw.trim();
+        } else {
+          patientSummary = `姓名：${pi.name}\n性别：${pi.gender}\n年龄：${pi.age}\n患者ID：${pi.patient_id}\n` +
+            (pi.department ? `科室：${pi.department}\n` : '') +
+            (pi.chief_complaint ? `主诉：${pi.chief_complaint}\n` : '') +
+            (pi.diagnosis ? `诊断：${pi.diagnosis}\n` : '') +
+            (pi.medical_history ? `病史：${pi.medical_history}\n` : '');
+        }
         const prompt = `${parts.join('\n\n')}\n\n${structure}\n\n患者信息：\n${patientSummary}\n\n只输出上述三部分的Markdown内容，不要任何额外说明。`;
         // 通过主进程 IPC 走后端流式
         const offChunk = (window as any).electronAPI?.ai?.onStreamChunk?.((chunk: string)=>{
@@ -204,9 +253,15 @@ export const OneClickDesktopChat: React.FC = () => {
           },
           types
         );
+        // 非流式分支：如果没有通过 onChunk 更新内容，这里补一次性结果
+        if (!accumulatedContent) {
+          const combined = (res?.recommendations as any)?.combined || '';
+          if (combined) updateMsgContent(recMsgId, combined);
+        }
       }
 
-      const md = (res?.recommendations as any)?.combined || accumulatedContent || '';
+      // 优先使用流式累计内容；仅在非流式分支下使用 res 的合并结果
+      const md = accumulatedContent || (typeof res !== 'undefined' ? ((res?.recommendations as any)?.combined || '') : '');
 
       // 保存患者记录（不再手动保存对话消息，由 Store 自动持久化）
       try {
@@ -217,7 +272,7 @@ export const OneClickDesktopChat: React.FC = () => {
           created_at: Date.now(),
           screenshot: shot.dataUrl,
           markdown: md,
-          raw: { patient: pi, res }
+          raw: { patient: pi, ...(typeof res !== 'undefined' ? { res } : {}) }
         });
       } catch (err) {
         console.error('保存患者记录失败:', err);
@@ -350,6 +405,7 @@ export const OneClickDesktopChat: React.FC = () => {
         </div>
         <div className="space-x-2">
           <button
+            data-testid="oneclick-start-btn"
             type="button"
             onClick={start}
             disabled={running}
@@ -359,6 +415,7 @@ export const OneClickDesktopChat: React.FC = () => {
             一键开始
           </button>
           <button
+            data-testid="oneclick-clear-btn"
             type="button"
             onClick={resetSession}
             className="px-3 py-1 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors"
