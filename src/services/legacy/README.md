@@ -20,20 +20,49 @@
 
 ### 迁移状态
 
-| 服务 | 新实现 | 状态 |
-|------|--------|------|
-| AI服务 | `adapters/ai-adapter.ts` | ⏳ 开发中 |
-| 患者信息提取 | `adapters/patient-adapter.ts` | ⏳ 待开始 |
-| OCR识别 | `adapters/ocr-adapter.ts` | ⏳ 待开始 |
-| 语音服务 | `adapters/voice-adapter.ts` | ⏳ 待开始 |
-| Bisheng集成 | `adapters/bisheng-adapter.ts` | ⏳ 待开始 |
-| 医疗系统集成 | `adapters/medical-adapter.ts` | ⏳ 待开始 |
-| 网络搜索 | `adapters/search-adapter.ts` | ⏳ 待开始 |
+| 服务文件 | 对应适配器 | 迁移状态 | 说明 |
+|---------|-----------|---------|------|
+| `ai.ts` | `adapters/ai-adapter.ts` | ✅ 已迁移 | AI服务已有适配器 |
+| `voice.ts` | `adapters/voice-adapter.ts` | ✅ 已迁移 | 语音服务已有适配器 |
+| `voice-recognition.ts` | `adapters/voice-adapter.ts` | ✅ 已迁移 | 包含在语音适配器中 |
+| `bisheng.ts` | `adapters/agent-adapter.ts` | ✅ 已迁移 | Bisheng智能体已有适配器 |
+| `desktop-recognition.ts` | `adapters/vision-adapter.ts` | ✅ 已迁移 | 桌面识别已有适配器 |
+| `patient-info-extractor.ts` | - | 📦 仅类型定义 | 仅被用作类型导入,功能已由vision-adapter实现 |
+| `medical-integration.ts` | - | 🔒 保留使用 | **医疗系统集成服务,主进程直接使用,无需adapter** |
+| `web-search.ts` | - | ⏳ 待审计 | 网络搜索服务 |
+| `screenshot.ts` | - | ⏳ 待审计 | 截图服务 |
+
+### 保留说明
+
+#### `medical-integration.ts` - 为何保留?
+
+**原因**:
+- 这是一个**独立的医疗系统集成服务**,不是AI功能的一部分
+- 主进程 (`src/main/index.ts`, `src/main/main.ts`) 直接使用此服务
+- 提供患者搜索、记录查询、研究搜索等医疗系统特定功能
+- 包含缓存管理、请求队列、健康检查等复杂逻辑
+- **没有对应的后端API实现**,也不需要adapter封装
+
+**使用情况**:
+```typescript
+// src/main/index.ts
+this.medicalService = new MedicalIntegrationService(config.medical, this.logger);
+await this.medicalService.initialize();
+
+// IPC handlers
+ipcMain.handle('medical:search-patients', (_, filters) => {
+  return this.medicalService.searchPatients(filters.query || '');
+});
+```
+
+**结论**: 保留在legacy目录,继续使用,不创建adapter。
 
 ### 清理计划
 
-所有服务迁移完成后，此目录将被删除。
+- ✅ 已迁移的服务: 可以在后续版本中删除legacy实现
+- 🔒 保留使用的服务: 继续保留,不删除
+- ⏳ 待审计的服务: 需要进一步分析后决定
 
 ---
 
-**最后更新**: 2025-10-10
+**最后更新**: 2025-10-26
