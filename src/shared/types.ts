@@ -772,6 +772,51 @@ export interface Patient {
 }
 
 /**
+ * 患者信息接口
+ * 从OCR文本或屏幕截图中提取的患者信息
+ */
+export interface PatientInfo {
+  name: string;
+  age?: number;
+  gender?: '男' | '女' | '未知';
+  patientId?: string;
+  department?: string;
+  chiefComplaint?: string;
+  diagnosis?: string;
+  medicalHistory?: string;
+  confidence?: number; // 提取置信度 0-1
+}
+
+/**
+ * OCR结果接口
+ */
+export interface OCRResult {
+  text: string;
+  confidence: number;
+  bounds?: { x: number; y: number; width: number; height: number };
+  words?: Array<{
+    text: string;
+    confidence: number;
+    bounds: { x: number; y: number; width: number; height: number };
+  }>;
+  lines?: Array<{
+    text: string;
+    confidence: number;
+    bounds: { x: number; y: number; width: number; height: number };
+  }>;
+}
+
+/**
+ * 患者信息提取配置
+ */
+export interface ExtractionConfig {
+  useAI?: boolean; // 是否使用AI辅助提取
+  aiApiUrl?: string; // AI API地址
+  aiApiKey?: string; // AI API密钥
+  minConfidence?: number; // 最小置信度阈值
+}
+
+/**
  * 医疗记录
  */
 export interface MedicalRecord {
