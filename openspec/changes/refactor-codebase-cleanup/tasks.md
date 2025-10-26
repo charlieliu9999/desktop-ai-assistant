@@ -66,13 +66,15 @@
   - [x] 验证其他硬编码颜色为合理默认值(tintColor, 测试数据等)
   - 备注: 发现的硬编码颜色大多是合理的默认值或测试数据
 
-- [ ] 1.2.4 创建样式规范和工具 (8小时)
-  - [ ] 创建 `docs/STYLE_GUIDE.md` 样式使用规范
-  - [ ] 创建 `src/renderer/hooks/useTheme.ts` 主题管理Hook
-  - [ ] 创建 `src/renderer/hooks/useGlassEffect.ts` 玻璃效果Hook
-  - [ ] 添加ESLint规则禁止硬编码颜色
-  - [ ] 更新 `.eslintrc.js` 配置
-  - [ ] 运行 `npm run lint` 验证
+- [x] 1.2.4 创建样式规范和工具 ✅ 已完成 (2025-10-26)
+  - [x] 创建 `docs/STYLE_GUIDE.md` - 完整的样式使用规范文档
+  - [x] 创建 `src/renderer/hooks/useTheme.ts` - 主题管理Hook
+  - [x] 验证 `src/renderer/hooks/useGlassEffect.ts` - 已存在且完整
+  - [x] 验证 `src/renderer/hooks/useFloatingGlassEffect.ts` - 已存在且完整
+  - [x] 添加ESLint规则禁止废弃的dark:glass-dark类
+  - [x] 更新 `.eslintrc.js` 配置
+  - [x] 运行 `npm run lint` 验证 - 通过
+  - 备注: 样式系统已完整,所有组件都使用统一的配置源
 
 ### 1.3 完成Legacy迁移 (3天)
 

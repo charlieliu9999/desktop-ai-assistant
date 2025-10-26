@@ -44,9 +44,7 @@ export const OneClickDesktopChat: React.FC = () => {
   // 确保会话已创建
   React.useEffect(() => {
     getSession(currentSessionId, '桌面识别对话');
-    // 不依赖 sessions，避免无限循环
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSessionId]);
+  }, [currentSessionId, getSession]);
 
   // 精确订阅该会话的消息，确保更新即时触发渲染
   const messages = useChatStore((state) => state.sessions.get(currentSessionId)?.messages || []);

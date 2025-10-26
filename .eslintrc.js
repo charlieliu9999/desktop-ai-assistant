@@ -77,6 +77,21 @@ module.exports = {
     'react-hooks/rules-of-hooks': 'off',
     'react-hooks/exhaustive-deps': 'off',
     'no-console': 'off',
+
+    // ========== 样式规范 ==========
+    // 警告: 禁止在className中使用废弃的dark:glass-dark类
+    // 注意: 这是一个简单的字符串检查,可能有误报
+    'no-restricted-syntax': [
+      'warn',
+      {
+        selector: 'Literal[value=/dark:glass-dark/]',
+        message: '禁止使用废弃的 dark:glass-dark 类,请使用 .glass 类代替',
+      },
+      {
+        selector: 'TemplateLiteral[quasis.0.value.raw=/dark:glass-dark/]',
+        message: '禁止使用废弃的 dark:glass-dark 类,请使用 .glass 类代替',
+      },
+    ],
   },
   overrides: [
     {
