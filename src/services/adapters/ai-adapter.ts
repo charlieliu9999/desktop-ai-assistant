@@ -441,10 +441,12 @@ export class AIServiceAdapter {
   async getAvailableProviders(): Promise<any> {
     if (this.useBackend) {
       try {
-        const resp = await fetch(`${API_CONFIG.baseURL}/v1/ai/providers`, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+        // 切换到注册中心的标准端点
+        const resp = await fetch(`${API_CONFIG.baseURL}/v1/registry/providers`, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
         if (!resp.ok) throw new Error(`http_${resp.status}`);
         const result: APIResponse = await resp.json();
-        return result.data?.providers ?? [];
+        // registry 返回形如 { success, data: Provider[] }
+        return (Array.isArray((result as any).data) ? (result as any).data : []) || [];
       } catch (e) {
         this.logger.warn('getAvailableProviders failed:', e as any);
         return [];
