@@ -6,6 +6,10 @@
   - 新增 `src/types/shims-bisheng.d.ts`、`src/types/shims-legacy.d.ts`
   - 更新 `tsconfig.renderer.json` 包含 `src/types/**/*.d.ts`
   - 将 `src/renderer/pages/AgentService.tsx` 中的 bisheng 静态导入替换为占位组件（后续按特性开关动态接入）
+ 
+ - [x] 切换前端 AI Adapter provider 列表端点到 `/v1/registry/providers`（2025-10-27）
+   - 更新 `src/services/adapters/ai-adapter.ts` 中 `getAvailableProviders()`
+   - 构建并验证通过（renderer/main 均可构建）
 
 ## 阶段1: 代码清理与整理 (P0 - 紧急, 1周)
 

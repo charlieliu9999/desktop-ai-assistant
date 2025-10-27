@@ -159,6 +159,21 @@
 
 ---
 
+### 前端 Provider 列表 API 切换 ✅ (2025-10-27 23:38)
+
+**执行内容**:
+- 将 `AIServiceAdapter.getAvailableProviders()` 由 `/v1/ai/providers` 切换至 `/v1/registry/providers`
+- 构建 renderer 与 main，均成功
+
+**运行尝试**:
+- 在当前环境尝试 `ALLOW_MULTI_INSTANCE=1 npx electron .` 后进程收到 `SIGABRT`（GUI 环境受限导致），已输出日志至 `logs/dev-electron.log`
+- 本地运行建议命令：`ALLOW_MULTI_INSTANCE=1 ELECTRON_ENABLE_LOGGING=1 ELECTRON_LOG_LEVEL=info npx electron .`
+
+**成果**:
+- 与后端注册中心 API 对齐，后续 provider/model 扩展体验更一致
+
+---
+
 ## 🔄 进行中任务
 
 **当前无进行中任务**
