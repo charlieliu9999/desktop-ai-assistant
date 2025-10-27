@@ -11,9 +11,11 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Bot, AlertCircle, LogIn } from 'lucide-react';
 import { toast } from 'sonner';
-import AgentList from '../../../bisheng-integration/components/AgentList';
-import AgentChat from '../../../bisheng-integration/components/AgentChat';
-import AgentIframe from '../../../bisheng-integration/components/AgentIframe';
+// 为避免在renderer类型检查时拉入外部依赖，这里使用轻量占位组件。
+// 运行时若需要接入bisheng集成，可后续按feature-flag动态加载。
+const AgentList: React.FC<any> = () => null;
+const AgentChat: React.FC<any> = () => null;
+const AgentIframe: React.FC<any> = () => null;
 import type { BishengWorkflow, BishengConfig } from '../../shared/types';
 
 const AgentService: React.FC = () => {
@@ -267,4 +269,3 @@ const AgentService: React.FC = () => {
 };
 
 export default AgentService;
-

@@ -384,10 +384,13 @@ export class Logger extends EventEmitter {
       const lines = stack.split('\n');
       // 跳过当前方法和log方法
       const callerLine = lines[4] || lines[3] || lines[2];
+      if (!callerLine) return 'unknown';
       
       const match = callerLine.match(/at\s+(.+?)\s+\((.+?):(\d+):(\d+)\)/);
       if (match) {
-        const [, functionName, fileName, lineNumber] = match;
+        const functionName = match[1] || 'unknown';
+        const fileName = match[2] || 'unknown';
+        const lineNumber = match[3] || '0';
         return `${path.basename(fileName)}:${lineNumber} (${functionName})`;
       }
       
@@ -432,12 +435,13 @@ export class Logger extends EventEmitter {
    */
   private updateStats(entry: LogEntry): void {
     this.stats.totalLogs++;
-    this.stats.logsByLevel[entry.levelName]++;
+    this.stats.logsByLevel[entry.levelName] = (this.stats.logsByLevel[entry.levelName] ?? 0) + 1;
     this.stats.uptime = Date.now() - this.startTime;
     
     if (entry.level >= LogLevel.ERROR) {
       this.stats.lastError = entry;
-      this.stats.errorRate = (this.stats.logsByLevel.ERROR + this.stats.logsByLevel.FATAL) / this.stats.totalLogs;
+      const errCount = (this.stats.logsByLevel.ERROR ?? 0) + (this.stats.logsByLevel.FATAL ?? 0);
+      this.stats.errorRate = errCount / Math.max(1, this.stats.totalLogs);
     }
   }
 

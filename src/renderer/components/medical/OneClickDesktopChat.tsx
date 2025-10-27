@@ -15,14 +15,12 @@ export const OneClickDesktopChat: React.FC = () => {
   const { config } = useConfigStore();
   // 订阅会话 Map 以驱动渲染更新；同时获取需要的操作方法
   const {
-    sessions,
     getSession,
     addMessage,
     updateMessage,
     clearSession,
     persistSession,
   } = useChatStore((state) => ({
-    sessions: state.sessions,
     getSession: state.getSession,
     addMessage: state.addMessage,
     updateMessage: state.updateMessage,
@@ -107,7 +105,6 @@ export const OneClickDesktopChat: React.FC = () => {
 
       // 识别：后端视觉（VL）；根据 extractionMode 选择严格JSON或自由文本
       let pi: any = null;
-      let blockFallback = false;
       try {
         const { visionAdapter } = await import('../../../services/adapters/vision-adapter');
         const backendProvider = (config as any)?.aiImage?.backendProvider || 'dashscope';
@@ -164,10 +161,8 @@ export const OneClickDesktopChat: React.FC = () => {
         const emsg = (e && (e.message || e?.error)) ? (e.message || e.error) : String(e);
         console.warn('后端视觉识别失败', emsg);
         if (String(emsg).includes('strict_json_parse_failed')) {
-          blockFallback = true;
           addMsg('system', '识别失败：未得到严格JSON结构。请确保截图包含右侧详情/信息面板，避免左侧边栏或中部患者列表后重试。');
         } else {
-          blockFallback = true;
           addMsg('system', `识别失败：${emsg}`);
         }
       }
@@ -199,6 +194,7 @@ export const OneClickDesktopChat: React.FC = () => {
 
       const recMsgId = addMsg('assistant', '');
       let accumulatedContent = '';
+      let res: any | undefined;
       if (useBackendRec) {
         // 构建一次性合成推荐提示词（与前端直连一致）
         const selected = types.length ? types : ['diagnosis','exam','medication'];
@@ -233,7 +229,7 @@ export const OneClickDesktopChat: React.FC = () => {
         });
         await (window as any).electronAPI?.ai?.processMessageStream?.(prompt);
       } else {
-        const res = await apiClient.generateCombinedRecommendationsStream(
+        res = await apiClient.generateCombinedRecommendationsStream(
           pi as any,
           (config.oneClick?.followUpModelSameAsRecommend ? (config.aiRecommend as any) : {
             ...config.aiRecommend,

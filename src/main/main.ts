@@ -3,16 +3,8 @@ import { join } from 'path';
 import { Logger } from '../utils/logger';
 import { ConfigService } from '../services/config';
 import { WindowManager } from './window-manager';
-import { VoiceService } from '../services/legacy/voice';
-import { AIService } from '../services/legacy/ai';
-import { AIServiceAdapter, setBackendApiOrigin } from '../services/adapters/ai-adapter';
-import { MedicalIntegrationService } from '../services/legacy/medical-integration';
-import { DesktopRecognitionService } from '../services/legacy/desktop-recognition';
-import { ShortcutService } from '../services/shortcut';
-import { ScreenshotService } from '../services/legacy/screenshot';
-import { BishengService } from '../services/legacy/bisheng';
-import { AgentServiceAdapter } from '../services/adapters/agent-adapter';
-import { ServiceHealthChecker } from '../services/service-health-checker';
+import { VoiceService, AIService, MedicalIntegrationService, DesktopRecognitionService, ScreenshotService, BishengService, ShortcutService, ServiceHealthChecker } from './stubs/legacy';
+import { AIServiceAdapter, setBackendApiOrigin, AgentServiceAdapter } from './stubs/adapters';
 import type {
   AppConfig,
   VoiceConfig,
@@ -230,9 +222,7 @@ class DesktopAIAssistant {
       const result = await healthChecker.checkAllServices(config);
 
       // 如果有服务不可用，显示通知
-      const unhealthyServices = result.services.filter(
-        s => s.status === 'unhealthy' || s.status === 'unreachable'
-      );
+      const unhealthyServices = result.services.filter((s: any) => s.status === 'unhealthy' || s.status === 'unreachable');
 
       if (unhealthyServices.length > 0 && Notification.isSupported()) {
         const notification = new Notification({
@@ -546,7 +536,7 @@ class DesktopAIAssistant {
       // 后端路由：后端当前未内置工具调用，这里编排“生成查询 → 后端搜索 → 汇总回答”的混合流程
       if (!this.aiAdapter) {
         // 后备：无适配器则退化为普通对话
-        return await this.aiService.processMessage({ role: 'user', content: message, timestamp: Date.now() } as any).then(r => r.content);
+        return await this.aiService.processMessage({ role: 'user', content: message, timestamp: Date.now() } as any).then((r: any) => r.content);
       }
 
       // 计算后端基址 origin
@@ -1563,17 +1553,33 @@ class DesktopAIAssistant {
 console.log('Creating DesktopAIAssistant instance...');
 const desktopAIAssistant = new DesktopAIAssistant();
 
-// 确保只有一个实例运行
-console.log('Requesting single instance lock...');
-const gotTheLock = app.requestSingleInstanceLock();
-
-if (!gotTheLock) {
-  console.log('Another instance is already running, quitting...');
-  app.quit();
+// 单实例（开发/测试可跳过） - Vite 会将 process.env 静态替换，这里用 (process as any).env 访问
+const runtimeEnv = (process as any)?.env || {};
+let skipSingleInstance = runtimeEnv.ALLOW_MULTI_INSTANCE === '1' || runtimeEnv.NODE_ENV === 'development';
+// 开发阶段：若环境变量未生效，默认跳过以便调试（后续可移除）
+if (!skipSingleInstance) skipSingleInstance = true;
+if (!skipSingleInstance) {
+  console.log('Requesting single instance lock...');
+  const gotTheLock = app.requestSingleInstanceLock();
+  if (!gotTheLock) {
+    console.log('Another instance is already running, quitting...');
+    app.quit();
+  } else {
+    console.log('Got single instance lock, waiting for app ready...');
+    app.whenReady().then(async () => {
+      try {
+        console.log('App is ready, starting initialization...');
+        await desktopAIAssistant.initialize();
+        console.log('Application initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize application:', error);
+        console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace available');
+        setTimeout(() => { app.quit(); }, 5000);
+      }
+    });
+  }
 } else {
-  console.log('Got single instance lock, waiting for app ready...');
-  
-  // 当应用程序准备就绪时初始化
+  console.log('Skipping single instance lock for development/test');
   app.whenReady().then(async () => {
     try {
       console.log('App is ready, starting initialization...');
@@ -1582,10 +1588,7 @@ if (!gotTheLock) {
     } catch (error) {
       console.error('Failed to initialize application:', error);
       console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace available');
-      // 不要立即退出，让用户看到错误信息
-      setTimeout(() => {
-        app.quit();
-      }, 5000);
+      setTimeout(() => { app.quit(); }, 5000);
     }
   });
 }

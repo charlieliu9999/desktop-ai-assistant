@@ -169,7 +169,7 @@ export const isCodeBlock = (text: string): boolean => {
  */
 export const extractCodeLanguage = (text: string): string | null => {
   const match = text.match(/^```(\w+)/);
-  return match ? match[1] : null;
+  return match && match[1] ? match[1] : null;
 };
 
 /**
@@ -328,4 +328,3 @@ export const generateSessionId = (): string => {
   const random = Math.random().toString(36).slice(2, 8);
   return `session-${timestamp}-${random}`;
 };
-

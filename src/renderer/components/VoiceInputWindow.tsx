@@ -229,6 +229,7 @@ const VoiceInputWindow: React.FC<VoiceInputWindowProps> = ({ voiceState }) => {
         }
       };
     }
+    return undefined;
   }, []);
 
   // 音量可视化动画
@@ -268,18 +269,26 @@ const VoiceInputWindow: React.FC<VoiceInputWindowProps> = ({ voiceState }) => {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [toggleListening, handleClose]);
 
+  const derivedStatus: 'ready' | 'listening' | 'processing' | 'speaking' | 'error' = voiceState.error
+    ? 'error'
+    : (state.isSpeaking
+        ? 'speaking'
+        : (voiceState.isProcessing
+            ? 'processing'
+            : (voiceState.isListening ? 'listening' : 'ready')));
+
   return (
     <div className="voice-input-window">
       {/* 头部 */}
       <div className="voice-header">
         <div className="voice-title">
           <span>语音助手</span>
-          <div className={`voice-status status-${voiceState.status}`}>
-            {voiceState.status === 'ready' && '就绪'}
-            {voiceState.status === 'listening' && '监听中'}
-            {voiceState.status === 'processing' && '处理中'}
-            {voiceState.status === 'speaking' && '播放中'}
-            {voiceState.status === 'error' && '错误'}
+          <div className={`voice-status status-${derivedStatus}`}>
+            {derivedStatus === 'ready' && '就绪'}
+            {derivedStatus === 'listening' && '监听中'}
+            {derivedStatus === 'processing' && '处理中'}
+            {derivedStatus === 'speaking' && '播放中'}
+            {derivedStatus === 'error' && '错误'}
           </div>
         </div>
         <button className="close-btn" onClick={handleClose}>

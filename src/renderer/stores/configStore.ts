@@ -317,6 +317,54 @@ const defaultConfig: AppConfig = {
 export const useConfigStore = create<ConfigState>((set, get) => ({
   config: defaultConfig,
 
+  // 轻量级运行时配置校验与修正（无需第三方依赖）
+  // 仅校验关键字段类型，异常时回退默认值并打印告警
+  _validateAndFix(partial: any): AppConfig {
+    const warn = (msg: string) => { try { console.warn(msg); } catch {} };
+    const cfg: any = { ...defaultConfig, ...(partial || {}) };
+
+    // ai
+    cfg.ai = cfg.ai || {};
+    if (typeof cfg.ai.provider !== 'string') { warn('[config] ai.provider 非法，已回退'); cfg.ai.provider = defaultConfig.ai.provider; }
+    if (typeof cfg.ai.apiUrl !== 'string') { warn('[config] ai.apiUrl 非法，已回退'); cfg.ai.apiUrl = defaultConfig.ai.apiUrl; }
+    if (typeof cfg.ai.model !== 'string') { warn('[config] ai.model 非法，已回退'); cfg.ai.model = defaultConfig.ai.model; }
+    if (typeof cfg.ai.temperature !== 'number') { cfg.ai.temperature = Number(cfg.ai.temperature) || defaultConfig.ai.temperature; }
+    if (typeof cfg.ai.maxTokens !== 'number') { cfg.ai.maxTokens = Number(cfg.ai.maxTokens) || defaultConfig.ai.maxTokens; }
+
+    // aiImage
+    cfg.aiImage = cfg.aiImage || {};
+    const dImg = (defaultConfig.aiImage || {}) as any;
+    if (typeof cfg.aiImage.provider !== 'string') { cfg.aiImage.provider = dImg.provider || 'local'; }
+    if (typeof cfg.aiImage.apiUrl !== 'string') { cfg.aiImage.apiUrl = dImg.apiUrl || ''; }
+    if (typeof cfg.aiImage.model !== 'string') { cfg.aiImage.model = dImg.model || ''; }
+    if (typeof cfg.aiImage.temperature !== 'number') { cfg.aiImage.temperature = Number(cfg.aiImage.temperature) || (dImg.temperature ?? 0.1); }
+    if (typeof cfg.aiImage.maxTokens !== 'number') { cfg.aiImage.maxTokens = Number(cfg.aiImage.maxTokens) || (dImg.maxTokens ?? 1000); }
+
+    // aiRecommend
+    cfg.aiRecommend = cfg.aiRecommend || {};
+    const dRec = (defaultConfig.aiRecommend || {}) as any;
+    if (typeof cfg.aiRecommend.apiUrl !== 'string') { cfg.aiRecommend.apiUrl = dRec.apiUrl || ''; }
+    if (typeof cfg.aiRecommend.temperature !== 'number') { cfg.aiRecommend.temperature = Number(cfg.aiRecommend.temperature) || (dRec.temperature ?? 0.3); }
+    if (!cfg.aiRecommend.diagnosisModel) cfg.aiRecommend.diagnosisModel = dRec.diagnosisModel || 'qwen3:30b';
+    if (!cfg.aiRecommend.examModel) cfg.aiRecommend.examModel = dRec.examModel || 'qwen3:30b';
+    if (!cfg.aiRecommend.medicationModel) cfg.aiRecommend.medicationModel = dRec.medicationModel || 'qwen3:30b';
+
+    // oneClick 基本字段
+    cfg.oneClick = cfg.oneClick || {};
+    const dOne = (defaultConfig.oneClick || {}) as any;
+    if (typeof cfg.oneClick.provider !== 'string') cfg.oneClick.provider = dOne.provider || 'local';
+    if (typeof cfg.oneClick.apiUrl !== 'string') cfg.oneClick.apiUrl = dOne.apiUrl || '';
+    if (typeof cfg.oneClick.model !== 'string') cfg.oneClick.model = dOne.model || '';
+    if (typeof cfg.oneClick.temperature !== 'number') cfg.oneClick.temperature = Number(cfg.oneClick.temperature) || (dOne.temperature ?? 0.3);
+    if (typeof cfg.oneClick.maxTokens !== 'number') cfg.oneClick.maxTokens = Number(cfg.oneClick.maxTokens) || (dOne.maxTokens ?? 1500);
+
+    // medical 基础
+    cfg.medical = cfg.medical || {};
+    if (typeof cfg.medical.apiUrl !== 'string') cfg.medical.apiUrl = defaultConfig.medical.apiUrl;
+
+    return cfg as AppConfig;
+  },
+
   updateConfig: (updates: Partial<AppConfig>) => {
     set((state) => {
       // 深度合并windows配置
@@ -388,7 +436,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
         const mainConfig = await window.electronAPI.config.get();
         
         // 深度合并配置，确保嵌套对象（如glassEffect）不会丢失
-        const mergedConfig = {
+        let mergedConfig = {
           ...defaultConfig,
           ...mainConfig,
           windows: {
@@ -428,7 +476,15 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
           performance: { ...defaultConfig.performance, ...(mainConfig.performance || {}) },
           logging: { ...defaultConfig.logging, ...(mainConfig.logging || {}) },
         };
-        
+
+        // 运行时校验与修正
+        try {
+          // @ts-ignore - 访问私有方法
+          mergedConfig = (useConfigStore.getState() as any)._validateAndFix(mergedConfig);
+        } catch (e) {
+          try { console.warn('配置校验失败，已回退默认配置字段：', e); } catch {}
+        }
+
         set({ config: mergedConfig });
         console.log('✅ 配置已加载:', mergedConfig);
       }

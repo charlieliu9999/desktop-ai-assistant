@@ -339,7 +339,7 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
       }, 30000);
 
       // 现在注册事件监听器（使用已知的 streamId）
-      const offStart = window.electronAPI.bisheng.onStreamStart(({ streamId: id }) => {
+      const offStart = window.electronAPI.bisheng.onStreamStart(({ streamId: id }: { streamId: string }) => {
         console.log('[DEBUG] Stream start event received:', id);
         if (id === streamId) {
           console.log('Stream started:', streamId);
@@ -347,7 +347,7 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
       });
 
       // 监听流数据块
-      const offChunk = window.electronAPI.bisheng.onStreamChunk(({ streamId: id, chunk }) => {
+      const offChunk = window.electronAPI.bisheng.onStreamChunk(({ streamId: id, chunk }: { streamId: string; chunk: string }) => {
         console.log('[DEBUG] Stream chunk event received:', { streamId: id, chunkLength: chunk.length });
         if (id !== streamId) {
           console.log('[DEBUG] Ignoring chunk for different streamId:', { expected: streamId, received: id });
@@ -498,7 +498,7 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
       });
 
       // 监听流结束事件
-      const offEnd = window.electronAPI.bisheng.onStreamEnd(({ streamId: id, success, error: err }) => {
+      const offEnd = window.electronAPI.bisheng.onStreamEnd(({ streamId: id, success, error: err }: { streamId: string; success: boolean; error?: string }) => {
         console.log('[DEBUG] Stream end event received:', { streamId: id, success, error: err });
         if (id !== streamId) {
           console.log('[DEBUG] Ignoring end event for different streamId:', { expected: streamId, received: id });
@@ -735,4 +735,3 @@ const AgentChat: React.FC<AgentChatProps> = ({ workflow }) => {
 };
 
 export default AgentChat;
-

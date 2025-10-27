@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Toaster } from 'sonner';
 import MainWindow from './components/MainWindow';
 import { useConfigStore } from './stores/configStore';

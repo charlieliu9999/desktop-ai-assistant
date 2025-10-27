@@ -173,7 +173,7 @@ export const getContrastColor = (rgb: string): 'light' | 'dark' => {
   const values = rgb.split(' ').map(v => parseInt(v.trim(), 10));
   if (values.length !== 3) return 'dark';
 
-  const [r, g, b] = values;
+  const [r = 0, g = 0, b = 0] = values as [number?, number?, number?];
   // 计算相对亮度
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 
@@ -330,4 +330,3 @@ export const createSlideInStyle = (
     opacity: 0,
   };
 };
-

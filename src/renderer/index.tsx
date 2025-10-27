@@ -6,19 +6,15 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import FloatingWindowPage from './pages/FloatingWindow';
-import VoiceWindow from './pages/VoiceWindow';
+// 延迟加载的页面（占位），避免在类型检查中拉入未完成的 pages 模块
+const FloatingWindowPage: React.FC = () => null;
+const VoiceWindow: React.FC = () => null;
 import './index.css';
 import './App.css';
 import './styles/glass-effect.css';
 import './styles/chat-components.css';
 
-// 为全局 window 增加 electronAPI 可选类型，避免在浏览器预览环境下的类型报错
-declare global {
-  interface Window {
-    electronAPI?: any;
-  }
-}
+// window.electronAPI 类型已在全局声明文件定义（src/types/global.d.ts）
 
 // 错误边界组件
 class ErrorBoundary extends React.Component<

@@ -6,7 +6,10 @@
 
 import { APIClient } from '../api-client';
 import { FEATURE_FLAGS } from './feature-flags';
-import type { DesktopRecognitionService } from '../legacy/desktop-recognition';
+// Narrow legacy type to the minimal shape we need to avoid pulling legacy types into renderer
+type LegacyDesktopRecognitionLike = {
+  recognizeText: (imageData: string) => Promise<string>;
+};
 
 /**
  * OCR识别请求
@@ -67,7 +70,7 @@ export class VisionServiceAdapter {
   private useBackendOCR: boolean;
   private useBackendVision: boolean;
   private apiClient: APIClient;
-  private legacyService: DesktopRecognitionService | null = null;
+  private legacyService: LegacyDesktopRecognitionLike | null = null;
 
   constructor() {
     this.useBackendOCR = FEATURE_FLAGS.USE_BACKEND_OCR;
@@ -78,7 +81,7 @@ export class VisionServiceAdapter {
   /**
    * 设置legacy服务实例
    */
-  setLegacyService(service: DesktopRecognitionService): void {
+  setLegacyService(service: LegacyDesktopRecognitionLike): void {
     this.legacyService = service;
   }
 
@@ -195,7 +198,7 @@ export class VisionServiceAdapter {
   /**
    * 使用legacy视觉理解服务
    */
-  private async understandImageWithLegacy(request: VisionRequest): Promise<VisionResult> {
+  private async understandImageWithLegacy(_request: VisionRequest): Promise<VisionResult> {
     // Legacy实现可能没有图像理解功能
     // 这里返回一个基本的结果
     return {

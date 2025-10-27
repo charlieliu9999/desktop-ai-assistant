@@ -216,11 +216,12 @@ export class APIClient {
     const configs: Record<string, ModelConfig> = {};
     for (const sc of scenarios) {
       const scObj = (data && (data as any)[sc]) || {};
+      const d = (defaults as any)[sc] || {};
       configs[sc] = {
         model_name: scObj.selected_model || '',
         base_url: scObj.base_url || '',
-        temperature: defaults[sc]?.temperature ?? 0.7,
-        max_tokens: defaults[sc]?.max_tokens ?? 1000,
+        temperature: d.temperature ?? 0.7,
+        max_tokens: d.max_tokens ?? 1000,
         timeout: 60,
       };
     }
@@ -229,7 +230,7 @@ export class APIClient {
 
   async getScenarioConfig(scenario: string): Promise<ModelConfig> {
     const cfg = await this.getAllConfigs();
-    return cfg.configs[scenario];
+    return cfg.configs[scenario] || { model_name: '', base_url: '', temperature: 0.7, max_tokens: 1000, timeout: 60 };
   }
 
   async testModelConnection(
@@ -516,15 +517,14 @@ ${structuredGuide}` : structuredGuide;
         success: true,
         patient_info: patientInfo,
         raw_content: responseText, // 添加原始内容
-        full_response: result, // 添加完整响应
-        error: null
-      };
+        full_response: result // 添加完整响应
+      } as any;
 
     } catch (error) {
       console.error('图片模型提取失败:', error);
       return {
         success: false,
-        patient_info: null,
+        patient_info: { name: '', age: 0, gender: '', patient_id: '' },
         error: error instanceof Error ? error.message : '图片模型提取失败'
       };
     }
@@ -558,10 +558,11 @@ ${structuredGuide}` : structuredGuide;
     Object.entries(fieldPatterns).forEach(([field, patterns]) => {
       for (const pattern of patterns) {
         const match = text.match(pattern);
-        if (match) {
-          patientInfo[field] = match[1].trim();
-          patientInfo.extractedFields[field] = match[1].trim();
-          console.log(`✅ 提取到字段 ${field}:`, match[1].trim());
+        const val = match && match[1] ? String(match[1]).trim() : undefined;
+        if (val) {
+          (patientInfo as any)[field] = val;
+          (patientInfo.extractedFields as any)[field] = val;
+          console.log(`✅ 提取到字段 ${field}:`, val);
           break; // 找到第一个匹配就停止
         }
       }
@@ -612,7 +613,7 @@ ${structuredGuide}` : structuredGuide;
         gender: patientInfo.gender,
         age: patientInfo.age,
         chief_complaint: patientInfo.chief_complaint || '',
-        medical_history: patientInfo.medical_history,
+        medical_history: patientInfo.medical_history || '',
         recommendation_types: recommendationTypes || []
       };
     } else {

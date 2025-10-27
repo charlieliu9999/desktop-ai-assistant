@@ -13,7 +13,7 @@ interface AgentHistoryProps {
 }
 
 export const AgentHistory: React.FC<AgentHistoryProps> = ({ onSelectWorkflow }) => {
-  const { getAllSessions, setActiveWorkflow, deleteSession, activeWorkflowId } = useAgentSessionStore();
+  const { getAllSessions, setActiveWorkflow, deleteSession } = useAgentSessionStore();
   const sessions = getAllSessions();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
@@ -196,4 +196,3 @@ export const AgentHistory: React.FC<AgentHistoryProps> = ({ onSelectWorkflow }) 
     </div>
   );
 };
-

@@ -115,7 +115,9 @@ export async function convertToWav(audioData: ArrayBuffer): Promise<ArrayBuffer>
     let offset = 44;
     for (let i = 0; i < length; i++) {
       for (let channel = 0; channel < numberOfChannels; channel++) {
-        const sample = Math.max(-1, Math.min(1, audioBuffer.getChannelData(channel)[i]));
+        const channelData = audioBuffer.getChannelData(channel);
+        const sampleValue = (channelData[i] ?? 0);
+        const sample = Math.max(-1, Math.min(1, sampleValue));
         view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
         offset += 2;
       }
@@ -229,11 +231,11 @@ export function createCompatibleAudioPlayer(audioData: ArrayBuffer): Promise<HTM
           return;
         }
         
-        const format = formats[formatIndex];
+        const fmt = formats[formatIndex]!;
         formatIndex++;
         
         try {
-          const audioBlob = new Blob([format.data], { type: format.type });
+          const audioBlob = new Blob([fmt.data], { type: fmt.type });
           const audioUrl = URL.createObjectURL(audioBlob);
           createdUrls.push(audioUrl);
           const audio = new Audio(audioUrl);
@@ -259,7 +261,7 @@ export function createCompatibleAudioPlayer(audioData: ArrayBuffer): Promise<HTM
           
           audio.load();
         } catch (err) {
-          console.warn(`Failed to create audio with format ${format.type}:`, err);
+          console.warn(`Failed to create audio with format ${fmt.type}:`, err);
           tryNextFormat();
         }
       };
@@ -282,7 +284,7 @@ export async function playAudioData(audioData: ArrayBuffer): Promise<void> {
         resolve();
       };
       
-      audio.onerror = (e) => {
+      audio.onerror = () => {
         URL.revokeObjectURL(audio.src);
         reject(new Error('Audio playback failed'));
       };

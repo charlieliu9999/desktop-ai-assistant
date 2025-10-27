@@ -13,7 +13,7 @@ export const AssistantHistory: React.FC = () => {
     const { listAllChatSessions } = await import('../../services/persistence');
     const s = listAllChatSessions();
     setSessions(s);
-    if (s.length && !active) setActive(s[0].session_id);
+    if (Array.isArray(s) && s.length > 0 && !active) setActive(s[0]!.session_id);
   };
 
   const loadMsgs = async (sid: string) => {
@@ -59,4 +59,3 @@ export const AssistantHistory: React.FC = () => {
     </div>
   );
 };
-

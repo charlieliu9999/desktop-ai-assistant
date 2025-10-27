@@ -147,10 +147,12 @@ export const AISettingsSection: React.FC<AISettingsSectionProps> = ({ config, on
       return;
     }
     const defaults = PROVIDER_ENDPOINTS[nextProvider];
-    updateAI({
-      provider: nextProvider,
-      apiUrl: routingMode === 'frontend' && defaults ? defaults : aiCfg.apiUrl,
-    });
+    const nextApiUrl = routingMode === 'frontend' && defaults ? defaults : (aiCfg.apiUrl ?? '');
+    const patch: Partial<AIConfig> = { provider: nextProvider };
+    if (routingMode === 'frontend') {
+      (patch as any).apiUrl = nextApiUrl;
+    }
+    updateAI(patch);
   };
 
   return (
@@ -255,7 +257,7 @@ export const AISettingsSection: React.FC<AISettingsSectionProps> = ({ config, on
               type="text"
               className="w-full px-3 py-2 border border-border rounded-md bg-background"
               value={backendScene}
-              onChange={(event) => updateAI({ backendScene: event.target.value })}
+              onChange={(event) => updateAI({ backendScene: event.target.value } as any)}
               placeholder="ai_chat / ai_chat_aliyun"
               disabled={isLocked}
             />

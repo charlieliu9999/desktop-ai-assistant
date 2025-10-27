@@ -6,7 +6,6 @@
 
 import { APIClient } from '../api-client';
 import { FEATURE_FLAGS } from './feature-flags';
-import type { VoiceRecognitionService } from '../legacy/voice-recognition';
 
 /**
  * 语音识别请求 (Speech-to-Text)
@@ -61,7 +60,7 @@ export class VoiceServiceAdapter {
   private useBackendSTT: boolean;
   private useBackendTTS: boolean;
   private apiClient: APIClient;
-  private legacySTTService: VoiceRecognitionService | null = null;
+  private legacySTTService: any | null = null;
   private legacyTTSService: any | null = null;
 
   constructor() {
@@ -73,7 +72,7 @@ export class VoiceServiceAdapter {
   /**
    * 设置legacy STT服务实例
    */
-  setLegacySTTService(service: VoiceRecognitionService): void {
+  setLegacySTTService(service: any): void {
     this.legacySTTService = service;
   }
 

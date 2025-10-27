@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Heart, User, Calendar, FileText, Activity, AlertTriangle, Plus, Search, Filter, RefreshCw, Camera } from 'lucide-react';
+import { Heart, User, Calendar, FileText, Activity, Search, Camera } from 'lucide-react';
 import { useConfigStore } from '../stores/configStore';
 import { toast } from 'sonner';
 import { PatientInfoCapture, PatientRecords, AssistantHistory } from './medical';
@@ -43,14 +43,14 @@ interface MedicalSystemProps {
 
 const MedicalSystem: React.FC<MedicalSystemProps> = ({ className = '' }) => {
   const { config } = useConfigStore();
-  const [activeTab, setActiveTab] = useState<'patients' | 'appointments' | 'records' | 'screen-capture'>('screen-capture');
+  const [activeTab, setActiveTab] = useState<'patients' | 'appointments' | 'records' | 'screen-capture' | 'assistant-history'>('screen-capture');
   const [patients, setPatients] = useState<Patient[]>([]);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [_filterStatus, _setFilterStatus] = useState<string>('all');
 
   // Initialize medical system data
   useEffect(() => {
@@ -173,14 +173,7 @@ const MedicalSystem: React.FC<MedicalSystemProps> = ({ className = '' }) => {
     }
   };
 
-  // Filter patients based on search and status
-  const filteredPatients = patients.filter(patient => {
-    const matchesSearch = patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         patient.phone.includes(searchTerm) ||
-                         patient.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === 'all' || patient.status === filterStatus;
-    return matchesSearch && matchesStatus;
-  });
+  // （已不直接渲染患者列表，此处省略过滤计算）
 
   // Filter appointments based on search
   const filteredAppointments = appointments.filter(appointment => 
@@ -189,7 +182,7 @@ const MedicalSystem: React.FC<MedicalSystemProps> = ({ className = '' }) => {
   );
 
   // Filter records based on search and selected patient
-  const filteredRecords = records.filter(record => {
+  const _filteredRecords = records.filter(record => {
     const matchesSearch = record.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          record.content.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesPatient = !selectedPatient || record.patientId === selectedPatient.id;
@@ -362,7 +355,7 @@ const MedicalSystem: React.FC<MedicalSystemProps> = ({ className = '' }) => {
 
       {/* Records list */}
       <div className="space-y-3">
-        {filteredRecords.map((record) => {
+        {_filteredRecords.map((record: any) => {
           const patient = patients.find(p => p.id === record.patientId);
           return (
             <div
@@ -399,7 +392,7 @@ const MedicalSystem: React.FC<MedicalSystemProps> = ({ className = '' }) => {
         })}
       </div>
       
-      {filteredRecords.length === 0 && (
+      {_filteredRecords.length === 0 && (
         <div className="text-center py-12">
           <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <p className="text-muted-foreground">没有找到匹配的病历</p>

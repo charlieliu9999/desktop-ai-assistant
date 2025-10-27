@@ -85,7 +85,7 @@ export const RecommendationResultsDisplay: React.FC<RecommendationResultsProps> 
       if (typeof items === 'string') {
         text += `${items}\n\n`;
       } else if (items.length > 0) {
-        items.forEach((item, index) => {
+        items.forEach((item: any, index: number) => {
           text += `${index + 1}. **${item.name}**\n`;
           text += `   - 描述: ${item.description}\n`;
           text += `   - 优先级: ${item.priority}\n`;
@@ -193,7 +193,7 @@ export const RecommendationResultsDisplay: React.FC<RecommendationResultsProps> 
             </div>
 
             <div className="space-y-3">
-              {items.map((item, index) => (
+              {items.map((item: any, index: number) => (
                 <div
                   key={index}
                   className={UNIFIED_OUTPUT_STYLES}

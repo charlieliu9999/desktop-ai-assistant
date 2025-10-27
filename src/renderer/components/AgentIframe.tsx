@@ -17,17 +17,12 @@ const AgentIframe: React.FC<AgentIframeProps> = ({ workflow, onClose }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [proxyStatus, setProxyStatus] = useState<{ running: boolean; port: number }>({
-    running: false,
-    port: 0,
-  });
 
   // 获取代理状态和构建 URL
   useEffect(() => {
     const initIframe = async () => {
       try {
         const status = await window.electronAPI.bisheng.getProxyStatus();
-        setProxyStatus(status);
 
         if (!status.running) {
           setError('iframe 代理服务未运行，请检查配置');
@@ -176,4 +171,3 @@ const AgentIframe: React.FC<AgentIframeProps> = ({ workflow, onClose }) => {
 };
 
 export default AgentIframe;
-

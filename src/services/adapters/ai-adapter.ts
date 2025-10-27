@@ -22,14 +22,10 @@ export function setBackendApiOrigin(origin: string) {
 const API_CONFIG = {
   get baseURL() {
     if (API_BASE_OVERRIDE) return API_BASE_OVERRIDE;
-    // 与 SettingsPanel 同步：从 VITE_API_BASE_URL 取 origin，默认 http://127.0.0.1:8010
-    try {
-      const raw = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://127.0.0.1:8010/api';
-      const u = new URL(raw);
-      return u.origin;
-    } catch {
-      return 'http://127.0.0.1:8010';
-    }
+    // 从环境或全局变量读取（避免 import.meta 依赖，兼容 CJS 编译）
+    const envVal = (typeof process !== 'undefined' && (process as any).env && (process as any).env.VITE_API_BASE_URL) || (globalThis as any)?.VITE_API_BASE_URL;
+    const raw = envVal || 'http://127.0.0.1:8010/api';
+    try { const u = new URL(raw); return u.origin; } catch { return 'http://127.0.0.1:8010'; }
   },
   timeout: 30000,
   retryAttempts: 3,
@@ -365,7 +361,8 @@ export class AIServiceAdapter {
   /**
    * 内容分析
    */
-  async analyzeContent(content: string, analysisType: string): Promise<any> {
+  async analyzeContent(content: string, analysisTypeOrContext?: any): Promise<any> {
+    const analysisType = typeof analysisTypeOrContext === 'string' ? analysisTypeOrContext : 'general';
     if (this.useBackend) {
       return this.analyzeContentWithBackend(content, analysisType);
     } else {
@@ -436,5 +433,59 @@ export class AIServiceAdapter {
     if (!this.useBackend) {
       await this.legacyService.cleanup();
     }
+  }
+
+  /**
+   * 获取可用的 Provider 列表（用于设置页诊断）
+   */
+  async getAvailableProviders(): Promise<any> {
+    if (this.useBackend) {
+      try {
+        const resp = await fetch(`${API_CONFIG.baseURL}/v1/ai/providers`, { method: 'GET', headers: { 'Content-Type': 'application/json' } });
+        if (!resp.ok) throw new Error(`http_${resp.status}`);
+        const result: APIResponse = await resp.json();
+        return result.data?.providers ?? [];
+      } catch (e) {
+        this.logger.warn('getAvailableProviders failed:', e as any);
+        return [];
+      }
+    }
+    // legacy 默认仅本地
+    return [{ name: 'local', is_default: true, is_available: true }];
+  }
+
+  /**
+   * 发送消息（兼容旧调用点）：接受聚合消息并返回统一响应
+   */
+  async sendMessage(_provider: any, messages: Array<{ role: string; content: string }>): Promise<any> {
+    const userParts = messages?.map(m => `${m.role}: ${m.content}`).join('\n\n') || '';
+    const content = await this.processMessage(userParts);
+    const resp = {
+      content,
+      provider: (this.config as any)?.backendProvider || this.config.provider,
+      model: (this.config as any)?.backendModel || this.config.model,
+      usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+      timestamp: Date.now(),
+    };
+    return resp;
+  }
+
+  /**
+   * 简单网络搜索接口（用于诊断/设置页）
+   */
+  async searchWeb(query: string, maxResults = 3): Promise<any> {
+    if (this.useBackend) {
+      try {
+        const url = `${API_CONFIG.baseURL}/v1/tools/search?q=${encodeURIComponent(query)}&limit=${maxResults}`;
+        const resp = await fetch(url, { headers: { 'Content-Type': 'application/json' } });
+        if (!resp.ok) throw new Error(`http_${resp.status}`);
+        const result: APIResponse = await resp.json();
+        return result.data || { results: [] };
+      } catch (e) {
+        this.logger.warn('searchWeb failed:', e as any);
+        return { results: [] };
+      }
+    }
+    return { results: [] };
   }
 }

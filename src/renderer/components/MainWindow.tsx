@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, MessageSquare, Monitor, Activity, Bot, X, Minus, Square } from 'lucide-react';
+import { Settings, MessageSquare, Monitor, Activity, Bot } from 'lucide-react';
 import Chat from './Chat';
 import DesktopRecognition from './DesktopRecognition';
 import MedicalSystem from './MedicalSystem';
@@ -12,39 +12,30 @@ type TabType = 'chat' | 'desktop' | 'medical' | 'agent' | 'settings';
 interface MainWindowProps {
   onClose?: () => void;
   onMinimize?: () => void;
-  onMaximize?: () => void;
 }
 
-const MainWindow: React.FC<MainWindowProps> = ({ onClose, onMinimize, onMaximize }) => {
+const MainWindow: React.FC<MainWindowProps> = ({ onClose, onMinimize }) => {
   const [activeTab, setActiveTab] = useState<TabType>('chat');
-  const [isMaximized, setIsMaximized] = useState(false);
   const { config } = useConfigStore();
 
   // Handle window controls
   const handleClose = () => {
     if (onClose) {
       onClose();
-    } else if (window.electronAPI?.closeWindow) {
-      window.electronAPI.closeWindow();
+    } else if ((window as any).electronAPI?.closeWindow) {
+      (window as any).electronAPI.closeWindow();
     }
   };
 
   const handleMinimize = () => {
     if (onMinimize) {
       onMinimize();
-    } else if (window.electronAPI?.minimizeWindow) {
-      window.electronAPI.minimizeWindow();
+    } else if ((window as any).electronAPI?.minimizeWindow) {
+      (window as any).electronAPI.minimizeWindow();
     }
   };
 
-  const handleMaximize = () => {
-    setIsMaximized(!isMaximized);
-    if (onMaximize) {
-      onMaximize();
-    } else if (window.electronAPI?.maximizeWindow) {
-      window.electronAPI.maximizeWindow();
-    }
-  };
+  // 最大化目前未在UI中使用，暂不暴露按钮以避免未用代码告警
 
   // Handle keyboard shortcuts
   useEffect(() => {
@@ -66,7 +57,8 @@ const MainWindow: React.FC<MainWindowProps> = ({ onClose, onMinimize, onMaximize
         event.preventDefault();
         const tabIndex = parseInt(event.key) - 1;
         const tabs: TabType[] = ['chat', 'desktop', 'medical', 'agent', 'settings'];
-        setActiveTab(tabs[tabIndex]);
+        const next = tabs[tabIndex];
+        if (next) setActiveTab(next);
       }
     };
 

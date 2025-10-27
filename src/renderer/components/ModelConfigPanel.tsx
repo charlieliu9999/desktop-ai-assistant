@@ -38,7 +38,7 @@ const ModelConfigPanel: React.FC<ModelConfigPanelProps> = ({ onSave }) => {
       setScenarios(data.scenarios);
       setScenarioDescriptions(data.descriptions);
       if (data.scenarios.length > 0) {
-        setSelectedScenario(data.scenarios[0]);
+        setSelectedScenario(data.scenarios[0]!);
       }
     } catch (error) {
       if ((error as any)?.message === 'backend-unavailable') {

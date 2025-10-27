@@ -95,6 +95,7 @@ export const BishengStatusIndicator: React.FC<BishengStatusIndicatorProps> = ({
       const interval = setInterval(checkStatus, refreshInterval);
       return () => clearInterval(interval);
     }
+    return undefined;
   }, [autoRefresh, refreshInterval]);
 
   const getStatusColor = () => {
@@ -319,4 +320,3 @@ export const BishengStatusPanel: React.FC = () => {
     </div>
   );
 };
-

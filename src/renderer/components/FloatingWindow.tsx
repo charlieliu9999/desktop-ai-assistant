@@ -75,16 +75,16 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({ status }) => {
         
         switch (action) {
           case '分析当前屏幕内容':
-            result = await window.electronAPI.screen.captureAndAnalyze();
+            result = await (window as any).electronAPI?.screen?.captureAndAnalyze?.();
             break;
           case '查询医疗数据':
-            result = await window.electronAPI.medical.quickSearch('');
+            result = await (window as any).electronAPI?.medical?.quickSearch?.('');
             break;
           case '生成报告摘要':
-            result = await window.electronAPI.ai.generateSummary();
+            result = await (window as any).electronAPI?.ai?.generateSummary?.();
             break;
           case '设置提醒':
-            result = await window.electronAPI.app.createReminder();
+            result = await (window as any).electronAPI?.app?.createReminder?.();
             break;
           default:
             result = { success: false, message: '未知操作' };
@@ -121,7 +121,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({ status }) => {
 
     try {
       if (window.electronAPI) {
-        const response = await window.electronAPI.ai.processMessage(query);
+      const response = await (window as any).electronAPI?.ai?.processMessage?.(query);
         
         // 添加到最近操作
         const newAction = {
@@ -138,10 +138,11 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({ status }) => {
         }));
         
         // 如果有结果，显示通知
-        if (response.content) {
-          window.electronAPI.app.showNotification({
+        const text = typeof response === 'string' ? response : (response?.content || '');
+        if (text) {
+          (window as any).electronAPI?.app?.showNotification?.({
             title: 'AI助手',
-            body: response.content.substring(0, 100) + (response.content.length > 100 ? '...' : ''),
+            body: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
             silent: false
           });
         }
@@ -196,6 +197,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = ({ status }) => {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
+    return undefined;
   }, [state.isExpanded]);
 
   return (

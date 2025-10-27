@@ -69,21 +69,30 @@ export const useElectronAPI = (): ElectronAPIState & ElectronAPIActions => {
     status: 'initializing',
     config: null,
     voiceState: {
-      status: 'idle',
       isListening: false,
-      isSpeaking: false,
-      error: null
-    },
-    aiState: {
-      status: 'idle',
+      isRecognizing: false,
       isProcessing: false,
-      error: null
-    },
-    medicalState: {
-      status: 'idle',
+      audioLevel: 0,
+      language: 'zh-CN',
+      hotwordDetected: false
+    } as unknown as VoiceServiceState,
+    aiState: {
       isConnected: false,
-      error: null
-    },
+      isProcessing: false,
+      provider: '',
+      model: '',
+      tokensUsed: 0,
+      requestsCount: 0,
+      rateLimitRemaining: 0
+    } as unknown as AIServiceState,
+    medicalState: {
+      isConnected: false,
+      isProcessing: false,
+      apiUrl: '',
+      requestsCount: 0,
+      cacheSize: 0,
+      rateLimitRemaining: 0
+    } as unknown as MedicalServiceState,
     notifications: [],
     isLoading: true,
     error: null
@@ -168,9 +177,7 @@ export const useElectronAPI = (): ElectronAPIState & ElectronAPIActions => {
     };
 
     // AI状态监听
-    const aiStateListener = (aiState: AIServiceState) => {
-      setState(prev => ({ ...prev, aiState }));
-    };
+    // 可选：如主进程提供 AI 状态变更事件，可在此注册
 
     // 医疗服务状态监听
     const medicalStateListener = (medicalState: MedicalServiceState) => {
@@ -207,20 +214,24 @@ export const useElectronAPI = (): ElectronAPIState & ElectronAPIActions => {
   }, []);
 
   const hideWindow = useCallback(async () => {
-    if (window.electronAPI) {
-      await window.electronAPI.windows.hideFloating();
+    if (window.electronAPI?.window?.hide) {
+      await window.electronAPI.window.hide();
+    } else if (window.electronAPI?.window?.hideFloating) {
+      await window.electronAPI.window.hideFloating();
     }
   }, []);
 
   const showMainWindow = useCallback(async () => {
-    if (window.electronAPI) {
-      await window.electronAPI.windows.showFloating();
+    if (window.electronAPI?.window?.showMain) {
+      await window.electronAPI.window.showMain();
+    } else if (window.electronAPI?.window?.showFloating) {
+      await window.electronAPI.window.showFloating();
     }
   }, []);
 
   const toggleFloatingWindow = useCallback(async () => {
-    if (window.electronAPI) {
-      await window.electronAPI.windows.showFloating();
+    if (window.electronAPI?.window?.showFloating) {
+      await window.electronAPI.window.showFloating();
     }
   }, []);
 
@@ -286,9 +297,13 @@ export const useElectronAPI = (): ElectronAPIState & ElectronAPIActions => {
   }, []);
 
   const generateSummary = useCallback(async () => {
-    if (window.electronAPI) {
-      const result = await window.electronAPI.ai.analyzeContent({ type: 'summary', content: '' });
+    if (window.electronAPI?.ai?.generateSummary) {
+      const result = await window.electronAPI.ai.generateSummary();
       return { success: true, content: result };
+    }
+    if (window.electronAPI?.ai?.processQuery) {
+      const result = await window.electronAPI.ai.processQuery('请总结当前内容');
+      return { success: true, content: String(result) };
     }
     return { success: false, error: 'API不可用' };
   }, []);
@@ -320,10 +335,8 @@ export const useElectronAPI = (): ElectronAPIState & ElectronAPIActions => {
   }, []);
 
   const captureAndAnalyze = useCallback(async () => {
-    if (window.electronAPI) {
-      const screenData = await window.electronAPI.screen.capture();
-      const analysis = await window.electronAPI.ai.analyzeContent({ type: 'image', content: screenData });
-      return { success: true, analysis };
+    if (window.electronAPI?.screen?.captureAndAnalyze) {
+      return await window.electronAPI.screen.captureAndAnalyze();
     }
     return { success: false, error: 'API不可用' };
   }, []);

@@ -7,7 +7,7 @@ import { screenshotService } from '../../services/screenshot';
 import { apiClient } from '../../../services/api-client';
 import { useConfigStore } from '../../stores/configStore';
 import { ScreenshotPreview } from './ScreenshotPreview';
-import { PatientInfoForm, type PatientInfo } from './PatientInfoForm';
+import { type PatientInfo } from './PatientInfoForm';
 import { PatientInfoText } from './PatientInfoText';
 import { RecommendationTypeSelector, type RecommendationType } from './RecommendationTypeSelector';
 import { RecommendationResultsDisplay, type RecommendationResults } from './RecommendationResults';
@@ -366,15 +366,16 @@ export const PatientInfoCapture: React.FC = () => {
       const { savePatientRecord } = await import('../../services/persistence');
       const id = `rec_${Date.now()}`;
       const markdown = (recommendations as any)?.combined || '';
-      savePatientRecord({
+      const entry: any = {
         id,
         patient_id: patientInfo.patient_id,
         patient_name: patientInfo.name,
         created_at: Date.now(),
-        screenshot: screenshot || undefined,
         markdown,
         raw: { recommendations }
-      });
+      };
+      if (screenshot) entry.screenshot = screenshot;
+      savePatientRecord(entry);
       console.log('✅ 记录已保存:', id);
     } catch (e) {
       console.error('保存失败:', e);

@@ -317,6 +317,8 @@ export interface AIImageConfig {
   retryDelay: number;
   rateLimitRpm: number;
   rateLimitTpm: number;
+  // 识别抽取模式：strict-严格JSON；freeform-自由文本
+  extractionMode?: 'strict' | 'freeform';
   routingMode?: 'inherit' | 'frontend' | 'backend';
   backendProvider?: string;
   backendModel?: string;
@@ -659,40 +661,6 @@ export interface WindowInfo {
   isFocused: boolean;
   processName: string;
   processId: number;
-}
-
-/**
- * OCR识别结果
- */
-export interface OCRResult {
-  text: string;
-  confidence: number;
-  bounds: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
-  words: Array<{
-    text: string;
-    confidence: number;
-    bounds: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    };
-  }>;
-  lines?: Array<{
-    text: string;
-    confidence: number;
-    bounds: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    };
-  }>;
 }
 
 /**

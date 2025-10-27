@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Mic, MicOff, Paperclip, MoreVertical, Trash2, Copy, RefreshCw, X, Zap, Globe, StopCircle } from 'lucide-react';
+import { Send, Mic, MicOff, Paperclip, Trash2, Copy, RefreshCw, X, Zap, Globe, StopCircle } from 'lucide-react';
 import { useConfigStore } from '../stores/configStore';
 import { toast } from 'sonner';
 import ReactMarkdown from 'react-markdown';
@@ -196,7 +196,7 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
     let cleanupListeners = () => {};
     try {
       // 设置流式更新监听器
-      const unsubscribeChunk = window.electronAPI?.ai?.onStreamChunk?.((chunk: string) => {
+      const unsubscribeChunk = (window as any).electronAPI?.ai?.onStreamChunk?.((chunk: string) => {
         const safeChunk = ensureText(chunk);
         setMessages(prev => prev.map(msg =>
           msg.id === assistantMessageId
@@ -205,7 +205,7 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
         ));
       });
 
-      const unsubscribeEnd = window.electronAPI?.ai?.onStreamEnd?.(async (result: any) => {
+      const unsubscribeEnd = (window as any).electronAPI?.ai?.onStreamEnd?.(async (result: any) => {
         let finalContent = '';
         if (!result.success && result.error) {
           console.error('Stream error:', result.error);
@@ -320,9 +320,8 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
           const imageMime = mimeMatch ? mimeMatch[1] : 'image/png';
           const provider = aiImage.backendProvider || 'dashscope';
           const scene = aiImage.backendScene || (provider === 'dashscope' ? 'screen_recognition_aliyun' : 'screen_recognition');
-          const result = await visionAdapter.understandImage({
+          const payload: any = {
             imageData: shot.dataUrl,
-            imageMime,
             prompt: '提取患者信息，输出严格 JSON（patient_info_v1）。',
             provider: provider as any,
             model: aiImage.backendModel || undefined,
@@ -330,7 +329,9 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
             allowFallback: true,
             schemaName: 'patient_info_v1',
             scene,
-          });
+          };
+          if (imageMime) payload.imageMime = imageMime;
+          const result = await visionAdapter.understandImage(payload);
           // 从统一结果中读取结构化信息
           const structured = (result?.details as any)?.structured || {};
           piRaw = structured || {};
@@ -516,8 +517,10 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
       const responseText: string = await window.electronAPI?.ai?.processMessage?.(userMessage.content)
         || '抱歉，我现在无法处理您的请求。请稍后再试。';
 
+      const current = messages[messageIndex];
+      if (!current) return;
       const newMessage: Message = {
-        ...messages[messageIndex],
+        ...current,
         content: responseText,
         timestamp: new Date(),
       };
@@ -671,7 +674,6 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
                     components={{
                       // 自定义代码块样式
                       code: ({ node, inline, className, children, ...props }: any) => {
-                        const match = /language-(\w+)/.exec(className || '');
                         return !inline ? (
                           <code
                             className={`${className} block bg-gray-900 dark:bg-gray-800 text-gray-100 p-3 rounded-md overflow-x-auto`}

@@ -117,7 +117,7 @@ export const eventUtils = {
   },
 
   // 创建自定义事件
-  createCustomEvent: <T = any>(type: string, detail?: T): CustomEvent<T> => {
+  createCustomEvent: <T = any>(type: string, detail?: T): CustomEvent<T | undefined> => {
     return new CustomEvent(type, { detail });
   },
 

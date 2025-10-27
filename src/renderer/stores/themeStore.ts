@@ -137,7 +137,7 @@ export const useThemeStore = create<ThemeStore>((set, get) => {
       const themeOrder: ThemeMode[] = ['glass', 'light', 'dark'];
       const currentIndex = themeOrder.indexOf(mode === 'auto' ? 'glass' : mode);
       const nextIndex = (currentIndex + 1) % themeOrder.length;
-      const nextMode = themeOrder[nextIndex];
+      const nextMode = themeOrder[nextIndex] ?? 'glass';
 
       get().setMode(nextMode);
     },
@@ -232,7 +232,7 @@ export const useThemeStore = create<ThemeStore>((set, get) => {
 if (typeof window !== 'undefined') {
   const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
-  mediaQuery.addEventListener('change', (e) => {
+  mediaQuery.addEventListener('change', () => {
     const { mode, setMode } = useThemeStore.getState();
     if (mode === 'auto') {
       // 重新应用auto主题（会根据系统主题选择light或dark）
@@ -241,4 +241,3 @@ if (typeof window !== 'undefined') {
     }
   });
 }
-

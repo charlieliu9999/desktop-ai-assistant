@@ -4,10 +4,9 @@ import { join } from 'path';
 const is = { dev: process.env.NODE_ENV === 'development' };
 import { Logger } from '../utils/logger';
 import { ConfigService } from '../services/config';
-import { VoiceService } from '../services/legacy/voice';
-// ✅ 使用适配器替代直接导入 legacy 服务
-import { AIServiceAdapter } from '../services/adapters/ai-adapter';
-import { MedicalIntegrationService } from '../services/legacy/medical-integration';
+import { VoiceService, MedicalIntegrationService } from './stubs/legacy';
+// ✅ 使用适配器替代直接导入 legacy 服务（stubbed）
+import { AIServiceAdapter } from './stubs/adapters';
 import type { 
   AppStatus, 
   AIProvider, 

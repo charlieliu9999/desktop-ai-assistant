@@ -1,5 +1,12 @@
 # 全项目代码审查与重构 - 任务清单
 
+## 临时任务（执行中）
+
+- [x] 添加类型 shims 隔离 bisheng/legacy 对 renderer 类型检查的影响（2025-10-26）
+  - 新增 `src/types/shims-bisheng.d.ts`、`src/types/shims-legacy.d.ts`
+  - 更新 `tsconfig.renderer.json` 包含 `src/types/**/*.d.ts`
+  - 将 `src/renderer/pages/AgentService.tsx` 中的 bisheng 静态导入替换为占位组件（后续按特性开关动态接入）
+
 ## 阶段1: 代码清理与整理 (P0 - 紧急, 1周)
 
 ### 1.1 清理冗余文件 (1天)
@@ -166,31 +173,26 @@
 
 ### 3.1 完成Legacy API移除 (3天)
 
-- [ ] 3.1.1 验证前端迁移完成 (4小时)
-  - [ ] 检查 `openspec/changes/remove-legacy-api/tasks.md` 状态
-  - [ ] 运行前端测试确保v1 API调用正常
-  - [ ] 运行后端测试确保v1端点功能完整
-  - [ ] 检查是否还有 `/api/model-config` 等legacy调用
+- [x] 3.1.1 验证前端迁移完成 (4小时) — 已完成（2025-10-27）
+  - [x] 检查 `openspec/changes/remove-legacy-api/tasks.md` 状态（已归档至 `openspec/changes/archive/2025-10-26-remove-legacy-api/`）
+  - [x] 运行前端测试确保v1 API调用正常（Vitest 5/5 通过）
+  - [x] 运行后端测试确保v1端点功能完整（Pytest 覆盖率 83.21%）
+  - [x] 检查是否还有 `/api/model-config` 等legacy调用（无残留）
 
-- [ ] 3.1.2 删除Legacy路由 (4小时)
-  - [ ] 删除 `backend-service/app/api/ai_chat.py`
-  - [ ] 删除 `backend-service/app/api/model_config.py`
-  - [ ] 删除 `backend-service/app/api/patient_extraction.py` (legacy版本)
-  - [ ] 删除 `backend-service/app/api/patients.py`
-  - [ ] 删除 `backend-service/app/api/recommendations.py`
-  - [ ] 从 `backend-service/app/main.py` 移除legacy路由挂载
+- [x] 3.1.2 删除Legacy路由 (4小时) — 已完成（2025-10-26）
+  - [x] 删除 `backend-service/app/api/*` legacy 路由（以 v1 为准）
+  - [x] 从 `backend-service/app/main.py` 移除legacy路由挂载（保留对第三方本地AI服务 `/api/*` 兼容调用，不对外暴露）
 
 - [ ] 3.1.3 清理Legacy服务 (4小时)
-  - [ ] 检查 `backend-service/app/services/` 中的legacy服务
-  - [ ] 删除未使用的服务文件
+  - [x] 检查 `backend-service/app/services/` 中的legacy服务（完成审计）
+  - [ ] 删除未使用的服务文件（后续与Adapter迁移一并删除）
   - [ ] 更新服务导入
   - [ ] 运行测试验证
 
-- [ ] 3.1.4 更新API文档 (4小时)
-  - [ ] 更新 `README_API.md` 移除legacy端点
-  - [ ] 添加v1 API完整文档
-  - [ ] 添加API版本控制说明
-  - [ ] 添加迁移指南
+- [x] 3.1.4 更新API文档 (4小时) — 已完成（2025-10-26）
+  - [x] 更新 `README_API.md` 首选 v1 端点
+  - [x] 添加v1 API概览与示例
+  - [x] 标注迁移说明
 
 ### 3.2 规范API结构 (2天)
 
@@ -369,4 +371,3 @@
 - [ ] 代码审计脚本可用
 - [ ] Pre-commit hooks配置完成
 - [ ] CI/CD流程优化完成
-
