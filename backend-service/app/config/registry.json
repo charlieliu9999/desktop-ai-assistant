@@ -1,0 +1,43 @@
+{
+  "providers": [
+    {
+      "id": "ollama-local",
+      "name": "Ollama (Local)",
+      "kind": "ollama",
+      "base_url": "http://127.0.0.1:11434/v1",
+      "enabled": true,
+      "capabilities": ["llm", "vl"],
+      "auth": { "type": "none" },
+      "headers": {}
+    },
+    {
+      "id": "dashscope",
+      "name": "Aliyun DashScope",
+      "kind": "openai",
+      "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+      "enabled": true,
+      "capabilities": ["llm", "vl"],
+      "auth": { "type": "env", "env_key": "DASHSCOPE_API_KEY" },
+      "headers": {}
+    },
+    {
+      "id": "openai",
+      "name": "OpenAI API",
+      "kind": "openai",
+      "base_url": "https://api.openai.com/v1",
+      "enabled": false,
+      "capabilities": ["llm"],
+      "auth": { "type": "env", "env_key": "OPENAI_API_KEY" },
+      "headers": {}
+    }
+  ],
+  "models": [
+    { "id": "ollama-qwen3-7b", "name": "qwen3:7b-instruct", "provider_id": "ollama-local", "modality": "llm", "enabled": true, "default_params": {"temperature": 0.7}, "tags": ["default"] },
+    { "id": "ollama-llama3-8b", "name": "llama3.1:8b-instruct", "provider_id": "ollama-local", "modality": "llm", "enabled": true, "default_params": {"temperature": 0.7}, "tags": [] },
+    { "id": "ollama-qwen2-5vl", "name": "qwen2.5-vl:latest", "provider_id": "ollama-local", "modality": "vl", "enabled": true, "default_params": {"temperature": 0.1}, "tags": ["vision"] },
+
+    { "id": "dashscope-qwen25-72b", "name": "qwen2.5-72b-instruct", "provider_id": "dashscope", "modality": "llm", "enabled": true, "default_params": {"temperature": 0.7}, "tags": ["cn"] },
+    { "id": "dashscope-qwen25-vl", "name": "qwen2.5-vl-72b-instruct", "provider_id": "dashscope", "modality": "vl", "enabled": true, "default_params": {"temperature": 0.1}, "tags": ["vision","strict-json"] }
+  ]
+}
+
