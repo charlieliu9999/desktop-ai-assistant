@@ -202,11 +202,11 @@ export class AIServiceAdapter {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          provider: (this.config as any)?.backendProvider || undefined,
+          provider: (this.config as any)?.backendProvider || (this.config as any)?.provider || undefined,
           messages,
           // 不携带 provider 与 model，交给后端默认与场景配置决定
           options: {
-            model: (this.config as any)?.backendModel || undefined,
+            model: (this.config as any)?.backendModel || (this.config as any)?.model || undefined,
             temperature: this.config.temperature || 0.7,
             max_tokens: maxTokens || 2000,
           },
@@ -286,10 +286,10 @@ export class AIServiceAdapter {
           'Accept': 'text/event-stream',
         },
         body: JSON.stringify({
-          provider: (this.config as any)?.backendProvider || undefined,
+          provider: (this.config as any)?.backendProvider || (this.config as any)?.provider || undefined,
           messages,
           options: {
-            model: (this.config as any)?.backendModel || undefined,
+            model: (this.config as any)?.backendModel || (this.config as any)?.model || undefined,
             temperature: this.config.temperature || 0.7,
             max_tokens: maxTokens || 2000,
             stream: true,
@@ -464,8 +464,8 @@ export class AIServiceAdapter {
     const content = await this.processMessage(userParts);
     const resp = {
       content,
-      provider: (this.config as any)?.backendProvider || this.config.provider,
-      model: (this.config as any)?.backendModel || this.config.model,
+          provider: (this.config as any)?.backendProvider || (this.config as any)?.provider,
+          model: (this.config as any)?.backendModel || (this.config as any)?.model,
       usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
       timestamp: Date.now(),
     };
