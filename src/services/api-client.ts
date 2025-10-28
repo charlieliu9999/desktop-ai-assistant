@@ -503,14 +503,18 @@ ${structuredGuide}` : structuredGuide;
             patientInfo = JSON.parse(codeBlockMatch[1]);
             console.log('✅ 代码块JSON解析成功:', patientInfo);
           } catch (e2) {
-            console.log('⚠️ 代码块JSON解析失败，回退文本解析:', e2);
-            patientInfo = this.parsePatientInfoFromText(responseText);
+        console.log('⚠️ 代码块JSON解析失败，放弃回退解析');
+        patientInfo = null as any;
           }
         } else {
-          console.log('ℹ️ 未找到JSON代码块，回退文本解析');
-          patientInfo = this.parsePatientInfoFromText(responseText);
+          console.log('ℹ️ 未找到JSON代码块，放弃回退解析');
+          patientInfo = null as any;
         }
-        console.log('📝 文本解析结果:', patientInfo);
+        console.log('📝 JSON解析结果:', patientInfo);
+      }
+
+      if (!patientInfo || typeof patientInfo !== 'object') {
+        return { success: false, patient_info: { name: '', age: 0, gender: '', patient_id: '' } as any, error: 'no_result' } as any;
       }
 
       return {
@@ -522,11 +526,7 @@ ${structuredGuide}` : structuredGuide;
 
     } catch (error) {
       console.error('图片模型提取失败:', error);
-      return {
-        success: false,
-        patient_info: { name: '', age: 0, gender: '', patient_id: '' },
-        error: error instanceof Error ? error.message : '图片模型提取失败'
-      };
+      return { success: false, patient_info: { name: '', age: 0, gender: '', patient_id: '' }, error: 'no_result' } as any;
     }
   }
 

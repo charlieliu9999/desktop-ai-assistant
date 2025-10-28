@@ -209,17 +209,19 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
         let finalContent = '';
         if (!result.success && result.error) {
           console.error('Stream error:', result.error);
-          toast.error('AI响应出错');
+          toast.error('没有结果');
         }
 
         setMessages(prev => prev.map(msg => {
           if (msg.id !== assistantMessageId) return msg;
           if (!result.success && result.error) {
-            const fallback = msg.content || '抱歉，处理您的消息时出现错误。请稍后再试。';
-            finalContent = fallback;
-            return { ...msg, content: fallback, type: 'system' as const };
+            finalContent = msg.content || '';
+            return { ...msg, content: '没有结果', type: 'system' as const };
           }
-          finalContent = ensureText(result?.content ?? msg.content);
+          finalContent = ensureText(result?.content ?? msg.content).trim();
+          if (!finalContent) {
+            return { ...msg, content: '没有结果', type: 'system' as const };
+          }
           return { ...msg, content: finalContent };
         }));
 
@@ -244,32 +246,42 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
 
       // 调用API：根据是否启用网络搜索切换路径
       if (useWebSearch && window.electronAPI?.ai?.processMessageWithTools) {
-        const content = await window.electronAPI.ai.processMessageWithTools(augmentedContent);
-        const safeContent = ensureText(content);
-        setMessages(prev => prev.map(msg => 
-          msg.id === assistantMessageId 
-            ? { ...msg, content: safeContent }
-            : msg
-        ));
-        setIsLoading(false);
-        // 保存最终助手消息
         try {
-          const { saveChatMessage } = await import('../services/persistence');
-          saveChatMessage({ id: assistantMessageId, session_id: 'assistant-global', role: 'assistant', content: safeContent, created_at: Date.now() });
-        } catch {}
-        cleanupListeners();
+          const content = await window.electronAPI.ai.processMessageWithTools(augmentedContent);
+          const safeContent = ensureText(content).trim();
+          setMessages(prev => prev.map(msg => 
+            msg.id === assistantMessageId 
+              ? { ...msg, content: safeContent || '没有结果', type: safeContent ? 'assistant' : 'system' }
+              : msg
+          ));
+          setIsLoading(false);
+          try {
+            const { saveChatMessage } = await import('../services/persistence');
+            saveChatMessage({ id: assistantMessageId, session_id: 'assistant-global', role: 'assistant', content: safeContent, created_at: Date.now() });
+          } catch {}
+          cleanupListeners();
+          return;
+        } catch (e) {
+          console.warn('processMessageWithTools failed:', e);
+          setMessages(prev => prev.map(msg => 
+            msg.id === assistantMessageId 
+              ? { ...msg, content: '没有结果', type: 'system' as const }
+              : msg
+          ));
+          setIsLoading(false);
+          cleanupListeners();
+          return;
+        }
       } else if (window.electronAPI?.ai?.processMessageStream) {
         await window.electronAPI.ai.processMessageStream(augmentedContent);
       } else {
         // 降级到非流式API
-        const responseText: string = ensureText(
-          (await window.electronAPI?.ai?.processMessage?.(augmentedContent))
-          || '抱歉，我现在无法处理您的请求。请稍后再试。'
-        );
+        const responseRaw = await window.electronAPI?.ai?.processMessage?.(augmentedContent);
+        const responseText: string = ensureText(responseRaw).trim();
         
         setMessages(prev => prev.map(msg => 
           msg.id === assistantMessageId 
-            ? { ...msg, content: responseText }
+            ? { ...msg, content: responseText || '没有结果', type: responseText ? 'assistant' : 'system' }
             : msg
         ));
         setIsLoading(false);
@@ -277,15 +289,11 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
       }
     } catch (error) {
       console.error('Failed to process message:', error);
-      toast.error('消息发送失败');
+      toast.error('没有结果');
       
       setMessages(prev => prev.map(msg => 
         msg.id === assistantMessageId 
-          ? { 
-              ...msg, 
-              content: '抱歉，处理您的消息时出现错误。请检查网络连接后重试。',
-              type: 'system' as const
-            }
+          ? { ...msg, content: '没有结果', type: 'system' as const }
           : msg
       ));
       setIsLoading(false);
@@ -345,11 +353,24 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
         const resp = await apiClient.extractPatientInfo(shot.dataUrl, (config as any).aiImage);
         piRaw = resp.patient_info || {};
       }
+      // 如未识别到有效患者字段，直接提示“没有结果”并结束
+      const hasAnyField = piRaw && (
+        (piRaw.name && String(piRaw.name).trim()) ||
+        (piRaw.gender && String(piRaw.gender).trim()) ||
+        (typeof piRaw.age === 'number' && piRaw.age > 0) ||
+        (piRaw.patient_id || piRaw.patientId)
+      );
+      if (!hasAnyField) {
+        setMessages(prev => prev.map(m => m.id === assistantMessageId ? { ...m, type: 'system', content: '未识别到患者信息（没有结果）' } : m));
+        setIsLoading(false);
+        return;
+      }
+
       const patient = {
         name: piRaw.name || '',
         age: typeof piRaw.age === 'number' ? piRaw.age : parseInt(String(piRaw.age || '0')) || 0,
         gender: piRaw.gender || '',
-        patient_id: piRaw.patient_id || piRaw.patientId || `PID_${Date.now()}`,
+        patient_id: piRaw.patient_id || piRaw.patientId || '',
         department: piRaw.department || '',
         chief_complaint: piRaw.chief_complaint || piRaw.chiefComplaint || '',
         diagnosis: piRaw.diagnosis || '',

@@ -34,25 +34,20 @@ export class VoiceService extends BaseService {
 }
 
 export class AIService extends BaseService {
-  async processMessage(message: any, _opts?: any): Promise<any> {
-    const content = typeof message === 'string' ? message : (message?.content ?? 'ok');
-    return { content: String(content) };
+  async processMessage(_message: any, _opts?: any): Promise<any> {
+    // 不允许回退/硬编码：返回空结果，由上层提示“没有结果”
+    return { content: '' };
   }
-  async processMessageWithTools(message: any, _opts?: any): Promise<any> {
-    return this.processMessage(message);
+  async processMessageWithTools(_message: any, _opts?: any): Promise<any> {
+    // 前端直连模式下不支持工具调用
+    throw new Error('tools_not_supported');
   }
-  async processMessageStream(message: any, onChunk?: (c: string) => void, _opts?: any): Promise<any> {
-    const parts = [
-      '## 诊断建议\n1. 急性缺血性脑卒中\n',
-      '\n## 检查项目推荐\n1. 头颅CT\n',
-      '\n## 用药建议\n1. 阿司匹林\n'
-    ];
-    let full = '';
-    for (const p of parts) { full += p; onChunk?.(p); }
-    return { content: full };
+  async processMessageStream(_message: any, _onChunk?: (c: string) => void, _opts?: any): Promise<any> {
+    // 不推送任何片段，返回空内容
+    return { content: '' };
   }
   async clearHistory(): Promise<boolean> { return true; }
-  async generateSummary(_text: string): Promise<string> { return '摘要：…'; }
+  async generateSummary(_text: string): Promise<string> { return ''; }
   async searchWeb(_query: string, _max?: number): Promise<any> { return { results: [] }; }
 }
 
