@@ -53,7 +53,22 @@ class ScreenshotServiceRenderer {
     this.checkElectronAPI();
 
     const api: any = (window as any).electronAPI;
-    const dataUrl: string = await (api.screen?.capture?.(options) || api.desktop?.captureScreen?.(options));
+    const raw = await (api.screen?.capture?.(options) || api.desktop?.captureScreen?.(options));
+    // 兼容多种返回形态：
+    // - string (dataUrl)
+    // - { success, data: { dataUrl } }
+    // - { dataUrl }
+    let dataUrl: string = '';
+    if (typeof raw === 'string') {
+      dataUrl = raw;
+    } else if (raw && typeof raw === 'object') {
+      if (raw.dataUrl && typeof raw.dataUrl === 'string') {
+        dataUrl = raw.dataUrl;
+      } else if (raw.data && typeof raw.data.dataUrl === 'string') {
+        dataUrl = raw.data.dataUrl;
+      }
+    }
+    if (!dataUrl) throw new Error('无效的截图返回');
     return { dataUrl, width: 0, height: 0, timestamp: Date.now() };
   }
 

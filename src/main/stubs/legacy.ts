@@ -68,8 +68,24 @@ export class DesktopRecognitionService extends BaseService {
 }
 
 export class ScreenshotService extends BaseService {
-  async captureScreen(_options?: any): Promise<any> { return { success: true, dataUrl: null }; }
-  async captureWindow(_title?: string): Promise<any> { return { success: true, dataUrl: null }; }
+  async captureScreen(_options?: any): Promise<{ dataUrl: string }> {
+    try {
+      // Lazy require to avoid type issues
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const shot = require('screenshot-desktop');
+      const buf: Buffer = await shot({ format: 'png' });
+      const dataUrl = 'data:image/png;base64,' + buf.toString('base64');
+      return { dataUrl };
+    } catch (e) {
+      this.logger?.warn?.('[stub] screenshot capture failed, returning placeholder:', e);
+      // 生成一个极小的透明 PNG 占位
+      const tinyPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAoMBgV9i4NwAAAAASUVORK5CYII=';
+      return { dataUrl: 'data:image/png;base64,' + tinyPngBase64 };
+    }
+  }
+  async captureWindow(_title?: string): Promise<{ dataUrl: string }> {
+    return this.captureScreen();
+  }
   async checkPermissions(): Promise<boolean> { return true; }
   getDisplays(): any[] { return [{ id: 1, name: 'Display 1', width: 1440, height: 900 }]; }
 }
