@@ -62,7 +62,20 @@ export class MedicalIntegrationService extends BaseService {
 }
 
 export class DesktopRecognitionService extends BaseService {
-  async captureScreen(_options?: any): Promise<any> { return { success: true, dataUrl: null }; }
+  async captureScreen(_options?: any): Promise<any> {
+    // Reuse ScreenshotService behavior for consistent dataUrl
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const shot = require('screenshot-desktop');
+      const buf: Buffer = await shot({ format: 'png' });
+      const dataUrl = 'data:image/png;base64,' + buf.toString('base64');
+      return { success: true, dataUrl };
+    } catch (e) {
+      this.logger?.warn?.('[stub] desktop capture failed, using placeholder:', e);
+      const tinyPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAoMBgV9i4NwAAAAASUVORK5CYII=';
+      return { success: true, dataUrl: 'data:image/png;base64,' + tinyPngBase64 };
+    }
+  }
   async captureAndAnalyze(_options?: any): Promise<any> { return { success: true, analysis: {} }; }
   getAvailableDisplays(): any[] { return [{ id: 1, name: 'Display 1', width: 1440, height: 900 }]; }
 }

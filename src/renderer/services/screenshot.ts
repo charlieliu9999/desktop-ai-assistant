@@ -53,7 +53,7 @@ class ScreenshotServiceRenderer {
     this.checkElectronAPI();
 
     const api: any = (window as any).electronAPI;
-    const raw = await (api.screen?.capture?.(options) || api.desktop?.captureScreen?.(options));
+    const raw = await (api.screenshot?.capture?.(options) || api.screen?.capture?.(options) || api.desktop?.captureScreen?.(options));
     // 兼容多种返回形态：
     // - string (dataUrl)
     // - { success, data: { dataUrl } }
