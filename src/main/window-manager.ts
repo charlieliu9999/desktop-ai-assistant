@@ -84,7 +84,8 @@ export class WindowManager {
         nodeIntegration: false,
         contextIsolation: true,
         sandbox: false,
-        preload: join(__dirname, '../preload/index.js'),
+        // Use main-built preload that exposes correct electronAPI surface
+        preload: join(__dirname, 'preload.js'),
         webSecurity: false, // 禁用 webSecurity 以允许 blob/data URL 播放
         allowRunningInsecureContent: true, // 允许不安全内容以支持媒体播放
         experimentalFeatures: false,
@@ -163,7 +164,7 @@ export class WindowManager {
         nodeIntegration: false,
         contextIsolation: true,
         sandbox: false,
-        preload: join(__dirname, '../preload/index.js'),
+        preload: join(__dirname, 'preload.js'),
         webSecurity: false, // 禁用 webSecurity 以允许 blob/data URL 播放
         allowRunningInsecureContent: true, // 允许不安全内容以支持媒体播放
         experimentalFeatures: false,
@@ -233,7 +234,7 @@ export class WindowManager {
         nodeIntegration: false,
         contextIsolation: true,
         sandbox: false,
-        preload: join(__dirname, '../preload/index.js'),
+        preload: join(__dirname, 'preload.js'),
         webSecurity: false, // 禁用 webSecurity 以允许 blob/data URL 播放
         allowRunningInsecureContent: true, // 允许不安全内容以支持媒体播放
         experimentalFeatures: false,

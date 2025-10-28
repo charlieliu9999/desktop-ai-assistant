@@ -155,7 +155,7 @@ class DesktopAIAssistant {
       vibrancy: 'under-window',
       visualEffectState: 'active',
       webPreferences: {
-        preload: join(__dirname, '../preload/index.js'),
+        preload: join(__dirname, 'preload.js'),
         sandbox: false,
         contextIsolation: true,
         nodeIntegration: false
@@ -211,7 +211,7 @@ class DesktopAIAssistant {
       transparent: true,
       hasShadow: false,
       webPreferences: {
-        preload: join(__dirname, '../preload/index.js'),
+        preload: join(__dirname, 'preload.js'),
         sandbox: false,
         contextIsolation: true,
         nodeIntegration: false
@@ -256,7 +256,7 @@ class DesktopAIAssistant {
       transparent: true,
       hasShadow: true,
       webPreferences: {
-        preload: join(__dirname, '../preload/index.js'),
+        preload: join(__dirname, 'preload.js'),
         sandbox: false,
         contextIsolation: true,
         nodeIntegration: false
