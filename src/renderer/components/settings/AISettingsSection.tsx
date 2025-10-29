@@ -36,6 +36,7 @@ export const AISettingsSection: React.FC<AISettingsSectionProps> = ({ config, on
 
   const aiCfg: AIConfig = config.ai;
   const routingMode = aiCfg.routingMode ?? 'frontend';
+  const apiVersion = (aiCfg as any)?.apiVersion || 'v1';
   const backendProvider = aiCfg.backendProvider ?? '';
   const backendModel = aiCfg.backendModel ?? '';
   const backendScene = (aiCfg as any)?.backendScene || (backendProvider === 'dashscope' ? 'ai_chat_aliyun' : 'ai_chat');
@@ -125,7 +126,7 @@ export const AISettingsSection: React.FC<AISettingsSectionProps> = ({ config, on
         },
       };
       const start = performance.now();
-      const response = await fetch(`${API_ORIGIN}/v1/ai/chat?scene=${encodeURIComponent(scene)}`, {
+      const response = await fetch(`${API_ORIGIN}/${apiVersion}/ai/chat?scene=${encodeURIComponent(scene)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -203,7 +204,21 @@ export const AISettingsSection: React.FC<AISettingsSectionProps> = ({ config, on
       </div>
 
       {routingMode === 'backend' ? (
-        <div className="space-y-5 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+      <div className="space-y-5 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <label className="block">
+              <span className="block text-sm font-medium mb-2">API 版本</span>
+              <select
+                value={apiVersion}
+                onChange={(e) => updateAI({ apiVersion: e.target.value as any })}
+                className="w-full px-3 py-2 border border-border rounded-md bg-background"
+                disabled={isLocked}
+              >
+                <option value="v1">v1（当前稳定）</option>
+                <option value="v2">v2（标准化，逐步启用）</option>
+              </select>
+            </label>
+          </div>
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm font-medium">后端提供商</div>

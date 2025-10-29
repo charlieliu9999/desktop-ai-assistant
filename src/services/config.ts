@@ -124,6 +124,7 @@ const DEFAULT_CONFIG: AppConfig = {
   ai: {
     enabled: true,
     provider: 'local',
+    apiVersion: 'v1',
     model: 'qwen3:30b',
     apiKey: '',
     apiUrl: 'http://127.0.0.1:11434/v1/chat/completions',

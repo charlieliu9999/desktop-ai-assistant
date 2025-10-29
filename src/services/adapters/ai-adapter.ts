@@ -120,7 +120,8 @@ export class AIServiceAdapter {
    * 测试后端连接
    */
   private async testBackendConnection(): Promise<void> {
-    const response = await fetch(`${API_CONFIG.baseURL}/v1/ai/providers`, {
+    const ver = ((this.config as any)?.apiVersion === 'v2') ? 'v2' : 'v1';
+    const response = await fetch(`${API_CONFIG.baseURL}/${ver}/ai/providers`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -188,7 +189,8 @@ export class AIServiceAdapter {
       const scene = (this.config as any)?.backendScene
         || (((this.config as any)?.backendProvider) === 'dashscope' ? 'ai_chat_aliyun' : 'ai_chat');
       const maxTokens = this.getSafeMaxTokens();
-      const response = await fetch(`${API_CONFIG.baseURL}/v1/ai/chat?scene=${encodeURIComponent(scene)}`, {
+      const ver = ((this.config as any)?.apiVersion === 'v2') ? 'v2' : 'v1';
+      const response = await fetch(`${API_CONFIG.baseURL}/${ver}/ai/chat?scene=${encodeURIComponent(scene)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -267,7 +269,8 @@ export class AIServiceAdapter {
       const scene = (this.config as any)?.backendScene
         || (((this.config as any)?.backendProvider) === 'dashscope' ? 'ai_chat_aliyun' : 'ai_chat');
       const maxTokens = this.getSafeMaxTokens();
-      const response = await fetch(`${API_CONFIG.baseURL}/v1/ai/chat/stream?scene=${encodeURIComponent(scene)}`, {
+      const ver = ((this.config as any)?.apiVersion === 'v2') ? 'v2' : 'v1';
+      const response = await fetch(`${API_CONFIG.baseURL}/${ver}/ai/chat/stream?scene=${encodeURIComponent(scene)}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -307,12 +310,18 @@ export class AIServiceAdapter {
             if (line.startsWith('data: ')) {
               const data = line.slice(6);
               try {
-                const chunk: StreamChunk = JSON.parse(data);
-
-                if (chunk.type === 'chunk' && chunk.content) {
-                  yield chunk.content;
-                } else if (chunk.type === 'error') {
-                  throw new Error(chunk.error || 'Stream error');
+                const frame = JSON.parse(data);
+                // v1: {type, content?}
+                // v2: {type, data?:{content?}, error?:{code,message}}
+                const typ = frame?.type;
+                if (typ === 'chunk') {
+                  const content = frame?.content ?? frame?.data?.content;
+                  if (typeof content === 'string' && content.length > 0) {
+                    yield content;
+                  }
+                } else if (typ === 'error') {
+                  const errMsg = typeof frame?.error === 'string' ? frame.error : (frame?.error?.message || 'Stream error');
+                  throw new Error(errMsg);
                 }
               } catch {
                 // 忽略解析错误
@@ -328,11 +337,16 @@ export class AIServiceAdapter {
           if (!line.startsWith('data: ')) continue;
           try {
             const json = line.slice(6);
-            const chunk: StreamChunk = JSON.parse(json);
-            if (chunk.type === 'chunk' && chunk.content) {
-              yield chunk.content;
-            } else if (chunk.type === 'error') {
-              throw new Error(chunk.error || 'Stream error');
+            const frame = JSON.parse(json);
+            const typ = frame?.type;
+            if (typ === 'chunk') {
+              const content = frame?.content ?? frame?.data?.content;
+              if (typeof content === 'string' && content.length > 0) {
+                yield content;
+              }
+            } else if (typ === 'error') {
+              const errMsg = typeof frame?.error === 'string' ? frame.error : (frame?.error?.message || 'Stream error');
+              throw new Error(errMsg);
             }
           } catch {
             // 忽略解析错误

@@ -272,6 +272,8 @@ export interface AIConfig {
   provider: 'openai' | 'claude' | 'gemini' | 'local';
   apiKey?: string;
   apiUrl?: string;
+  // API 版本：v1（默认）或 v2（统一 Envelope / SSE / Health）
+  apiVersion?: 'v1' | 'v2';
   model: string;
   temperature: number;
   maxTokens: number;
