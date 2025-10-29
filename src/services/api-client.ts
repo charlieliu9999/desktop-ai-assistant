@@ -344,6 +344,13 @@ export class APIClient {
   async getVoiceModels(): Promise<{ success: boolean; data: { stt: { default: string; models: string[] }, tts: { default: string; models: string[] } } }>{
     return this.request('/v1/voice/models');
   }
+  // v2 voice models
+  async getVoiceModelsV2(): Promise<{ success: boolean; data: { stt: string[]; tts: string[] } }>{
+    return this.request('/v2/voice/models');
+  }
+  async getVoiceHealthV2(): Promise<{ success: boolean; data: { services: { stt: { healthy: boolean; available: boolean }, tts: { healthy: boolean; available: boolean } } } }>{
+    return this.request('/v2/voice/health');
+  }
 
   // v1 config models (full models.json)
   async getModelsConfig(): Promise<{ success: boolean; data: any }>{

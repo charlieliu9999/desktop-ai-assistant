@@ -100,13 +100,21 @@ export default defineConfig({
     },
   ],
 
-  /* Run your local dev server before starting the tests */
-  webServer: {
-    command: 'npm run dev',
-    url: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:5928',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120 * 1000,
-  },
+  /* Run local servers before starting the tests */
+  webServer: [
+    {
+      command: process.platform === 'win32' ? 'python -m app.main' : 'bash -lc "cd backend-service && python -m app.main"',
+      url: 'http://127.0.0.1:8010/health',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120 * 1000,
+    },
+    {
+      command: 'npm run dev',
+      url: process.env.PLAYWRIGHT_BASE_URL || 'http://127.0.0.1:5928',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120 * 1000,
+    }
+  ],
 
   /* Global setup and teardown */
   globalSetup: require.resolve('./tests/e2e/global-setup.ts'),

@@ -621,14 +621,33 @@ const SettingsPanel: React.FC = () => {
     const [ttsModels, setTtsModels] = useState<string[]>([]);
     const [sttSel, setSttSel] = useState<string>('');
     const [ttsSel, setTtsSel] = useState<string>('');
+    const [health, setHealth] = useState<{ stt?: boolean; tts?: boolean }>({});
     useEffect(()=>{
       (async()=>{
         try{
-          const res = await apiClient.getVoiceModels();
-          if (res?.success){
-            setSttModels(res.data.stt.models||[]); setTtsModels(res.data.tts.models||[]);
-            setSttSel(res.data.stt.default||''); setTtsSel(res.data.tts.default||'');
+          // 尝试 v2 获取
+          try {
+            const v2 = await apiClient.getVoiceModelsV2();
+            if (v2?.success) {
+              const s = v2.data?.stt || []; const t = v2.data?.tts || [];
+              setSttModels(s); setTtsModels(t);
+              setSttSel(s[0] || ''); setTtsSel(t[0] || '');
+            }
+          } catch {}
+          // 如 v2 为空，则回退 v1 结构（兼容）
+          if (sttModels.length === 0 && ttsModels.length === 0) {
+            const v1 = await apiClient.getVoiceModels();
+            if (v1?.success){
+              setSttModels(v1.data.stt.models||[]); setTtsModels(v1.data.tts.models||[]);
+              setSttSel(v1.data.stt.default||''); setTtsSel(v1.data.tts.default||'');
+            }
           }
+          // 健康状态（v2）
+          try {
+            const h = await apiClient.getVoiceHealthV2();
+            const svc = h?.data?.services || {} as any;
+            setHealth({ stt: !!svc?.stt?.healthy, tts: !!svc?.tts?.healthy });
+          } catch {}
         }catch{}
       })();
     },[]);
@@ -637,13 +656,15 @@ const SettingsPanel: React.FC = () => {
         <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">后端语音模型</h4>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
-            <label className="block text-sm mb-2">STT 模型</label>
+            <label className="block text-sm mb-1">STT 模型</label>
+            <div className="text-xs mb-1">健康：<span className={health.stt ? 'text-green-600' : 'text-red-600'}>{health.stt ? '✓' : '×'}</span></div>
             <select value={sttSel} onChange={(e)=>setSttSel(e.target.value)} className="w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300">
               {sttModels.map(m=> <option key={m} value={m}>{m}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm mb-2">TTS 模型</label>
+            <label className="block text-sm mb-1">TTS 模型</label>
+            <div className="text-xs mb-1">健康：<span className={health.tts ? 'text-green-600' : 'text-red-600'}>{health.tts ? '✓' : '×'}</span></div>
             <select value={ttsSel} onChange={(e)=>setTtsSel(e.target.value)} className="w-full px-3 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-300">
               {ttsModels.map(m=> <option key={m} value={m}>{m}</option>)}
             </select>
