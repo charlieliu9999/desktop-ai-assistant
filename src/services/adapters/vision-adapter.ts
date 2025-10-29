@@ -160,22 +160,34 @@ export class VisionServiceAdapter {
     try {
       const scene = request.scene
         || (request.provider === 'dashscope' ? 'screen_recognition_aliyun' : 'screen_recognition');
-      const body: any = {
-        image_data: request.imageData,
-        image_mime: request.imageMime || 'image/png',
-        prompt: request.prompt,
-        model: request.model,
-        provider: request.provider,
-        max_tokens: request.maxTokens ?? 1000,
-        temperature: request.temperature ?? 0.7,
-      };
-      if (request.strictJson !== undefined) body.strict_json = request.strictJson;
-      if (request.schemaName) body.schema_name = request.schemaName;
-      // 默认不启用回退（严格JSON失败即报错）
-      const allowFallback = request.allowFallback === true;
-      if (allowFallback) body.allow_fallback = true;
-
-      const response = await this.apiClient.post(`/v1/vision/understand?scene=${encodeURIComponent(scene)}`, body);
+      const useV2 = (FEATURE_FLAGS as any).USE_BACKEND_VISION_V2 === true;
+      let response: any;
+      if (useV2) {
+        const bodyV2: any = {
+          source: { type: 'base64', data: request.imageData, mime: request.imageMime || 'image/png' },
+          prompt: request.prompt,
+          model: request.model,
+          provider: request.provider,
+          strict_json: !!request.strictJson,
+        };
+        response = await this.apiClient.post(`/v2/vision/understand?scene=${encodeURIComponent(scene)}`, bodyV2);
+      } else {
+        const bodyV1: any = {
+          image_data: request.imageData,
+          image_mime: request.imageMime || 'image/png',
+          prompt: request.prompt,
+          model: request.model,
+          provider: request.provider,
+          max_tokens: request.maxTokens ?? 1000,
+          temperature: request.temperature ?? 0.7,
+        };
+        if (request.strictJson !== undefined) bodyV1.strict_json = request.strictJson;
+        if (request.schemaName) bodyV1.schema_name = request.schemaName;
+        // 默认不启用回退（严格JSON失败即报错）
+        const allowFallback = request.allowFallback === true;
+        if (allowFallback) bodyV1.allow_fallback = true;
+        response = await this.apiClient.post(`/v1/vision/understand?scene=${encodeURIComponent(scene)}`, bodyV1);
+      }
       if (!response.success || !response.result) {
         throw new Error((response as any)?.error || '图像理解失败');
       }

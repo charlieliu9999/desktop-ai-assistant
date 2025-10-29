@@ -11,6 +11,8 @@ export const FEATURE_FLAGS = {
   // 视觉服务
   USE_BACKEND_OCR: true, // ✅ 启用后端OCR服务
   USE_BACKEND_VISION: true, // ✅ 启用后端视觉理解服务
+  // v2 Vision 端点（/v2/vision/understand）
+  USE_BACKEND_VISION_V2: true,
 
   // 语音服务
   USE_BACKEND_STT: true, // ✅ 启用后端语音识别服务
@@ -45,4 +47,3 @@ export function resetFeatureFlags(): void {
     (FEATURE_FLAGS as any)[key] = false;
   });
 }
-

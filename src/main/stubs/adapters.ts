@@ -38,7 +38,8 @@ export class AIServiceAdapter {
     const routing = this.config?.routingMode || 'frontend';
     if (routing === 'backend') {
       const scene = this.buildBackendScene();
-      const url = `${BACKEND_ORIGIN}/v1/ai/chat?scene=${encodeURIComponent(scene)}`;
+      const ver = (this.config?.apiVersion === 'v2') ? 'v2' : 'v1';
+      const url = `${BACKEND_ORIGIN}/${ver}/ai/chat?scene=${encodeURIComponent(scene)}`;
       const body: any = {
         provider: this.config?.backendProvider || undefined,
         messages: [
@@ -81,7 +82,8 @@ export class AIServiceAdapter {
   async *chatStream(message: string, sysPrompt?: string): AsyncIterableIterator<string> {
     // Streaming only for backend routing to /v1/ai/chat_stream
     const scene = this.buildBackendScene();
-    const url = `${BACKEND_ORIGIN}/v1/ai/chat_stream?scene=${encodeURIComponent(scene)}`;
+    const ver = (this.config?.apiVersion === 'v2') ? 'v2' : 'v1';
+    const url = `${BACKEND_ORIGIN}/${ver}/ai/chat/stream?scene=${encodeURIComponent(scene)}`;
     const body: any = {
       provider: this.config?.backendProvider || undefined,
       messages: [
@@ -109,9 +111,17 @@ export class AIServiceAdapter {
           if (!trimmed.startsWith('data: ')) continue;
           try {
             const jsonStr = trimmed.substring(6);
-            const data = JSON.parse(jsonStr);
-            const chunk = data?.choices?.[0]?.delta?.content || data?.content || '';
-            if (chunk) yield chunk;
+            const frame = JSON.parse(jsonStr);
+            // v1 SSE: { type, content? }
+            // v2 SSE: { type, data?:{content?}, error?:{code,message} }
+            const typ = frame?.type;
+            if (typ === 'chunk') {
+              const chunk = frame?.content ?? frame?.data?.content ?? frame?.choices?.[0]?.delta?.content || '';
+              if (chunk) yield chunk;
+            } else if (typ === 'error') {
+              const msg = typeof frame?.error === 'string' ? frame.error : (frame?.error?.message || 'Stream error');
+              throw new Error(msg);
+            }
           } catch { /* ignore */ }
         }
       }

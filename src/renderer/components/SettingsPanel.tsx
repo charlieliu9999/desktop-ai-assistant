@@ -7,6 +7,7 @@ import { WebSearchSettings } from './WebSearchSettings';
 import { BishengStatusIndicator } from './BishengStatusIndicator';
 import { apiClient } from '../../services/api-client';
 import { AISettingsSection } from './settings/AISettingsSection';
+import { FEATURE_FLAGS, setFeatureFlag } from '../../services/adapters/feature-flags';
 
 type SettingsSection = 'general' | 'theme' | 'voice' | 'ai' | 'aiImage' | 'aiRecommend' | 'oneClick' | 'desktop' | 'medical' | 'bisheng' | 'websearch' | 'advanced';
 
@@ -41,6 +42,7 @@ const SettingsPanel: React.FC = () => {
   const [lastVisionResult, setLastVisionResult] = useState<any | null>(null);
 
   const [modelLock, setModelLock] = useState<boolean>(false);
+  const [useVisionV2, setUseVisionV2] = useState<boolean>(FEATURE_FLAGS.USE_BACKEND_VISION_V2 === true);
   const API_ORIGIN = (() => {
     try {
       const raw = (import.meta as any)?.env?.VITE_API_BASE_URL || 'http://127.0.0.1:8010/api';
@@ -301,6 +303,32 @@ const SettingsPanel: React.FC = () => {
             />
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">设置全局快捷键来快速唤醒AI助手</p>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderAdvancedSettings = () => (
+    <div className="space-y-6">
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">使用 Vision v2 端点（实验性）</div>
+            <div className="text-xs text-muted-foreground mt-1">
+              启用后，图像理解调用 /v2/vision/understand，严格 JSON 失败返回 no_result（无回退/无硬编码）。仅影响当前运行会话（不持久化）。
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={useVisionV2}
+            onChange={(e) => {
+              const next = !!e.target.checked;
+              setUseVisionV2(next);
+              try { setFeatureFlag('USE_BACKEND_VISION_V2', next); } catch {}
+              toast.success(`Vision v2 已${next ? '启用' : '关闭'}`);
+            }}
+            className="rounded"
+          />
         </div>
       </div>
     </div>
