@@ -230,7 +230,7 @@ export const PatientInfoCapture: React.FC = () => {
     } catch (err: any) {
       const emsg = (err && (err.message || err?.error)) ? (err.message || err.error) : String(err);
       console.error('Patient info extraction error:', emsg);
-      if (String(emsg).includes('strict_json_parse_failed')) {
+      if (String(emsg).includes('strict_json_parse_failed') || String(emsg).includes('no_result')) {
         setError('识别失败：未得到严格 JSON 结构。请确保截图包含右侧详情/信息面板，避免包含左侧边栏或中部患者列表后重试。');
       } else {
         setError(emsg || '患者信息提取失败');

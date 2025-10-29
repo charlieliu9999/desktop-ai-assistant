@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { visionAdapter } from './vision-adapter';
+import { setFeatureFlag } from './feature-flags';
 
 describe('VisionServiceAdapter.understandImage (backend path)', () => {
   const fakeResponse = {
@@ -23,6 +24,8 @@ describe('VisionServiceAdapter.understandImage (backend path)', () => {
   } as any;
 
   beforeEach(() => {
+    // 强制使用 v1 端点，避免默认 v2 影响本测试
+    setFeatureFlag('USE_BACKEND_VISION_V2', false);
     // 注入假的 apiClient.post，捕获参数
     const posts: any[] = [];
     const stub = {
@@ -89,4 +92,3 @@ describe('VisionServiceAdapter.understandImage (backend path)', () => {
     expect(String(url)).toContain('/v1/vision/understand?scene=screen_recognition');
   });
 });
-

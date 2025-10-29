@@ -160,7 +160,7 @@ export const OneClickDesktopChat: React.FC = () => {
       } catch (e: any) {
         const emsg = (e && (e.message || e?.error)) ? (e.message || e.error) : String(e);
         console.warn('后端视觉识别失败', emsg);
-        if (String(emsg).includes('strict_json_parse_failed')) {
+        if (String(emsg).includes('strict_json_parse_failed') || String(emsg).includes('no_result')) {
           addMsg('system', '识别失败：未得到严格JSON结构。请确保截图包含右侧详情/信息面板，避免左侧边栏或中部患者列表后重试。');
         } else {
           addMsg('system', `识别失败：${emsg}`);

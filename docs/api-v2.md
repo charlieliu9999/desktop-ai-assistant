@@ -78,6 +78,39 @@
 - `GET /v2/ai/providers` | `GET /v2/ai/models` | `GET /v2/ai/health`
 请求参数：`provider?`, `scene?`；统一 `options`（如 `model`, `max_tokens`, `temperature`...）。
 
+示例（非流式）：
+```
+POST /v2/ai/chat
+{
+  "provider": "dashscope",
+  "messages": [
+    {"role":"system","content":"你是帮助医生的助手"},
+    {"role":"user","content":"你好"}
+  ],
+  "options": {"model":"qwen3-max","max_tokens": 64}
+}
+
+->
+{
+  "success": true,
+  "data": {
+    "message": {"role":"assistant","content":"你好！"},
+    "usage": {"prompt_tokens": 5, "completion_tokens": 5, "total_tokens": 10},
+    "model": "qwen3-max",
+    "finish_reason": "stop",
+    "provider": "dashscope"
+  },
+  "meta": {"timestamp":"...","version":"2.0.0"}
+}
+```
+
+示例（流式 SSE，帧）：
+```
+data: {"type":"chunk","data":{"content":"你好"}}
+data: {"type":"chunk","data":{"content":"！"}}
+data: {"type":"end"}
+```
+
 ### Vision
 - `POST /v2/vision/ocr`
 - `POST /v2/vision/understand`
@@ -85,6 +118,37 @@
 - `POST /v2/vision/extract-text`
 - `GET /v2/vision/models` | `GET /v2/vision/health`
 图像输入统一：`source: { type: 'url'|'base64', data: string, mime?: string }`
+
+示例（严格 JSON 最小策略）：
+```
+POST /v2/vision/understand?scene=screen_recognition_aliyun
+{
+  "source": {"type":"base64","data":"...","mime":"image/png"},
+  "prompt": "从图像右侧详情面板提取患者信息",
+  "provider": "dashscope",
+  "model": "qwen3-vl-plus",
+  "strict_json": true
+}
+
+成功 ->
+{
+  "success": true,
+  "data": {
+    "description": "...",
+    "confidence": 0.9,
+    "details": {"structured": {"patient_name":"张三","gender":"男", ...}},
+    "model_used": "qwen3-vl-plus"
+  },
+  "meta": {"timestamp":"...","version":"2.0.0"}
+}
+
+失败（最小策略）->
+{
+  "success": false,
+  "error": {"code":"no_result","message":"no_result"},
+  "meta": {"timestamp":"...","version":"2.0.0"}
+}
+```
 
 ### Voice
 - `POST /v2/voice/stt`
@@ -115,3 +179,8 @@
 - SSE：统一事件帧 JSON 结构
 - 严格 JSON：新增 `json_schema` 与失败 `no_result` 定义
 
+## 开启方式
+- 前端设置
+  - AI：设置 → AI 模型 → API 版本选择 v2（聊天与流式将使用 /v2）
+  - Vision：设置 → 高级 → 勾选“使用 Vision v2 端点（实验性）”
+- 后端无需额外配置，/v2 路由已挂载最小端点
