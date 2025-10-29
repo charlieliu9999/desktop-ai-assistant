@@ -17,6 +17,7 @@ load_dotenv(env_path)
 from app.config import settings
 from app.database import init_db
 from app.api.v1 import router as v1_router
+from app.api.v2 import router as v2_router
 from app.services.ai import ai_manager, ProviderConfig, OpenAIProvider, DeepseekProvider
 from app.services.ai.providers import OllamaProvider
 from app.registry import load_registry
@@ -594,8 +595,9 @@ async def detailed_health_check():
 
 
 # 注册路由
-# V1 API路由 (新架构)
+# V1/V2 API 路由
 app.include_router(v1_router)
+app.include_router(v2_router)
 
 # 已移除旧版 /api/* 路由挂载（完成迁移后不再提供）
 
