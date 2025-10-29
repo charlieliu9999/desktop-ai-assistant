@@ -1,6 +1,18 @@
 ## Context
 v1 在不同域（ai/vision/voice/agent/registry/tools）存在响应/错误/健康检查不统一的问题；严格 JSON 输出策略在视觉与表单识别流中使用，但缺少标准化描述；SSE 的事件帧结构不一；分页方案散落。目标是在不破坏 v1 的情况下，提供 v2 路由与一致的接口规范，利于后续 Provider/Model/场景扩展与前端对接。
 
+## Phased Scope (Cost-aware)
+- Phase 1 (Minimal, shippable)
+  - Domains: AI (chat + stream), Registry (providers/models read-only), Vision (understand with strict_json minimal), Voice (models + health only), Agent (health only), Tools/Config (no changes in Phase 1)
+  - Strict JSON: only require “valid JSON object” when `strict_json=true`; support `json_schema` as optional metadata (no full JSON Schema enforcement in Phase 1)
+  - SSE: standardize for AI chat stream only in Phase 1
+  - Pagination: not mandatory in Phase 1; implement later where list size may grow
+  - Health: implement unified envelope for v2 domain health as endpoints are added (start with AI/Voice/Vision minimal)
+  - Resilience: connection pooling + timeouts only; no rate limiting/circuit breakers in Phase 1
+
+- Phase 2+ (Enhancements)
+  - Extend SSE frames to Agent stream; add pagination for large lists; introduce optional read-only response caching for health/GET; consider rate limiting and provider isolation; evaluate basic JSON Schema (subset) enforcement if needed.
+
 ## Goals / Non-Goals
 - Goals
   - 统一 v2 响应包、错误负载、分页、健康检查、SSE 事件帧
@@ -21,10 +33,10 @@ v1 在不同域（ai/vision/voice/agent/registry/tools）存在响应/错误/健
   - `validation_error`, `unauthorized`, `forbidden`, `not_found`, `conflict`, `rate_limited`, `timeout`, `provider_unavailable`, `upstream_error`, `bad_gateway`, `no_result`
 
 ## Health
-- 统一：`GET /v2/{domain}/health` → `{ success, data: { services: { [name]: { healthy, available, ... } } }, meta }`
+- 统一（逐域引入）：`GET /v2/{domain}/health` → `{ success, data: { services: { [name]: { healthy, available, ... } } }, meta }`
 
 ## Pagination
-- 标准：`data = { items: [], page: number, page_size: number, total: number }`
+- 标准（Phase 2+ 可选）：`data = { items: [], page: number, page_size: number, total: number }`
 
 ## Streaming (SSE)
 - 媒体类型：`text/event-stream`
@@ -32,9 +44,11 @@ v1 在不同域（ai/vision/voice/agent/registry/tools）存在响应/错误/健
   - 成功片段：`{ type: "chunk", data: { content, usage? }, meta? }`
   - 结束：`{ type: "end", data?: { usage? }, meta? }`
   - 错误：`{ type: "error", error: { code, message, details? }, meta? }`
+  - Phase 1 范围：AI chat 流；其他域后续扩展
 
 ## Strict JSON Policy
-- 请求参数：`strict_json?: boolean`, `json_schema?: string`（JSON Schema v2020-12 / 简化版）
+- 请求参数：`strict_json?: boolean`, `json_schema?: string`
+- Phase 1：仅要求输出为“可解析的 JSON 对象”；`json_schema` 若提供仅随回传，不执行完整校验
 - 若 `strict_json = true` 且抽取失败：返回 200 + `{ success:false, error:{ code:"no_result", message }, meta }`
 - 不允许任何硬编码/回退内容在成功路径出现
 
@@ -56,16 +70,15 @@ v1 在不同域（ai/vision/voice/agent/registry/tools）存在响应/错误/健
   - `POST /v2/vision/ocr`
   - `POST /v2/vision/understand`（支持 `source: { type: 'url'|'base64', data: string, mime?: string }`）
   - `POST /v2/vision/analyze-medical`
-  - `POST /v2/vision/extract-text`（支持 strict_json/json_schema）
+  - `POST /v2/vision/extract-text`（支持 strict_json；`json_schema` 为可选元信息）
   - `GET /v2/vision/models`, `GET /v2/vision/health`
 - Voice
-  - `POST /v2/voice/stt`（支持 `audio: { type: 'url'|'base64', data: string, mime?: string }`）
-  - `POST /v2/voice/tts`
+  - Phase 1：`GET /v2/voice/models`、`GET /v2/voice/health`
+  - Phase 2+：`POST /v2/voice/stt`、`POST /v2/voice/tts`
   - `GET /v2/voice/models`, `GET /v2/voice/health`
 - Agent
-  - `POST /v2/agent/login`, `GET /v2/agent/workflows`
-  - `POST /v2/agent/invoke`（SSE）
-  - `POST /v2/agent/stop`, `GET /v2/agent/health`, `GET /v2/agent/config`
+  - Phase 1：`GET /v2/agent/health`
+  - Phase 2+：`POST /v2/agent/login`、`GET /v2/agent/workflows`（分页）、`POST /v2/agent/invoke`（SSE）、`POST /v2/agent/stop`、`GET /v2/agent/config`
 - Registry
   - `GET/POST/PUT/DELETE /v2/registry/providers`
   - `GET/POST/PUT/DELETE /v2/registry/models`
@@ -81,6 +94,5 @@ v1 在不同域（ai/vision/voice/agent/registry/tools）存在响应/错误/健
 - 超时/重试策略保持 provider 级别；返回统一错误码
 
 ## Migration Notes
-- v1 与 v2 并行；首先实现 v2 的只读/查看类端点与 AI Chat 基本能力，再逐步扩展
+- v1 与 v2 并行；Phase 1 仅覆盖最小集端点，逐步扩展
 - 为前端提供 feature flag 切换与环境配置开关
-

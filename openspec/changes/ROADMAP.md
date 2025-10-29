@@ -23,29 +23,27 @@
 
 ### Sprint A（后端优先：v2 骨架 + AI 最小集）
 - Backend
-  - /v2 框架与公共模型（Envelope/Errors/Health/SSE）
+  - /v2 框架与公共模型（Envelope/Errors；Health 随域引入；SSE 仅 AI）
   - /v2/ai: chat、chat/stream（统一 SSE 帧）、models、providers、health
-  - /v2/registry: providers/models 只读（用于前端下拉列表），后续 CRUD 延伸
+  - /v2/registry: providers/models 只读（用于前端下拉列表）
   - 基础单测与覆盖率 ≥ 80%
 - Frontend
   - v2 开关（设置页），API 客户端适配 AI v2（非流式+流式）
   - SSE 事件解析统一（chunk/end/error）
 
-### Sprint B（后端：Vision/Strict JSON；Voice；性能基础）
 - Backend
-  - /v2/vision: understand/ocr/extract-text（strict_json + json_schema，失败返回 no_result）
-  - /v2/voice: stt/tts、models、health（结构统一）
-  - 性能与可靠性：httpx 连接池、超时/重试、GET/健康只读缓存（短 TTL，禁隐私）
+  - /v2/vision: understand（strict_json 最小要求）；可选：ocr/extract-text
+  - /v2/voice: models、health（stt/tts 后续）
+  - 性能：连接池、超时（重试可选）
 - Frontend
   - 桌面识别/患者 Intake 流升级到 v2（严格 JSON，无回退/无硬编码）
   - 语音 STT/TTS 适配 v2
 
-### Sprint C（后端：Agent/Tools/Config；治理增强）
 - Backend
-  - /v2/agent: login/workflows（分页）/invoke（SSE）/stop/health/config
-  - /v2/tools: search（统一结果与错误码、缺 Key 提示）
-  - /v2/config: get/get(key)/put(key)/validate；敏感字段遮蔽
-  - 并发限流/熔断隔离（Provider 级）与指标/日志字段统一
+  - /v2/agent: health（login/workflows/invoke/stop/config 后续）
+  - /v2/tools: （保持 v1，后续再统一）
+  - /v2/config: （保持 v1，后续再统一）
+  - 治理增强：并发限流/熔断隔离/只读缓存（后续）
 - Frontend
   - Agent/Tools/Config 切换 v2；前端单测补齐
 
@@ -72,4 +70,3 @@
 - M1（Sprint A）：/v2 基础与 AI 完成；前端可切换到 v2（AI）。
 - M2（Sprint B）：Vision/Voice 完成；医疗 Intake 严格 JSON 上线。
 - M3（Sprint C）：Agent/Tools/Config 完成；性能/观测性达标；发布迁移指南并标注 v1 废弃时间线。
-

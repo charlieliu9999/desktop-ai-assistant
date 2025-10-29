@@ -10,21 +10,18 @@
 - Config：运行期配置读取/校验/局部更新；锁定模式。
 - Tools：网络搜索；Provider/Key 管理；速率限制；无副作用缓存。
 
-## Cross-Cutting Conventions
+## Cross-Cutting Conventions (Phase 1 pragmatic)
 - Envelope：`{ success, data?, error?, meta }`；错误 `error={code,message,details?}`。
-- Health：`data.services = {name:{healthy,available,...}}`。
-- Pagination：`data={items,page,page_size,total}`。
-- Streaming (SSE)：`type=chunk|end|error`，序列化 JSON 放在 `data:` 行。
-- Strict JSON Policy：`strict_json` + `json_schema`；失败仅返回 `no_result` 错误（严格禁止回退/硬编码）。
-- Idempotency：无副作用 GET/列表端点可缓存；非幂等 POST 提供 `Idempotency-Key` 支持（v2.1 可选）。
-- Observability：结构化日志（含 request_id）、指标、trace id 透传，敏感字段遮蔽。
+- Health：`data.services = {name:{healthy,available,...}}`（逐域引入）。
+- Pagination：暂不强制；仅在需要的大列表端点引入（Phase 2+）。
+- Streaming (SSE)：`type=chunk|end|error`；Phase 1 仅 AI chat 流标准化。
+- Strict JSON Policy：`strict_json`（必须）；Phase 1 仅要求输出为可解析 JSON 对象；`json_schema` 作为可选透传；严禁回退/硬编码。
+- Observability：结构化日志（含 request_id）；指标/trace 后续增强。
 
 ## Performance & Resilience
-- 连接池与超时：httpx 连接池、合理超时；Provider 级重试策略（指数退避上限）。
-- 并发限流：域内/全局并发上限；拒绝时返回 `rate_limited`。
-- 缓存：只针对 GET/列表与只读健康检查可启用（短 TTL）；禁止缓存有副作用或隐私数据端点。
-- 熔断与隔离：Provider 层面降级与隔离，错误自动恢复窗口，错误码 `provider_unavailable`。
-- 大请求：对图像/音频限制大小 + 返回 `validation_error`；建议使用 URL 传输或分段上传（v2.1）。
+- Phase 1：连接池与超时；必要时提供有限重试（Provider 级）
+- Phase 2+：并发限流、只读缓存、熔断/隔离
+- 大请求：限制大小并返回 `validation_error`；建议使用 URL 传输（分段上传后续评估）
 
 ## Security
 - Key 管理：优先环境变量或后端受控配置，不在前端透出；敏感字段全链路遮蔽。
@@ -35,4 +32,3 @@
 - 并行：v1 保持；/v2 逐域上线；前端提供开关。
 - 文档：映射表与迁移指南；废弃节奏公告。
 - 测试：新增 v2 全量测试；保持覆盖率；金丝雀分阶段发布。
-
