@@ -66,3 +66,39 @@ Provide project‑wide conventions for structure, naming, modules, and style tha
 - Scenario: New React component
   - Filename `camelCase.tsx`; component `PascalCase`; co-locate test `*.test.tsx`
 
+## Requirements
+
+### Requirement: Directory Structure
+The repository SHALL follow the defined top-level directories and place new modules accordingly.
+
+#### Scenario: New service module
+- WHEN adding a new external integration
+- THEN it is placed under `src/services/adapters/<provider>/` and not under `legacy/*`.
+
+### Requirement: Naming Conventions
+TypeScript and Python naming conventions MUST be followed for files, components, classes, and constants.
+
+#### Scenario: New React component file
+- WHEN creating a React component
+- THEN the filename is `camelCase.tsx` and the component is `PascalCase` with a colocated `*.test.tsx`.
+
+### Requirement: Module Boundaries
+UI code SHALL NOT import Electron main modules directly; Electron access MUST go through preload IPC. Backend service logic SHALL reside under `app/services/*`.
+
+#### Scenario: Electron usage
+- WHEN renderer needs a native capability
+- THEN it calls the preload bridge/IPC rather than importing `electron` main APIs directly.
+
+### Requirement: API Conventions
+v2 endpoints MUST return the unified envelope `{ success, data?, error?, meta }` and SHALL NOT return hardcoded/fallback results.
+
+#### Scenario: New v2 endpoint
+- WHEN adding `/v2/<domain>/...`
+- THEN responses use the unified envelope and errors use standard codes.
+
+### Requirement: Commits & PRs
+Conventional Commits and PR content requirements SHALL be followed.
+
+#### Scenario: New PR
+- WHEN opening a PR
+- THEN the title follows Conventional Commits and the description includes summary and testing steps.

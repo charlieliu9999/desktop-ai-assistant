@@ -27,6 +27,7 @@
 - [API文档](#-api文档)
 - [快捷键](#️-快捷键)
 - [常见问题](#-常见问题)
+ - [代码规范](#-代码规范)
 
 ---
 
@@ -159,6 +160,20 @@ pip install -r requirements.txt
 # 启动服务
 python -m app.main
 ```
+
+---
+
+## 🧰 代码规范
+
+为保证代码一致性和可维护性，请遵循项目级规范：
+
+- 结构/命名/模块边界/风格/提交规范：`openspec/specs/code-standards/spec.md`
+- 关键约定（摘要）：
+  - TS 文件 `camelCase.ts(x)`；React 组件/类型 `PascalCase`；CSS `kebab-case.css`
+  - 适配器优先：新集成放在 `src/services/adapters/*`，禁止扩展 `legacy/*`
+  - 后端 v2 API 使用统一 `{success,data?,error?,meta}` 封装；严禁硬编码/回退
+  - 前端仅经 preload / IPC 使用 Electron API
+  - 提交使用 Conventional Commits；PR 包含变更说明与验证步骤
 
 后端服务将运行在 `http://localhost:8010`
 
@@ -438,4 +453,3 @@ MIT License - 详见 [LICENSE](LICENSE) 文件
 
 **版本**: 3.0.0
 **最后更新**: 2025-10-26
-
