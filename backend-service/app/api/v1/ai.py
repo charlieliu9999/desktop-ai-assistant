@@ -80,8 +80,8 @@ async def chat(request: ChatRequest, scene: str | None = Query(default=None, des
         return APIResponse(
             success=True,
             data={
-                "message": response.message.dict(),
-                "usage": response.usage.dict(),
+                "message": response.message.model_dump() if hasattr(response.message, 'model_dump') else response.message.dict(),
+                "usage": response.usage.model_dump() if hasattr(response.usage, 'model_dump') else response.usage.dict(),
                 "model": response.model,
                 "finish_reason": response.finish_reason,
                 "provider": response.provider,
@@ -262,8 +262,8 @@ async def health():
     try:
         health_status = await ai_manager.get_all_providers_health()
 
-        # 转换为字典格式
-        health_dict = {name: status.dict() for name, status in health_status.items()}
+        # 转换为字典格式（Pydantic v2 使用 model_dump）
+        health_dict = {name: (status.model_dump() if hasattr(status, 'model_dump') else status.dict()) for name, status in health_status.items()}
 
         return APIResponse(
             success=True,
@@ -310,16 +310,26 @@ async def list_providers():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"List providers failed: {str(e)}",
         )
-@router.get("/models")
+@router.get("/models", response_model=APIResponse)
 async def list_models():
     """列出可用模型（按提供商分组，来源于注册表 registry.json；不做硬编码）"""
     from app.registry.store import load_registry
+    from datetime import datetime as _dt
     reg = load_registry()
     # 聚合 LLM 模型
     providers = []
     for p in reg.providers:
         if not getattr(p, 'enabled', True):
             continue
-        models = [m.name for m in reg.models if m.provider_id == p.id and m.modality == 'llm' and getattr(m, 'enabled', True)]
+        models = [
+            m.name
+            for m in reg.models
+            if m.provider_id == p.id and m.modality == 'llm' and getattr(m, 'enabled', True)
+        ]
         providers.append({"name": p.id, "base_url": p.base_url, "models": models})
-    return {"success": True, "data": {"providers": providers}}
+
+    return APIResponse(
+        success=True,
+        data={"providers": providers},
+        meta={"timestamp": _dt.now().isoformat(), "version": "1.1.0"},
+    )

@@ -334,7 +334,7 @@ const Chat: React.FC<ChatProps> = ({ className = '' }) => {
             provider: provider as any,
             model: aiImage.backendModel || undefined,
             strictJson: true,
-            allowFallback: true,
+            allowFallback: false,
             schemaName: 'patient_info_v1',
             scene,
           };

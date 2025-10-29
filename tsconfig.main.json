@@ -35,6 +35,7 @@
     "build",
     "release",
     "src/renderer",
+    "src/main/index.ts",
     "tests",
     "**/*.test.ts",
     "**/*.spec.ts"

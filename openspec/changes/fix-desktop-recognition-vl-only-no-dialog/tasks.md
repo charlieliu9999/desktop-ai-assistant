@@ -1,3 +1,5 @@
+> Merge plan: 本变更的目标与 v2 Vision/Medical Intake 轨道重叠，后续合并入 `refactor-api-v2-business`（Vision）。本文件仅在归档前保留。
+
 ## 1. Frontend
 - [x] 1.1 PatientInfoCapture：自动模式去预览/确认对话框，截图后直接识别并进入结果页，显示患者信息并滚动显示推荐内容。
 - [x] 1.2 OneClickDesktopChat：统一调用后端 VL 场景 (`strictJson=true`, `allowFallback=false`, `schemaName=patient_info_v1`)，移除本地 OCR/文本解析及硬编码兜底（如临时 patient_id）。

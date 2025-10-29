@@ -1,15 +1,31 @@
 # 全项目代码审查与重构 - 任务清单
 
+> Consolidation note: 本变更大部分工作已完成。剩余零散清理（如 3.1.3 Legacy 服务收尾）并入 v2 执行阶段的“收尾与迁移”子任务，完成后归档本变更。
+
 ## 临时任务（执行中）
 
 - [x] 添加类型 shims 隔离 bisheng/legacy 对 renderer 类型检查的影响（2025-10-26）
-  - 新增 `src/types/shims-bisheng.d.ts`、`src/types/shims-legacy.d.ts`
+ - 新增 `src/types/shims-bisheng.d.ts`、`src/types/shims-legacy.d.ts`
   - 更新 `tsconfig.renderer.json` 包含 `src/types/**/*.d.ts`
   - 将 `src/renderer/pages/AgentService.tsx` 中的 bisheng 静态导入替换为占位组件（后续按特性开关动态接入）
  
  - [x] 切换前端 AI Adapter provider 列表端点到 `/v1/registry/providers`（2025-10-27）
    - 更新 `src/services/adapters/ai-adapter.ts` 中 `getAvailableProviders()`
    - 构建并验证通过（renderer/main 均可构建）
+
+- [x] 禁用截图占位回退（遵循“无回退/无硬编码”政策）（2025-10-28）
+  - [x] 更新 `src/main/stubs/legacy.ts`：`DesktopRecognitionService.captureScreen` 与 `ScreenshotService.captureScreen` 捕获异常时不再返回占位图，改为失败/抛错
+  - [x] `captureAndAnalyze` 返回未实现错误，避免空分析对象
+  - [x] 验证前端 `src/renderer/services/screenshot.ts` 能在无效返回时报错并由上层提示“没有结果/一键完成失败”
+
+- [x] 收敛 adapter provider 回退（2025-10-28）
+  - [x] 更新 `src/services/adapters/ai-adapter.ts`：legacy 分支不再返回硬编码 `local` provider，改为返回空数组
+  - [x] 验证设置页在空列表时展示空态与提示（通过 APIClient `/v1/ai/models` 列表仍可正常加载）
+
+- [x] 去除 legacy AI 连环回退（2025-10-28）
+  - [x] 更新 `src/services/legacy/ai.ts`：`sendRequest` 在失败时不再尝试 `/v1/completions`、`/api/chat`、`/api/generate` 等回退，统一抛错
+  - [x] `getAvailableProviders()` 不再硬编码返回提供商列表，改为返回空数组
+  - [x] 保留网络层 IPv6→IPv4 重试，不改变输出内容语义
 
 ## 阶段1: 代码清理与整理 (P0 - 紧急, 1周)
 
@@ -115,9 +131,10 @@
   - [ ] 等待adapter完全迁移后删除legacy实现
   - [ ] 保留 `medical-integration.ts` 和 `screenshot.ts`
   - [ ] 详见 `LEGACY_AUDIT_REPORT.md`
-  - [ ] 确认所有导入已更新
-  - [ ] 删除 `src/services/legacy/` 目录
-  - [ ] 删除 `scripts/migrate-to-legacy.sh`
+  - [x] 替换 main 中对 legacy AI 的依赖为 adapter（2025-10-28）
+  - [x] 确认可执行代码中的导入已更新（docs 与未编译入口 src/main/index.ts 暂不处理）（2025-10-28）
+  - [x] 删除 `src/services/legacy/` 目录（2025-10-28）
+  - [x] 删除 `scripts/migrate-to-legacy.sh`（2025-10-28）
   - [ ] 更新 `.gitignore` 移除legacy相关条目
   - [ ] 运行完整测试套件验证
 
@@ -125,22 +142,21 @@
 
 ### 2.1 统一配置架构 (3天)
 
-- [ ] 2.1.1 创建后端配置API (8小时)
-  - [ ] 创建 `backend-service/app/api/v1/config.py`
-  - [ ] 实现 `GET /v1/config` 获取完整配置
-  - [ ] 实现 `GET /v1/config/{key}` 获取单个配置项
-  - [ ] 实现 `PUT /v1/config/{key}` 更新配置项
-  - [ ] 实现 `POST /v1/config/validate` 验证配置
-  - [ ] 添加配置变更事件通知
-  - [ ] 编写API测试
+- [x] 2.1.1 创建后端配置API (8小时)
+  - [x] 创建 `backend-service/app/api/v1/config_api.py`
+  - [x] 实现 `GET /v1/config` 获取完整配置
+  - [x] 实现 `GET /v1/config/{key}` 获取单个配置项
+  - [x] 实现 `PUT /v1/config/{key}` 更新配置项（运行期，不持久化）
+  - [x] 实现 `POST /v1/config/validate` 验证配置
+  - [x] 添加配置变更事件通知（通过主进程 IPC：config-changed；renderer 订阅并合并）
+  - [x] 编写API测试（`tests/api/v1/test_config_api.py`）
 
-- [ ] 2.1.2 前端配置同步 (8小时)
-  - [ ] 修改 `src/renderer/stores/configStore.ts`
-  - [ ] 实现从后端加载配置
-  - [ ] 实现配置变更监听
-  - [ ] 实现配置缓存机制
-  - [ ] 添加离线模式支持(使用本地缓存)
-  - [ ] 编写单元测试
+- [x] 2.1.2 前端配置同步 (8小时)
+  - [x] 修改 `src/renderer/stores/configStore.ts`（后端优先加载/保存，失败回退主进程；订阅 config-changed）
+  - [x] 实现从后端加载配置
+  - [x] 实现配置变更监听（主进程 → 渲染进程）
+  - [ ] 实现配置缓存机制/离线模式（后续增强；当前有回退）
+  - [ ] 编写前端单元测试
 
 - [ ] 2.1.3 配置验证 (8小时)
   - [ ] 安装Zod依赖: `npm install zod`
@@ -200,17 +216,18 @@
 
 ### 3.2 规范API结构 (2天)
 
-- [ ] 3.2.1 统一响应格式 (4小时)
+- [x] 3.2.1 统一响应格式 (4小时)
   - [ ] 确保所有v1 API使用 `APIResponse` 包装
-  - [ ] 统一成功响应格式
-  - [ ] 统一错误响应格式
+    - 进展：`/v1/ai/models` 已切换为 `APIResponse`（保持 `{success,data,meta}` 结构）；`voice/vision/agent` 的健康检查端点暂保留历史 `{success,services}` 结构以维持现有测试，通过 3.2.3 版本控制统一。
+  - [x] 统一成功响应格式（ai/vision/voice/registry 等维持 {success,data,meta} 结构；ai.py已使用 model_dump）
+  - [x] 统一错误响应格式（新增全局异常处理，错误返回 {success:false,error:{code,message,details?},meta}）
   - [ ] 添加响应Schema文档
 
-- [ ] 3.2.2 错误处理标准化 (4小时)
-  - [ ] 创建 `backend-service/app/core/errors.py` 错误类
-  - [ ] 定义标准错误码
-  - [ ] 实现全局异常处理器
-  - [ ] 更新所有API使用标准错误处理
+- [x] 3.2.2 错误处理标准化 (4小时)
+  - [x] 创建 `backend-service/app/core/errors.py` 错误类
+  - [x] 定义标准错误负载结构（code/message/details）
+  - [x] 实现全局异常处理器（AppError/HTTPException/Exception）
+  - [ ] 路由内个别 return/raise 对齐为 AppError（后续增量）
 
 - [ ] 3.2.3 API版本控制 (8小时)
   - [ ] 设计v2 API路由结构

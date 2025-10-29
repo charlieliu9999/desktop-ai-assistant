@@ -39,9 +39,12 @@ class ScreenshotServiceRenderer {
     if (!(window as any).electronAPI) {
       throw new Error('Electron API 未初始化。请确保应用在 Electron 环境中运行。');
     }
-    // 允许 screen/desktop 两种命名
+    // 允许 screenshot/screen/desktop 三种命名
     const api: any = (window as any).electronAPI;
-    if (!api.screen && !api.desktop) {
+    const hasScreenshot = !!api.screenshot && (typeof api.screenshot.capture === 'function' || typeof api.screenshot.captureWindow === 'function');
+    const hasScreen = !!api.screen && (typeof api.screen.capture === 'function' || typeof api.screen.captureWindow === 'function');
+    const hasDesktop = !!api.desktop && (typeof api.desktop.captureScreen === 'function' || typeof api.desktop.captureWindow === 'function');
+    if (!(hasScreenshot || hasScreen || hasDesktop)) {
       throw new Error('截图 API 未暴露。请检查 preload.ts 配置。');
     }
   }

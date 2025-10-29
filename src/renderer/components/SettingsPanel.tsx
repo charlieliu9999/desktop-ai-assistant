@@ -109,18 +109,12 @@ const SettingsPanel: React.FC = () => {
     setHasUnsavedChanges(true);
   };
 
-  // Save configuration
+  // Save configuration (backend preferred, fallback to main)
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      // Save to main process config store if available
-      if (window.electronAPI?.config?.update) {
-        await window.electronAPI.config.update(config);
-      } else {
-        // Fallback to store persistence
-        console.warn('Main config bridge not available, using local store');
-      }
-
+      // 持久化：优先后端 /v1/config，再回退主进程
+      await useConfigStore.getState().saveConfig();
       setHasUnsavedChanges(false);
       toast.success('设置已保存');
     } catch (error) {
@@ -129,6 +123,18 @@ const SettingsPanel: React.FC = () => {
       setIsSaving(false);
     }
   };
+
+  // Refresh configuration from backend/main
+  // 可选：提供刷新逻辑（暂不在UI直接调用）
+  // const handleRefresh = async () => {
+  //   try {
+  //     await useConfigStore.getState().loadConfig();
+  //     setHasUnsavedChanges(false);
+  //     toast.success('配置已刷新');
+  //   } catch (e) {
+  //     toast.error('刷新配置失败');
+  //   }
+  // };
 
   // Reset to defaults
   const handleReset = () => {

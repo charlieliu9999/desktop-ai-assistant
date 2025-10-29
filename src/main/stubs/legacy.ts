@@ -66,12 +66,15 @@ export class DesktopRecognitionService extends BaseService {
       const dataUrl = 'data:image/png;base64,' + buf.toString('base64');
       return { success: true, dataUrl };
     } catch (e) {
-      this.logger?.warn?.('[stub] desktop capture failed, using placeholder:', e);
-      const tinyPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAoMBgV9i4NwAAAAASUVORK5CYII=';
-      return { success: true, dataUrl: 'data:image/png;base64,' + tinyPngBase64 };
+      // 按“无回退/无硬编码”策略：不返回占位图，直接失败
+      this.logger?.warn?.('[stub] desktop capture failed:', e);
+      return { success: false, error: (e as any)?.message || 'capture_failed' };
     }
   }
-  async captureAndAnalyze(_options?: any): Promise<any> { return { success: true, analysis: {} }; }
+  async captureAndAnalyze(_options?: any): Promise<any> {
+    // 尚未实现分析逻辑，遵循“无回退/无硬编码”策略
+    return { success: false, error: 'not_implemented' };
+  }
   getAvailableDisplays(): any[] { return [{ id: 1, name: 'Display 1', width: 1440, height: 900 }]; }
 }
 
@@ -85,10 +88,9 @@ export class ScreenshotService extends BaseService {
       const dataUrl = 'data:image/png;base64,' + buf.toString('base64');
       return { dataUrl };
     } catch (e) {
-      this.logger?.warn?.('[stub] screenshot capture failed, returning placeholder:', e);
-      // 生成一个极小的透明 PNG 占位
-      const tinyPngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAoMBgV9i4NwAAAAASUVORK5CYII=';
-      return { dataUrl: 'data:image/png;base64,' + tinyPngBase64 };
+      // 按“无回退/无硬编码”策略：不返回占位图，直接抛错由上层处理
+      this.logger?.warn?.('[stub] screenshot capture failed:', e);
+      throw e;
     }
   }
   async captureWindow(_title?: string): Promise<{ dataUrl: string }> {
@@ -100,10 +102,20 @@ export class ScreenshotService extends BaseService {
 
 export class BishengService extends BaseService {
   getConfig(): any { return { ...this.config }; }
-  updateConfig(cfg?: any): void { this.config = { ...(this.config || {}), ...(cfg || {}) }; }
+  override async updateConfig(cfg?: any): Promise<void> { this.config = { ...(this.config || {}), ...(cfg || {}) }; }
   async login(_u: string, _p: string): Promise<any> { return { success: false }; }
   async getWorkflows(_pageSize?: number, _pageNum?: number): Promise<any> { return { items: [], total: 0 }; }
-  async invokeWorkflow(_id: string, _inputs: any, _opts?: { onChunk?: (s: string) => void }): Promise<any> { return { success: false }; }
+  async invokeWorkflow(
+    _id: string,
+    _inputs: any,
+    _stream?: boolean,
+    _sessionId?: string,
+    _messageId?: string,
+    _inputNodeId?: string
+  ): Promise<any> {
+    // 未实现直连流；按照调用方的 try/catch 逻辑抛错由上层处理
+    throw new Error('bisheng_invoke_not_implemented');
+  }
   async stopWorkflow(_wid: string, _sid?: string): Promise<void> { return; }
   isAuthenticated(): boolean { return false; }
   getProxyStatus(): any { return { connected: false }; }
@@ -112,6 +124,23 @@ export class BishengService extends BaseService {
   async runConnectionTests(): Promise<any> { return { success: true }; }
 }
 
-export class ShortcutService extends BaseService {}
+export class ShortcutService extends BaseService {
+  private deps?: any;
+  constructor(config?: any, logger?: any, deps?: any) {
+    super(config, logger);
+    this.deps = deps;
+  }
+}
 
-export class ServiceHealthChecker extends BaseService {}
+export class ServiceHealthChecker extends BaseService {
+  private timeoutMs: number | undefined;
+  constructor(logger?: any, timeoutMs?: number) {
+    // 适配 main 中的调用签名：new ServiceHealthChecker(this.logger, 5000)
+    super(undefined, logger);
+    this.timeoutMs = timeoutMs;
+  }
+  async checkAllServices(_config?: any): Promise<{ services: Array<{ name: string; status: 'healthy'|'unhealthy'|'unreachable' }> }> {
+    // 返回空列表，调用方会据此提示
+    return { services: [] };
+  }
+}

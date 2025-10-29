@@ -174,6 +174,58 @@
 
 ---
 
+### 无回退/无硬编码措施（第一批）✅ (2025-10-28)
+
+**执行内容**:
+- 更新主进程截图相关 stub：`src/main/stubs/legacy.ts`
+  - `DesktopRecognitionService.captureScreen` 与 `ScreenshotService.captureScreen` 失败时不再返回占位透明 PNG，改为失败/抛错
+  - `captureAndAnalyze` 改为返回未实现错误，避免空分析对象伪成功
+- 收敛 AI adapter provider 回退：`src/services/adapters/ai-adapter.ts`
+  - legacy 分支不再硬编码返回 `local` provider，改为返回空数组，由上层 UI 呈现空态
+
+**验证**:
+- 渲染端 `src/renderer/services/screenshot.ts` 能在无效截图时抛错；`Chat.tsx`/一键流程已有“没有结果/一键完成失败”提示分支
+- 设置页继续使用 `/v1/ai/models` 获取后端 provider+model 列表；legacy provider 空列表不影响后端模式
+
+**备注**:
+- 已同步去除 legacy AI 连环回退（/v1/completions → /api/chat → /api/generate），失败即失败，不产生活动内容回退
+
+---
+
+### Main 切换到统一 AI 适配器 ✅ (2025-10-28)
+
+**执行内容**:
+- 移除主进程对 `services/legacy/ai` 的直接依赖，统一通过 `AIServiceAdapter` 调用
+- 适配器新增后端/前端直连双模式：
+  - 后端：`POST /v1/ai/chat` 与 `POST /v1/ai/chat_stream`（SSE）
+  - 前端直连：OpenAI 兼容端点（Ollama 等），仅非流式
+- IPC handlers 更新：`ai-process-message|ai-process-message-stream|ai-generate-summary|ai-clear-history|ai-search-web` 全部经由 adapter
+
+**结果**:
+- 构建通过（`npm run build:main` + 类型检查通过）
+- 运行时语义符合“无回退/无硬编码”：失败即失败；前端直连不再经 legacy 回退路径
+
+**后续**:
+- 在验证稳定后，删除 `src/services/legacy/` 目录，并更新残余导入
+
+---
+
+### 删除 Legacy 目录与脚本 ✅ (2025-10-28)
+
+**执行内容**:
+- 删除 `src/services/legacy/` 整个目录（ai.ts/desktop-recognition.ts/voice.ts 等）
+- 删除 `scripts/migrate-to-legacy.sh`
+- 更新 renderer 侧 `src/services/adapters/ai-adapter.ts`，移除对 legacy 的依赖与回退逻辑；非后端模式直接抛出不支持，由主进程 adapter 承担前端直连职责
+
+**结果**:
+- 构建/类型检查通过
+- 代码路径清晰：renderer → preload/IPC → main adapter（backend/frontend）
+
+**注意**:
+- docs 中对 legacy 的引用保留作为历史说明；未编译入口 `src/main/index.ts` 暂未清理且不参与构建
+
+---
+
 ## 🔄 进行中任务
 
 **当前无进行中任务**

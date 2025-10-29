@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { apiClient } from '../../services/api-client';
 import type { AppConfig } from '../../shared/types';
 
 interface ConfigState {
@@ -432,8 +433,17 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
 
   loadConfig: async () => {
     try {
-      if (window.electronAPI?.config?.get) {
-        const mainConfig = await window.electronAPI.config.get();
+      // 优先从后端加载完整配置
+      let backendConfig: any = null;
+      try {
+        const res = await apiClient.getFullConfig();
+        if (res && res.success && res.data) {
+          backendConfig = res.data;
+        }
+      } catch {}
+
+      if (backendConfig || window.electronAPI?.config?.get) {
+        const mainConfig = backendConfig || await window.electronAPI.config.get();
         
         // 深度合并配置，确保嵌套对象（如glassEffect）不会丢失
         let mergedConfig = {
@@ -486,7 +496,7 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
         }
 
         set({ config: mergedConfig });
-        console.log('✅ 配置已加载:', mergedConfig);
+        console.log('✅ 配置已加载:', { source: backendConfig ? 'backend' : 'main', config: mergedConfig });
       }
     } catch (error) {
       console.error('Failed to load config:', error);
@@ -495,10 +505,30 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
 
   saveConfig: async () => {
     try {
-      if (window.electronAPI?.config?.update) {
+      const current = get().config as any;
+      // 优先尝试保存到后端（运行期，不持久化）
+      let savedToBackend = false;
+      try {
+        // 按顶层键分批更新，后端以 extra='allow' 接收
+        const topKeys = [
+          'theme', 'language', 'windows', 'shortcuts', 'voice', 'ai', 'aiImage', 'aiRecommend', 'oneClick',
+          'medical', 'bisheng', 'desktopRecognition', 'privacy', 'notifications', 'startup', 'performance', 'logging'
+        ];
+        for (const k of topKeys) {
+          if (current[k] !== undefined) {
+            await apiClient.updateConfigKey(k, current[k]);
+          }
+        }
+        savedToBackend = true;
+        console.log('✅ 配置已保存到后端 /v1/config（运行期）');
+      } catch (e) {
+        console.warn('⚠️ 保存到后端失败，回退到主进程配置桥接：', e);
+      }
+
+      // 回退到主进程（用于本地配置持久化）
+      if (!savedToBackend && window.electronAPI?.config?.update) {
         await window.electronAPI.config.update(get().config);
-      } else {
-        console.log('Config saved (no main bridge):', get().config);
+        console.log('✅ 配置已通过主进程持久化');
       }
     } catch (error) {
       console.error('Failed to save config:', error);
@@ -509,4 +539,26 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
 // Load full config on app start
 if (typeof window !== 'undefined') {
   useConfigStore.getState().loadConfig();
+
+  try {
+    const api: any = (window as any).electronAPI;
+    if (api?.config?.onChange) {
+      api.config.onChange((evt: any) => {
+        // evt 可能为 { key, value } 或 { config }
+        try {
+          if (evt && typeof evt === 'object') {
+            if (evt.config) {
+              // 全量更新（来自主进程广播）
+              // 利用 updateConfig 执行内置的深度合并与校验
+              useConfigStore.getState().updateConfig(evt.config as Partial<AppConfig>);
+            } else if (evt.key) {
+              useConfigStore.getState().updateConfig({ [evt.key]: evt.value } as any);
+            }
+          }
+        } catch (e) {
+          try { console.warn('配置变更事件处理失败:', e); } catch {}
+        }
+      });
+    }
+  } catch {}
 }

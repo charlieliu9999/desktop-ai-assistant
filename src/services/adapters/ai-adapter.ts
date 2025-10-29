@@ -8,7 +8,7 @@
 
 import type { Logger } from '../../utils/logger';
 import type { AIConfig } from '../../shared/types';
-import { AIService } from '../legacy/ai';
+// Legacy AI 已移除：不再依赖 ../legacy/ai；如需前端直连，请走主进程 adapter（src/main/stubs/adapters.ts）
 
 let API_BASE_OVERRIDE: string | null = null;
 
@@ -76,7 +76,6 @@ interface StreamChunk {
 
 export class AIServiceAdapter {
   private useBackend: boolean;
-  private legacyService: AIService;
   private logger: Logger;
   private config: AIConfig;
 
@@ -85,7 +84,6 @@ export class AIServiceAdapter {
     this.logger = logger;
     // 根据配置决定是否走后端
     this.useBackend = (config as any)?.routingMode === 'backend';
-    this.legacyService = new AIService(config, logger);
     this.logger.info(`AI Service Adapter initialized, routingMode=${(config as any)?.routingMode || 'frontend'}, useBackend=${this.useBackend}`);
   }
 
@@ -115,10 +113,7 @@ export class AIServiceAdapter {
       }
     }
 
-    if (!this.useBackend) {
-      this.logger.info('Initializing legacy AI service...');
-      await this.legacyService.initialize();
-    }
+    // 非后端模式下，本适配器不执行前端直连；请改用主进程适配器。
   }
 
   /**
@@ -141,11 +136,8 @@ export class AIServiceAdapter {
    * 处理消息 - 标准模式
    */
   async processMessage(message: string, context?: string[]): Promise<string> {
-    if (this.useBackend) {
-      return this.processMessageWithBackend(message, context);
-    } else {
-      return this.legacyService.processMessage(message, context);
-    }
+    if (!this.useBackend) throw new Error('frontend_direct_not_supported_in_renderer');
+    return this.processMessageWithBackend(message, context);
   }
 
   /**
@@ -225,9 +217,8 @@ export class AIServiceAdapter {
 
       return result.data.message.content;
     } catch (error) {
-      this.logger.error('Backend AI processing failed, falling back to legacy', error);
-      // 故障转移到legacy实现
-      return this.legacyService.processMessage(message, context);
+      this.logger.error('Backend AI processing failed', error);
+      throw error;
     }
   }
 
@@ -235,11 +226,8 @@ export class AIServiceAdapter {
    * 流式对话
    */
   async *chatStream(message: string, context?: string[]): AsyncIterableIterator<string> {
-    if (this.useBackend) {
-      yield* this.chatStreamWithBackend(message, context);
-    } else {
-      yield* this.legacyService.chatStream(message, context);
-    }
+    if (!this.useBackend) throw new Error('frontend_direct_stream_not_supported_in_renderer');
+    yield* this.chatStreamWithBackend(message, context);
   }
 
   /**
@@ -363,14 +351,8 @@ export class AIServiceAdapter {
    */
   async analyzeContent(content: string, analysisTypeOrContext?: any): Promise<any> {
     const analysisType = typeof analysisTypeOrContext === 'string' ? analysisTypeOrContext : 'general';
-    if (this.useBackend) {
-      return this.analyzeContentWithBackend(content, analysisType);
-    } else {
-      // Legacy实现可能没有analyzeContent方法，使用processMessage代替
-      const prompt = `请分析以下内容（类型：${analysisType}）：\n\n${content}`;
-      const response = await this.legacyService.processMessage(prompt);
-      return { analysis: response };
-    }
+    if (!this.useBackend) throw new Error('frontend_direct_analyze_not_supported_in_renderer');
+    return this.analyzeContentWithBackend(content, analysisType);
   }
 
   /**
@@ -430,9 +412,7 @@ export class AIServiceAdapter {
    * 清理资源
    */
   async cleanup(): Promise<void> {
-    if (!this.useBackend) {
-      await this.legacyService.cleanup();
-    }
+    // no-op
   }
 
   /**
@@ -452,8 +432,8 @@ export class AIServiceAdapter {
         return [];
       }
     }
-    // legacy 默认仅本地
-    return [{ name: 'local', is_default: true, is_available: true }];
+    // 遵循“无回退/无硬编码”：legacy 模式不返回默认 provider，让上层显示空态
+    return [];
   }
 
   /**

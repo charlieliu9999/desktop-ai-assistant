@@ -17,6 +17,8 @@
   - 视觉模型：`GET /v1/vision/models`
   - AI 提供商/模型：`GET /v1/ai/providers`、`GET /v1/ai/models`
 
+> v2 标准化（草案）已启动：统一响应包/错误码/健康检查/分页/SSE/严格JSON 等，请参见 `docs/api-v2.md`。对应 OpenSpec 变更位于 `openspec/changes/api-v2-standardization/`（实施前需确认）。
+
 ---
 
 ## 📚 文档目录

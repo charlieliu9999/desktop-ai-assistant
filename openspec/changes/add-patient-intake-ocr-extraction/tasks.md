@@ -1,3 +1,5 @@
+> Merge plan: 与 Vision/Medical Intake 的 v2 路线一致，合并入 `refactor-api-v2-business`（Vision）。归档前保留。
+
 ## 1. Implementation
 - [ ] 1.1 Frontend: wire `PatientInfoCapture` strict JSON path with clear errors for non‑strict
 - [ ] 1.2 Frontend: confirm edit/review UI saves to session and supports re‑capture

@@ -323,6 +323,16 @@ export class APIClient {
   async updateConfigFlags(flags: Partial<ConfigFlags>): Promise<{ success: boolean; data: ConfigFlags }>{
     return this.request('/v1/config/flags', { method: 'PUT', body: JSON.stringify(flags) });
   }
+  // v1 general config
+  async getFullConfig(): Promise<{ success: boolean; data: any }>{
+    return this.request('/v1/config');
+  }
+  async getConfigKey<T = any>(key: string): Promise<{ success: boolean; data: Record<string, T> }>{
+    return this.request(`/v1/config/${encodeURIComponent(key)}`);
+  }
+  async updateConfigKey<T = any>(key: string, value: T): Promise<{ success: boolean; data: Record<string, T> }>{
+    return this.request(`/v1/config/${encodeURIComponent(key)}`, { method: 'PUT', body: JSON.stringify(value) });
+  }
 
   // v1 models
   async getAIModels(): Promise<{ success: boolean; data: { providers: Array<{ name: string; models: string[] }> } }>{
@@ -530,71 +540,6 @@ ${structuredGuide}` : structuredGuide;
     }
   }
 
-  /**
-   * 从文本中解析患者信息 - 宽松解析，不严格要求每个字段
-   */
-  private parsePatientInfoFromText(text: string): any {
-    console.log('📝 开始文本解析，原始文本:', text);
-    
-    // 宽松的文本解析逻辑
-    const patientInfo: any = {
-      rawText: text, // 保存原始文本
-      extractedFields: {} // 记录提取到的字段
-    };
-    
-    // 定义字段匹配规则
-    const fieldPatterns = {
-      name: [/姓名[：:]\s*([^\s\n,，]+)/, /患者[：:]\s*([^\s\n,，]+)/, /name[：:]\s*([^\s\n,，]+)/i],
-      age: [/年龄[：:]\s*(\d+)/, /age[：:]\s*(\d+)/i],
-      gender: [/性别[：:]\s*([男女])/, /gender[：:]\s*([男女])/i],
-      patientId: [/患者ID[：:]\s*([^\s\n,，]+)/, /ID[：:]\s*([^\s\n,，]+)/i],
-      department: [/科室[：:]\s*([^\s\n,，]+)/, /部门[：:]\s*([^\s\n,，]+)/i],
-      chiefComplaint: [/主诉[：:]\s*([^\n]+)/, /症状[：:]\s*([^\n]+)/i],
-      diagnosis: [/诊断[：:]\s*([^\n]+)/, /诊断结果[：:]\s*([^\n]+)/i],
-      medicalHistory: [/病史[：:]\s*([^\n]+)/, /既往史[：:]\s*([^\n]+)/i]
-    };
-
-    // 尝试提取每个字段
-    Object.entries(fieldPatterns).forEach(([field, patterns]) => {
-      for (const pattern of patterns) {
-        const match = text.match(pattern);
-        const val = match && match[1] ? String(match[1]).trim() : undefined;
-        if (val) {
-          (patientInfo as any)[field] = val;
-          (patientInfo.extractedFields as any)[field] = val;
-          console.log(`✅ 提取到字段 ${field}:`, val);
-          break; // 找到第一个匹配就停止
-        }
-      }
-    });
-
-    // 如果没有提取到任何字段，尝试更宽松的匹配
-    if (Object.keys(patientInfo.extractedFields).length === 0) {
-      console.log('⚠️ 未提取到任何字段，尝试宽松匹配...');
-      
-      // 尝试提取数字（可能是年龄）
-      const ageMatch = text.match(/(\d+)\s*岁/);
-      if (ageMatch) {
-        patientInfo.age = ageMatch[1];
-        patientInfo.extractedFields.age = ageMatch[1];
-        console.log('✅ 宽松匹配年龄:', ageMatch[1]);
-      }
-
-      // 尝试提取性别关键词
-      if (text.includes('男') || text.includes('male')) {
-        patientInfo.gender = '男';
-        patientInfo.extractedFields.gender = '男';
-        console.log('✅ 宽松匹配性别: 男');
-      } else if (text.includes('女') || text.includes('female')) {
-        patientInfo.gender = '女';
-        patientInfo.extractedFields.gender = '女';
-        console.log('✅ 宽松匹配性别: 女');
-      }
-    }
-
-    console.log('📝 文本解析完成:', patientInfo);
-    return patientInfo;
-  }
 
   /**
    * 推荐生成 API

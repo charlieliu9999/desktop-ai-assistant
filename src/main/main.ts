@@ -3,7 +3,7 @@ import { join } from 'path';
 import { Logger } from '../utils/logger';
 import { ConfigService } from '../services/config';
 import { WindowManager } from './window-manager';
-import { VoiceService, AIService, MedicalIntegrationService, DesktopRecognitionService, ScreenshotService, BishengService, ShortcutService, ServiceHealthChecker } from './stubs/legacy';
+import { VoiceService, MedicalIntegrationService, DesktopRecognitionService, ScreenshotService, BishengService, ShortcutService, ServiceHealthChecker } from './stubs/legacy';
 import { AIServiceAdapter, setBackendApiOrigin, AgentServiceAdapter } from './stubs/adapters';
 import type {
   AppConfig,
@@ -21,8 +21,7 @@ class DesktopAIAssistant {
   private configService: ConfigService;
   private windowManager: WindowManager;
   private voiceService: VoiceService;
-  private aiService: AIService; // legacy
-  private aiAdapter: AIServiceAdapter | null = null; // backend route
+  private aiAdapter: AIServiceAdapter | null = null; // unified AI route (backend/frontend)
   private medicalService: MedicalIntegrationService;
   private desktopRecognitionService: DesktopRecognitionService;
   private shortcutService: ShortcutService;
@@ -42,7 +41,6 @@ class DesktopAIAssistant {
     // 初始化服务（稍后在initialize中完成）
     this.windowManager = null as any;
     this.voiceService = null as any;
-    this.aiService = null as any;
     this.medicalService = null as any;
     this.desktopRecognitionService = null as any;
     this.shortcutService = null as any;
@@ -100,10 +98,7 @@ class DesktopAIAssistant {
       
       this.voiceService = new VoiceService(config.voice as VoiceConfig, this.logger);
       
-      // 初始化AI服务（同时准备后端适配器，按 routingMode 切换）
-      this.aiService = new AIService(config.ai as AIConfig, this.logger);
-      await this.aiService.initialize();
-      // 计算后端基址 origin，并传给适配器
+      // 初始化 AI 适配器（统一后端/前端直连）
       try {
         const apiBase = (config?.medical?.apiUrl || 'http://127.0.0.1:8010/api');
         const u = new URL(apiBase);
@@ -130,7 +125,8 @@ class DesktopAIAssistant {
         {
           windowManager: this.windowManager,
           voiceService: this.voiceService,
-          aiService: this.aiService,
+          // 为快捷键提供 AI 依赖：使用统一适配器替代 legacy AI
+          aiService: this.aiAdapter,
           desktopRecognitionService: this.desktopRecognitionService
         }
       );
@@ -293,19 +289,14 @@ class DesktopAIAssistant {
       
       // 将语音识别结果发送给AI服务处理
       try {
-        const aiMessage = {
-          role: 'user' as const,
-          content: result,
-          timestamp: Date.now()
-        };
-        const response = await this.aiService.processMessage(aiMessage);
+        const content = await this.aiAdapter!.processMessage(result);
         
         // 将AI响应转换为语音
-        if (response && this.voiceService) {
+        if (content && this.voiceService) {
           try {
             const voiceState = this.voiceService.getState();
             if (voiceState.synthesisState === 'idle') {
-              await this.voiceService.speak(response.content);
+              await this.voiceService.speak(content);
             }
           } catch (error) {
             this.logger.warn('Failed to get voice state or speak response:', error);
@@ -313,10 +304,7 @@ class DesktopAIAssistant {
         }
         
         // 发送结果到渲染进程
-        this.broadcastToRenderers('voice-recognition-result', { 
-          input: result, 
-          response 
-        });
+        this.broadcastToRenderers('voice-recognition-result', { input: result, response: { content } });
       } catch (error) {
         this.logger.error('Error processing voice recognition result:', error);
       }
@@ -330,13 +318,7 @@ class DesktopAIAssistant {
       this.broadcastToRenderers('desktop-analysis-result', analysis);
     });
 
-    // AI服务响应处理
-    this.aiService.on('response', (response: string) => {
-      this.logger.info('AI service response received');
-      
-      // 发送AI响应到渲染进程
-      this.broadcastToRenderers('ai-response', response);
-    });
+    // 移除直接监听 legacy AI 响应的通道（统一通过 IPC 返回）
 
     // 医疗服务搜索结果处理
     this.medicalService.on('search-complete', (results: any) => {
@@ -377,7 +359,20 @@ class DesktopAIAssistant {
         const cfg = await this.configService.getConfig();
         return {
           voice: this.voiceService?.getState() || null,
-          ai: this.aiService?.getState() || null,
+          ai: (() => {
+            try {
+              const cfgAI = (cfg as any).ai || {};
+              return {
+                enabled: !!cfgAI.enabled,
+                state: 'idle',
+                provider: cfgAI.provider || cfgAI.backendProvider || 'unknown',
+                model: cfgAI.model || cfgAI.backendModel || '',
+                historyLength: 0,
+                queueLength: 0,
+                config: cfgAI,
+              };
+            } catch { return null; }
+          })(),
           medical: this.medicalService?.getState() || null,
           desktop: this.desktopRecognitionService?.getState() || null,
           shortcuts: this.shortcutService?.getState() || null,
@@ -508,16 +503,9 @@ class DesktopAIAssistant {
       const routing = cfg?.ai?.routingMode || 'frontend';
       const sysPrompt = cfg?.ai?.systemPrompt || undefined;
 
-      if (routing === 'backend' && this.aiAdapter) {
-        // 后端模式：通过适配器转发到后端（适配器会自动注入 systemPrompt）
-        const content = await this.aiAdapter.processMessage(message, undefined);
-        return content;
-      } else {
-        // 前端直连（legacy）
-        const aiMessage = { role: 'user' as const, content: message, timestamp: Date.now() };
-        const response = await this.aiService.processMessage(aiMessage, sysPrompt ? { systemPrompt: sysPrompt } : { });
-        return response.content;
-      }
+      // 统一通过适配器；适配器会根据 routingMode 选择后端/前端直连
+      const content = await this.aiAdapter!.processMessage(message, sysPrompt);
+      return content;
     });
 
     // AI服务控制（含工具调用，非流式）
@@ -526,18 +514,14 @@ class DesktopAIAssistant {
       const routing = cfg?.ai?.routingMode || 'frontend';
       const sysPrompt = cfg?.ai?.systemPrompt || undefined;
 
-      // 前端直连：使用 legacy 内置工具调用（支持 web_search）
+      // 前端直连：不走工具流程，直接对话
       if (routing !== 'backend') {
-        const aiMessage = { role: 'user' as const, content: message, timestamp: Date.now() };
-        const response = await this.aiService.processMessageWithTools(aiMessage, sysPrompt ? { systemPrompt: sysPrompt } : {});
-        return response.content;
+        const content = await this.aiAdapter!.processMessage(message, sysPrompt);
+        return content;
       }
 
       // 后端路由：后端当前未内置工具调用，这里编排“生成查询 → 后端搜索 → 汇总回答”的混合流程
-      if (!this.aiAdapter) {
-        // 后备：无适配器则退化为普通对话
-        return await this.aiService.processMessage({ role: 'user', content: message, timestamp: Date.now() } as any).then((r: any) => r.content);
-      }
+      if (!this.aiAdapter) throw new Error('ai_adapter_not_initialized');
 
       // 计算后端基址 origin
       const origin = (() => {
@@ -635,14 +619,10 @@ class DesktopAIAssistant {
           event.sender.send('ai-stream-end', { success: true, content: full });
           return { success: true, content: full };
         } else {
-          const aiMessage = { role: 'user' as const, content: message, timestamp: Date.now() };
-          const response = await this.aiService.processMessageStream(
-            aiMessage,
-            onChunkLegacy,
-            sysPrompt ? { systemPrompt: sysPrompt } : {}
-          );
-          event.sender.send('ai-stream-end', { success: true, content: response.content });
-          return { success: true, content: response.content };
+          // 非后端：降级为一次性对话
+          const content = await this.aiAdapter!.processMessage(message, sysPrompt);
+          event.sender.send('ai-stream-end', { success: true, content });
+          return { success: true, content };
         }
       } catch (error: any) {
         event.sender.send('ai-stream-end', { success: false, error: error.message });
@@ -650,19 +630,14 @@ class DesktopAIAssistant {
       }
     });
 
-    ipcMain.handle('ai-clear-history', async () => {
-      return this.aiService.clearHistory();
-    });
+    ipcMain.handle('ai-clear-history', async () => { return this.aiAdapter?.clearHistory(); });
 
-    ipcMain.handle('ai-generate-summary', async (_, text: string) => {
-      return await this.aiService.generateSummary(text);
-    });
+    ipcMain.handle('ai-generate-summary', async (_, text: string) => { return await this.aiAdapter!.generateSummary(text); });
 
     // AI: 简单网络搜索测试（使用当前 WebSearch 配置）
     ipcMain.handle('ai-search-web', async (_event, query: string, maxResults?: number) => {
       try {
-        if (!this.aiService) throw new Error('AI service not initialized');
-        const res = await this.aiService.searchWeb(query || '测试', maxResults || 3);
+        const res = await this.aiAdapter!.searchWeb(query || '测试', maxResults || 3);
         return { success: true, data: res };
       } catch (error: any) {
         this.logger.warn('Web search test failed:', error);
@@ -720,9 +695,8 @@ class DesktopAIAssistant {
       // 将与服务相关的更新应用到对应服务（无需重启应用）
       try {
         if (updates.ai) {
-          await this.aiService.updateConfig(updates.ai as Partial<AIConfig>);
           try { this.aiAdapter?.updateConfig(updates.ai as Partial<AIConfig>); } catch {}
-          this.logger.info('AI service config updated');
+          this.logger.info('AI adapter config updated');
         }
         // 若医疗后端基址发生变化，更新适配器基址
         const candidateApiBase =
@@ -1520,9 +1494,7 @@ class DesktopAIAssistant {
         await this.bishengService.cleanup();
       }
       
-      if (this.aiService) {
-        await this.aiService.cleanup();
-      }
+      if (this.aiAdapter) { await this.aiAdapter.cleanup(); }
       
       if (this.voiceService) {
         await this.voiceService.cleanup();

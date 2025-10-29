@@ -1,7 +1,8 @@
 """
 FastAPI应用主入口
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 import sys
@@ -19,6 +20,7 @@ from app.api.v1 import router as v1_router
 from app.services.ai import ai_manager, ProviderConfig, OpenAIProvider, DeepseekProvider
 from app.services.ai.providers import OllamaProvider
 from app.registry import load_registry
+from app.core.errors import AppError, error_payload
 
 # 配置日志
 logger.remove()
@@ -453,6 +455,25 @@ async def version_and_deprecation_headers(request, call_next):
         pass
     return response
 
+
+@app.exception_handler(AppError)
+async def app_error_handler(request: Request, exc: AppError):
+    return JSONResponse(status_code=exc.status_code, content=error_payload(exc.code, exc.message, exc.details))
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    # 将HTTP异常包装为统一错误结构
+    msg = exc.detail if hasattr(exc, 'detail') else str(exc)
+    code = f"http_{exc.status_code}"
+    return JSONResponse(status_code=exc.status_code, content=error_payload(code, str(msg)))
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    # 兜底异常处理，避免泄漏堆栈
+    logger.error(f"Unhandled error: {exc}")
+    return JSONResponse(status_code=500, content=error_payload("internal_error", "Internal Server Error"))
 
 
 

@@ -1,3 +1,5 @@
+> Merge plan: 与 v2 Vision/Medical Intake 任务重叠（严格 JSON、无回退/无硬编码、场景与模型对齐），合并入 `refactor-api-v2-business`（Vision）。本文件在合并完成后归档。
+
 ## 1. Settings (AI 图片)
 - [x] 1.1 从 `/v1/vision/models` 加载 VL 模型列表；错误时显示可重试文案。
 - [x] 1.2 解析场景绑定的 `prompt_version` 并优先展示；若缺失再回退到 `active_version`；确保测试按钮与展示版本一致。
