@@ -148,6 +148,107 @@ def test_health_endpoint_no_manager(client):
         
         assert response.status_code == 200
         data = response.json()
-        assert data["success"] is False
-        assert "error" in data
+    assert data["success"] is False
+    assert "error" in data
 
+
+def test_login_endpoint_service_not_registered(client, mock_agent_manager):
+    """登录端点在服务未注册时返回 503。"""
+    # get_service 返回 None，模拟未注册
+    mock_agent_manager.get_service.return_value = None
+    from unittest.mock import patch
+    with patch("app.api.v1.agent.agent_manager", mock_agent_manager):
+        resp = client.post(
+            "/v1/agent/login",
+            json={"username": "u", "password": "p"},
+        )
+        assert resp.status_code == 503
+
+
+def test_get_workflows_no_manager_returns_503(client):
+    """工作流列表在智能体管理器未初始化时返回 503。"""
+    from unittest.mock import patch
+    with patch("app.api.v1.agent.agent_manager", None):
+        resp = client.get("/v1/agent/workflows?page_size=5&page_num=1")
+        assert resp.status_code == 503
+
+
+def _fake_invoke_stream():
+    """构造一个简单的异步生成器，模拟 SSE 流片段。"""
+    async def gen():
+        # 这里的内容无需严格是 SSE 格式，目的是触发流式路径
+        yield b"chunk-1\n"
+        yield b"chunk-2\n"
+        yield b"[DONE]\n"
+    return gen()
+
+
+def test_invoke_workflow_stream_success(client, mock_agent_manager):
+    """调用工作流端点返回流式响应并可迭代读取。"""
+    # manager.invoke 返回一个异步可迭代对象
+    mock_agent_manager.invoke = lambda **kwargs: _fake_invoke_stream()
+    from unittest.mock import patch
+    with patch("app.api.v1.agent.agent_manager", mock_agent_manager):
+        payload = {
+            "workflow_id": "wf-1",
+            "session_id": "sess-1",
+            "input": {"q": "hello"},
+        }
+        with client.stream("POST", "/v1/agent/invoke", json=payload) as resp:
+            assert resp.status_code == 200
+            assert "text/event-stream" in resp.headers.get("content-type", "")
+            chunks = list(resp.iter_text())
+            # 确认有多段数据返回
+            assert any("chunk-1" in c for c in chunks)
+            assert any("[DONE]" in c for c in chunks)
+
+
+def test_invoke_workflow_no_manager(client):
+    """调用工作流在智能体管理器未初始化时返回 503。"""
+    from unittest.mock import patch
+    with patch("app.api.v1.agent.agent_manager", None):
+        payload = {"workflow_id": "wf-1", "session_id": "sess-1", "input": {}}
+    resp = client.post("/v1/agent/invoke", json=payload)
+    assert resp.status_code == 503
+
+
+def test_invoke_workflow_with_auth_header_triggers_token_parsing(client, mock_agent_manager):
+    """调用工作流端点在带有 Authorization 头时应解析 token。"""
+    # 使用与成功流一致的伪流
+    mock_agent_manager.invoke = lambda **kwargs: _fake_invoke_stream()
+    from unittest.mock import patch
+    with patch("app.api.v1.agent.agent_manager", mock_agent_manager):
+        payload = {"workflow_id": "wf-2", "session_id": "sess-2", "input": {}}
+        with client.stream(
+            "POST",
+            "/v1/agent/invoke",
+            json=payload,
+            headers={"Authorization": "Bearer abc.def"},
+        ) as resp:
+            assert resp.status_code == 200
+            list(resp.iter_text())  # 触发消费
+
+
+def test_stop_workflow_no_manager(client):
+    """停止工作流在智能体管理器未初始化时返回 503。"""
+    from unittest.mock import patch
+    with patch("app.api.v1.agent.agent_manager", None):
+        resp = client.post("/v1/agent/stop?workflow_id=wf&session_id=sess")
+        assert resp.status_code == 503
+
+
+def test_get_config_service_not_registered(client, mock_agent_manager):
+    """配置端点在服务未注册时返回 503。"""
+    mock_agent_manager.get_service.return_value = None
+    from unittest.mock import patch
+    with patch("app.api.v1.agent.agent_manager", mock_agent_manager):
+        resp = client.get("/v1/agent/config")
+        assert resp.status_code == 503
+
+
+def test_get_config_no_manager_returns_503(client):
+    """配置端点在智能体管理器未初始化时返回 503。"""
+    from unittest.mock import patch
+    with patch("app.api.v1.agent.agent_manager", None):
+        resp = client.get("/v1/agent/config")
+        assert resp.status_code == 503

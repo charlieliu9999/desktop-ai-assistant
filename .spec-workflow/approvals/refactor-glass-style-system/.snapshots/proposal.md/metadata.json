@@ -1,0 +1,14 @@
+{
+  "filePath": "openspec/changes/refactor-glass-style-system/proposal.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2025-10-30T02:26:55.976Z",
+      "trigger": "initial",
+      "approvalId": "approval_1761791215973_nfayyj20b",
+      "approvalTitle": "Review OpenSpec change: refactor-glass-style-system"
+    }
+  ]
+}

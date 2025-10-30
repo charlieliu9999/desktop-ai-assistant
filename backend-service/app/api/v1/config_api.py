@@ -4,7 +4,7 @@
 提供对运行期 Settings 的读取、单键读取/更新、与整体验证。
 不持久化到 .env，仅在进程内更新（与 flags 行为一致）。
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Body
 from loguru import logger
 from typing import Any, Dict
 from datetime import datetime
@@ -45,8 +45,11 @@ async def get_config_key(key: str):
 
 
 @router.put("/{key}")
-async def update_config_key(key: str, payload: Any):
-    """更新单个配置项（顶层键）。不持久化，仅更新进程内 Settings。"""
+async def update_config_key(key: str, payload: Any = Body(...)):
+    """更新单个配置项（顶层键）。不持久化，仅更新进程内 Settings。
+
+    接受任意JSON值作为body（字符串、数字、布尔值、对象等）。
+    """
     try:
         # 若为已知字段，做类型校验/转换；否则直接设置
         field = Settings.model_fields.get(key)

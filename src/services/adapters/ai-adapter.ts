@@ -354,9 +354,9 @@ export class AIServiceAdapter {
         }
       }
     } catch (error) {
-      this.logger.error('Backend stream failed, falling back to legacy', error);
-      // 故障转移到legacy实现
-      yield* this.legacyService.chatStream(message, context);
+      this.logger.error('Backend stream failed', error);
+      // 按规范：不再回退到前端/legacy，直接抛出错误
+      throw error;
     }
   }
 
@@ -403,11 +403,9 @@ export class AIServiceAdapter {
 
       return result.data.extracted_data;
     } catch (error) {
-      this.logger.error('Backend analyze failed, falling back to legacy', error);
-      // 故障转移
-      const prompt = `请分析以下内容（类型：${analysisType}）：\n\n${content}`;
-      const response = await this.legacyService.processMessage(prompt);
-      return { analysis: response };
+      this.logger.error('Backend analyze failed', error);
+      // 不再回退：统一抛出错误，交由上层处理
+      throw error;
     }
   }
 
@@ -415,11 +413,9 @@ export class AIServiceAdapter {
    * 获取服务状态
    */
   getState(): string {
-    if (this.useBackend) {
-      return 'backend';
-    } else {
-      return this.legacyService.getState();
-    }
+    if (this.useBackend) return 'backend';
+    // 渲染进程不再支持前端直连（legacy 已移除）
+    return 'frontend-direct-unsupported';
   }
 
   /**

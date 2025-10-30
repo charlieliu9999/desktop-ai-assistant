@@ -1,0 +1,62 @@
+name: Integration Live Tests (Optional)
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_ai_live:
+        description: "Run v2 AI live tests"
+        required: true
+        default: "true"
+      run_agent_live:
+        description: "Run v2 Agent live tests"
+        required: true
+        default: "true"
+
+jobs:
+  integration-live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install backend dependencies
+        working-directory: backend-service
+        run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -U pip
+          pip install -r requirements.txt
+
+      - name: Run v2 AI live tests
+        if: ${{ github.event.inputs.run_ai_live == 'true' }}
+        working-directory: backend-service
+        env:
+          # Secrets: Configure these in repo Settings -> Secrets and variables -> Actions
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_BASE: ${{ secrets.OPENAI_API_BASE }}
+          OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+          DASHSCOPE_API_KEY: ${{ secrets.DASHSCOPE_API_KEY }}
+          DASHSCOPE_API_BASE: ${{ secrets.DASHSCOPE_API_BASE }}
+        run: |
+          source .venv/bin/activate
+          # Disable coverage gates for live-only run
+          pytest -q -m integration --no-cov tests/integration/test_ai_v2_live.py
+
+      - name: Run v2 Agent live tests
+        if: ${{ github.event.inputs.run_agent_live == 'true' }}
+        working-directory: backend-service
+        env:
+          BISHENG_BASE_URL: ${{ secrets.BISHENG_BASE_URL }}
+          BISHENG_ACCESS_TOKEN: ${{ secrets.BISHENG_ACCESS_TOKEN }}
+          BISHENG_USERNAME: ${{ secrets.BISHENG_USERNAME }}
+          BISHENG_PASSWORD: ${{ secrets.BISHENG_PASSWORD }}
+        run: |
+          source .venv/bin/activate
+          pytest -q -m integration --no-cov tests/integration/test_agent_v2_live.py
+

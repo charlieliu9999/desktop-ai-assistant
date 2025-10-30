@@ -98,6 +98,7 @@
     "eslint-plugin-react": "^7.34.1",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.5",
+    "happy-dom": "^20.0.10",
     "http-proxy": "^1.18.1",
     "jsdom": "^27.0.1",
     "lucide-react": "^0.294.0",

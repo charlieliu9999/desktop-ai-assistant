@@ -35,10 +35,12 @@ def test_understand_strict_json_failure_returns_error():
                 "schema_name": "patient_info_v1"
             }
         )
-    # Router converts service failure into HTTP 500 with detail set to error string
+    # Router converts service failure into HTTP 500 with unified error format
     assert resp.status_code == 500
     j = resp.json()
-    assert j.get("detail") == "strict_json_parse_failed"
+    # v1 API现在使用统一错误格式 {success: false, error: {code, message}, meta}
+    assert j.get("success") is False
+    assert "strict_json_parse_failed" in j.get("error", {}).get("message", "")
 
 
 def test_understand_strict_json_success_maps_fields():

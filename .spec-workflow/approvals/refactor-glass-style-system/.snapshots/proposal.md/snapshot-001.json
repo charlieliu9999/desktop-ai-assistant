@@ -1,0 +1,16 @@
+{
+  "id": "snapshot_1761791215976_hqrj58a8t",
+  "approvalId": "approval_1761791215973_nfayyj20b",
+  "approvalTitle": "Review OpenSpec change: refactor-glass-style-system",
+  "version": 1,
+  "timestamp": "2025-10-30T02:26:55.976Z",
+  "trigger": "initial",
+  "status": "pending",
+  "content": "## Why\n现有玻璃样式（glass）体系存在若干一致性与可靠性问题：\n- 使用了错误的根选择器 `::root`，导致 CSS 变量未生效或依赖回退值。\n- 在 CSS 中对自定义类使用 `@apply`，不符合 Tailwind 约束，可能在构建时被忽略或报错。\n- 工具函数返回的类名（`glass-light/medium/strong`）与实际样式定义不一致（存在的是 `glass-effect-light/strong`）。\n- 自定义样式导入顺序和分层与 Tailwind 的最佳实践不一致。\n- 全局 `.glass-disabled` 可能误伤局部仍需半透明的区域。\n- 文档已倡导统一 `.glass`，但代码仍保留大量语义类在常规组件中使用。\n\n## What Changes\n- 修正 CSS 根选择器，确保 `:root` 正确生效。\n- 移除/替换对自定义类的 `@apply` 用法，改为 Tailwind utility 或直接样式。\n- 统一强度类命名：实现 `glass-light/strong` 或调整工具函数与现有样式对齐（二选一）。\n- 调整样式导入顺序与分层，必要时使用 `@layer components` 管理。\n- 收敛 `.glass-disabled` 作用域（从 `body` 收敛至主容器或局部条件 class）。\n- 清理常规组件中的语义类，统一使用 `.glass`（保留特殊场景类在少数组件）。\n\n## Impact\n- 影响文件：`src/renderer/styles/glass-effect.css`、`src/renderer/index.css`、`src/renderer/utils/styleUtils.ts`、相关组件 TSX、`docs/GLASS_STYLE_GUIDE.md`。\n- 提升样式一致性与可维护性，避免构建不确定性，确保用户调参（透明度/模糊/饱和/色调）即时生效。\n- 对视觉效果为非破坏性（等价/更一致），对部分错误依赖回退值的场景会变得更可控。\n\n## Risk / Mitigation\n- 风险：调整导入顺序与分层可能影响少数覆盖顺序；缓解：增量变更+视觉回归检查。\n- 风险：改名或对齐强度类名可能影响少数调用；缓解：提供兼容别名或同步更新工具函数。\n\n## Approval\n实施需在文档审批后进行，发布前进行一次 UI 走查与回归测试。\n\n\n",
+  "fileStats": {
+    "size": 2052,
+    "lines": 31,
+    "lastModified": "2025-10-30T02:25:14.255Z"
+  },
+  "comments": []
+}

@@ -4,17 +4,17 @@
 - [ ] 1.3 与前端确认迁移节奏与开关
 
 ## 2. Backend — Add /v2 Routers (Phase 1 Minimal)
-- [ ] 2.1 新建 `app/api/v2/__init__.py` 与最小域路由：`ai`、`registry`、`vision`（understand）、`voice`（models, health）、`agent`（health）
-- [ ] 2.2 统一响应包装 `APIResponse`
-- [ ] 2.3 AI SSE 事件结构统一（仅 chat/stream）
-- [ ] 2.4 Vision 严格 JSON：仅要求有效 JSON 对象；`json_schema` 为可选透传；失败返回 `no_result`
-- [ ] 2.5 Registry 只读列表（providers/models），CRUD 留待后续
+- [x] 2.1 新建 `app/api/v2/__init__.py` 与最小域路由：`ai`、`registry`、`vision`（understand）、`voice`（models, health）、`agent`（health）
+- [x] 2.2 统一响应包装 `APIResponse`
+- [x] 2.3 AI SSE 事件结构统一（仅 chat/stream）
+- [x] 2.4 Vision 严格 JSON：仅要求有效 JSON 对象；`json_schema` 为可选透传；失败返回 `no_result`
+- [x] 2.5 Registry 只读列表（providers/models），CRUD 留待后续
 
 ## 3. Tests — Backend
-- [ ] 3.1 新增 v2 端点单测（Phase 1 覆盖的域）
-- [ ] 3.2 AI 流式用例（SSE：chunk/end/error）
-- [ ] 3.3 Vision 严格 JSON 失败路径（返回 `no_result`）
-- [ ] 3.4 覆盖率 ≥ 80%，不破坏 v1 现有测试
+- [x] 3.1 新增 v2 端点单测（Phase 1 覆盖的域）
+- [x] 3.2 AI 流式用例（SSE：chunk/end/error）
+- [x] 3.3 Vision 严格 JSON 失败路径（返回 `no_result`）
+- [x] 3.4 覆盖率 ≥ 80%，不破坏 v1 现有测试（当前 84%）
 
 ## 4. Documentation
 - [ ] 4.1 新增 `docs/api-v2.md`（总览、错误码、示例、迁移表）

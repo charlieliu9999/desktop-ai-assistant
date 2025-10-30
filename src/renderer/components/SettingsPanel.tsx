@@ -127,16 +127,15 @@ const SettingsPanel: React.FC = () => {
   };
 
   // Refresh configuration from backend/main
-  // 可选：提供刷新逻辑（暂不在UI直接调用）
-  // const handleRefresh = async () => {
-  //   try {
-  //     await useConfigStore.getState().loadConfig();
-  //     setHasUnsavedChanges(false);
-  //     toast.success('配置已刷新');
-  //   } catch (e) {
-  //     toast.error('刷新配置失败');
-  //   }
-  // };
+  const handleRefresh = async () => {
+    try {
+      await useConfigStore.getState().loadConfig();
+      setHasUnsavedChanges(false);
+      toast.success('配置已刷新');
+    } catch (e) {
+      toast.error('刷新配置失败');
+    }
+  };
 
   // Reset to defaults
   const handleReset = () => {
@@ -308,31 +307,7 @@ const SettingsPanel: React.FC = () => {
     </div>
   );
 
-  const renderAdvancedSettings = () => (
-    <div className="space-y-6">
-      <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="text-sm font-medium text-gray-900 dark:text-gray-100">使用 Vision v2 端点（实验性）</div>
-            <div className="text-xs text-muted-foreground mt-1">
-              启用后，图像理解调用 /v2/vision/understand，严格 JSON 失败返回 no_result（无回退/无硬编码）。仅影响当前运行会话（不持久化）。
-            </div>
-          </div>
-          <input
-            type="checkbox"
-            checked={useVisionV2}
-            onChange={(e) => {
-              const next = !!e.target.checked;
-              setUseVisionV2(next);
-              try { setFeatureFlag('USE_BACKEND_VISION_V2', next); } catch {}
-              toast.success(`Vision v2 已${next ? '启用' : '关闭'}`);
-            }}
-            className="rounded"
-          />
-        </div>
-      </div>
-    </div>
-  );
+  
 
   const renderVoiceSettings = () => (
     <div className="space-y-6">
@@ -1969,6 +1944,29 @@ const SettingsPanel: React.FC = () => {
       <div>
         <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-4">高级设置</h3>
 
+        {/* 实验性：Vision v2 切换（仅当前会话） */}
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium text-gray-900 dark:text-gray-100">使用 Vision v2 端点（实验性）</div>
+              <div className="text-xs text-muted-foreground mt-1">
+                启用后，图像理解调用 /v2/vision/understand，严格 JSON 失败返回 no_result（无回退/无硬编码）。仅影响当前运行会话（不持久化）。
+              </div>
+            </div>
+            <input
+              type="checkbox"
+              checked={useVisionV2}
+              onChange={(e) => {
+                const next = !!e.target.checked;
+                setUseVisionV2(next);
+                try { setFeatureFlag('USE_BACKEND_VISION_V2', next); } catch {}
+                toast.success(`Vision v2 已${next ? '启用' : '关闭'}`);
+              }}
+              className="rounded"
+            />
+          </div>
+        </div>
+
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
@@ -2104,6 +2102,15 @@ const SettingsPanel: React.FC = () => {
             </div>
 
             <div className="flex items-center space-x-3">
+              <button
+                type="button"
+                onClick={handleRefresh}
+                className="flex items-center space-x-2 px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-md hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                title="从后端重新加载配置"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>刷新</span>
+              </button>
               {hasUnsavedChanges && (
                 <div className="flex items-center space-x-2 text-amber-600 dark:text-amber-400">
                   <AlertCircle className="w-4 h-4" />

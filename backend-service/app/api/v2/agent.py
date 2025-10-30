@@ -11,7 +11,6 @@ from app.services.ai.models import APIResponse
 router = APIRouter(prefix="/agent")
 
 
-@router.get("/health", response_model=APIResponse)
 async def health():
     try:
         try:
@@ -36,3 +35,9 @@ async def health():
         logger.error(f"v2/agent/health error: {e}")
         raise HTTPException(status_code=500, detail="internal_error")
 
+
+@router.get("/health", response_model=APIResponse)
+async def health_route():
+    """路由包装器：动态调用当前模块的 health 函数，支持测试猴补丁。"""
+    from app.api.v2 import agent as self_module  # 动态获取当前模块以便 monkeypatch 生效
+    return await getattr(self_module, "health")()

@@ -8,7 +8,7 @@ export default defineConfig({
       'src/**/*.spec.ts',
       'src/**/*.spec.tsx',
     ],
-    environment: 'jsdom',
+    environment: 'happy-dom',
     globals: false,
     threads: true,
     isolate: true,

@@ -197,6 +197,7 @@ const screenshot = await screenshotService.captureScreen();
 - [语音设置](./docs/VOICE_RECOGNITION_SETUP.md)
 - [网络搜索](./docs/WEB_SEARCH_SETUP.md)
 - [测试指南](./tests/TESTING_GUIDE.md)
+ - [模型与提供商配置](./docs/CONFIG_PROVIDERS_MODELS.md)
 
 ---
 

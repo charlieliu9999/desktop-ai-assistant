@@ -120,7 +120,10 @@ class TestAIAPI:
             json={"messages": []},
         )
         assert response.status_code == 400
-        assert "Messages cannot be empty" in response.json().get("detail", "")
+        data = response.json()
+        # v1 API现在使用统一错误格式 {success: false, error: {code, message}, meta}
+        assert data.get("success") is False
+        assert "Messages cannot be empty" in data.get("error", {}).get("message", "")
 
     def test_chat_endpoint_surfaces_provider_error(self, client, monkeypatch):
         """提供商异常时应返回 500 并带有错误明细"""
@@ -136,83 +139,154 @@ class TestAIAPI:
         )
 
         assert response.status_code == 500
-        detail = response.json().get("detail", "")
-        assert "AI chat failed" in detail
-        assert "provider explode" in detail
+        data = response.json()
+        # v1 API现在使用统一错误格式 {success: false, error: {code, message}, meta}
+        assert data.get("success") is False
+        error_message = data.get("error", {}).get("message", "")
+        assert "AI chat failed" in error_message
+        assert "provider explode" in error_message
 
-    @pytest.mark.skip(reason="需要适配新的AI服务实现")
-    def test_chat_endpoint_server_error(self, client, mock_ai_manager):
+    def test_chat_endpoint_server_error(self, client, monkeypatch):
         """测试对话端点服务器错误"""
-        mock_ai_manager.chat = AsyncMock(side_effect=Exception("Server error"))
+        from app.services.ai import ai_manager
 
-        with patch("app.api.v1.ai.ai_manager", mock_ai_manager):
-            response = client.post(
-                "/v1/ai/chat",
-                json={
-                    "messages": [{"role": "user", "content": "Hello"}],
-                },
-            )
+        async def fake_chat(messages, provider=None, options=None):
+            raise Exception("Server error")
 
-            assert response.status_code == 500
-            data = response.json()
-            assert data["success"] is False
-            assert "error" in data
+        monkeypatch.setattr(ai_manager, "chat", fake_chat)
 
-    @pytest.mark.skip(reason="需要适配新的AI服务实现")
-    def test_analyze_endpoint(self, client, mock_ai_manager):
+        response = client.post(
+            "/v1/ai/chat",
+            json={
+                "messages": [{"role": "user", "content": "Hello"}],
+            },
+        )
+
+        assert response.status_code == 500
+        data = response.json()
+        assert data["success"] is False
+        assert "error" in data
+        assert "Server error" in data["error"]["message"]
+
+    def test_analyze_endpoint(self, client, monkeypatch):
         """测试分析端点"""
-        with patch("app.api.v1.ai.ai_manager", mock_ai_manager):
-            response = client.post(
-                "/v1/ai/analyze",
-                json={
-                    "content": "Test content",
-                    "analysis_type": "test",
-                    "extract_fields": ["key"],
-                },
+        from app.services.ai import ai_manager
+        from app.services.ai.models import AnalyzeResponse
+
+        async def fake_analyze(content, analysis_type, extract_fields=None, provider=None, options=None):
+            return AnalyzeResponse(
+                analysis_type=analysis_type,
+                extracted_data={"key": "value"},
+                confidence=0.95,
+                raw_response="Test response",
+                provider="test",
             )
 
-            assert response.status_code == 200
-            data = response.json()
-            assert data["success"] is True
-            assert data["data"]["analysis_type"] == "test"
-            assert data["data"]["extracted_data"]["key"] == "value"
-            assert data["data"]["confidence"] == 0.95
+        monkeypatch.setattr(ai_manager, "analyze", fake_analyze)
 
-    @pytest.mark.skip(reason="需要适配新的AI服务实现")
-    def test_analyze_endpoint_with_provider(self, client, mock_ai_manager):
+        response = client.post(
+            "/v1/ai/analyze",
+            json={
+                "content": "Test content",
+                "analysis_type": "patient_info",
+                "extract_fields": ["key"],
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["data"]["analysis_type"] == "patient_info"
+        assert data["data"]["extracted_data"]["key"] == "value"
+        assert data["data"]["confidence"] == 0.95
+
+    def test_analyze_endpoint_with_provider(self, client, monkeypatch):
         """测试指定提供商的分析"""
-        with patch("app.api.v1.ai.ai_manager", mock_ai_manager):
-            response = client.post(
-                "/v1/ai/analyze",
-                json={
-                    "content": "Test content",
-                    "analysis_type": "test",
-                    "provider": "openai",
-                },
+        from app.services.ai import ai_manager
+        from app.services.ai.models import AnalyzeResponse
+
+        async def fake_analyze(content, analysis_type, extract_fields=None, provider=None, options=None):
+            return AnalyzeResponse(
+                analysis_type=analysis_type,
+                extracted_data={"result": "analyzed"},
+                confidence=0.90,
+                raw_response="Test response",
+                provider=provider or "openai",
             )
 
-            assert response.status_code == 200
-            data = response.json()
-            assert data["success"] is True
+        monkeypatch.setattr(ai_manager, "analyze", fake_analyze)
 
-    @pytest.mark.skip(reason="需要适配新的AI服务实现")
-    def test_health_endpoint(self, client, mock_ai_manager):
+        response = client.post(
+            "/v1/ai/analyze",
+            json={
+                "content": "Test content",
+                "analysis_type": "general",
+            },
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert data["data"]["analysis_type"] == "general"
+
+    def test_health_endpoint(self, client, monkeypatch):
         """测试健康检查端点"""
-        with patch("app.api.v1.ai.ai_manager", mock_ai_manager):
-            response = client.get("/v1/ai/health?provider=test")
+        from app.services.ai import ai_manager
+        from app.services.ai.models import ProviderHealth
+        from datetime import datetime
 
-            assert response.status_code == 200
-            data = response.json()
-            assert data["success"] is True
-            assert data["data"]["name"] == "test"
-            assert data["data"]["healthy"] is True
+        async def fake_get_all_providers_health():
+            return {
+                "test": ProviderHealth(
+                    name="test",
+                    healthy=True,
+                    latency_ms=100.0,
+                    last_check=datetime.now(),
+                    error=None,
+                )
+            }
 
-    @pytest.mark.skip(reason="需要适配新的AI服务实现")
-    def test_health_endpoint_no_provider(self, client):
-        """测试健康检查端点缺少提供商参数"""
+        monkeypatch.setattr(ai_manager, "get_all_providers_health", fake_get_all_providers_health)
+
         response = client.get("/v1/ai/health")
 
-        assert response.status_code == 422  # Validation error
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert "providers" in data["data"]
+        assert "test" in data["data"]["providers"]
+        assert data["data"]["providers"]["test"]["healthy"] is True
+
+    def test_health_endpoint_all_providers(self, client, monkeypatch):
+        """测试获取所有提供商健康状态"""
+        from app.services.ai import ai_manager
+        from app.services.ai.models import ProviderHealth
+        from datetime import datetime
+
+        async def fake_get_all_providers_health():
+            return {
+                "openai": ProviderHealth(
+                    name="openai",
+                    healthy=True,
+                    latency_ms=150.0,
+                    last_check=datetime.now(),
+                ),
+                "deepseek": ProviderHealth(
+                    name="deepseek",
+                    healthy=True,
+                    latency_ms=200.0,
+                    last_check=datetime.now(),
+                ),
+            }
+
+        monkeypatch.setattr(ai_manager, "get_all_providers_health", fake_get_all_providers_health)
+
+        response = client.get("/v1/ai/health")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert len(data["data"]["providers"]) == 2
 
     def test_providers_endpoint(self, client, mock_ai_manager):
         """测试提供商列表端点"""
@@ -230,43 +304,40 @@ class TestAIAPI:
 class TestStreamingAPI:
     """流式API测试类"""
 
-    @pytest.mark.skip(reason="需要适配新的AI服务实现")
-    @pytest.mark.asyncio
-    async def test_chat_stream_endpoint(self, client, mock_ai_manager):
+    def test_chat_stream_endpoint(self, client, monkeypatch):
         """测试流式对话端点"""
-        from app.services.ai.models import StreamChunk
+        from app.services.ai import ai_manager
+        from app.services.ai.models import StreamChunk, Usage
 
         # Mock streaming response
-        async def mock_stream():
-            yield StreamChunk(type="start", request_id="test-123")
+        async def fake_chat_stream(messages, provider=None, options=None):
             yield StreamChunk(type="chunk", content="Hello")
-            yield StreamChunk(type="chunk", content=" World")
+            yield StreamChunk(type="chunk", content=" ")
+            yield StreamChunk(type="chunk", content="World")
             yield StreamChunk(
                 type="done",
                 usage=Usage(prompt_tokens=5, completion_tokens=2, total_tokens=7),
             )
 
-        mock_ai_manager.chat_stream = AsyncMock(return_value=mock_stream())
+        monkeypatch.setattr(ai_manager, "chat_stream", fake_chat_stream)
 
-        with patch("app.api.v1.ai.ai_manager", mock_ai_manager):
-            response = client.post(
-                "/v1/ai/chat/stream",
-                json={
-                    "messages": [{"role": "user", "content": "Hello"}],
-                    "options": {"stream": True},
-                },
-            )
+        response = client.post(
+            "/v1/ai/chat/stream",
+            json={
+                "messages": [{"role": "user", "content": "Hello"}],
+            },
+        )
 
-            assert response.status_code == 200
-            assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
+        assert response.status_code == 200
+        assert response.headers["content-type"] == "text/event-stream; charset=utf-8"
 
-            # 验证SSE格式
-            content = response.text
-            assert "data:" in content
-            assert "start" in content
-            assert "Hello" in content
-            assert "World" in content
-            assert "done" in content
+        # 验证SSE格式
+        content = response.text
+        assert "data:" in content
+        assert '"type":"chunk"' in content
+        assert "Hello" in content
+        assert "World" in content
+        assert '"type":"done"' in content
 
 
 class TestErrorHandling:
@@ -302,23 +373,24 @@ class TestErrorHandling:
 
         assert response.status_code == 422
 
-    @pytest.mark.skip(reason="需要适配新的AI服务实现")
-    def test_provider_not_found(self, client, mock_ai_manager):
+    def test_provider_not_found(self, client, monkeypatch):
         """测试提供商不存在"""
-        mock_ai_manager.chat = AsyncMock(
-            side_effect=ValueError("Provider 'nonexistent' not found")
+        from app.services.ai import ai_manager
+
+        async def fake_chat(messages, provider=None, options=None):
+            raise ValueError("Provider 'nonexistent' not found")
+
+        monkeypatch.setattr(ai_manager, "chat", fake_chat)
+
+        response = client.post(
+            "/v1/ai/chat",
+            json={
+                "messages": [{"role": "user", "content": "Hello"}],
+                "provider": "nonexistent",
+            },
         )
 
-        with patch("app.api.v1.ai.ai_manager", mock_ai_manager):
-            response = client.post(
-                "/v1/ai/chat",
-                json={
-                    "messages": [{"role": "user", "content": "Hello"}],
-                    "provider": "nonexistent",
-                },
-            )
-
-            assert response.status_code == 500
-            data = response.json()
-            assert data["success"] is False
-            assert "not found" in data["error"]["message"].lower()
+        assert response.status_code == 500
+        data = response.json()
+        assert data["success"] is False
+        assert "not found" in data["error"]["message"].lower()

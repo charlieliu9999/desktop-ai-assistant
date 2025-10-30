@@ -10,10 +10,12 @@ def test_vision_understand_v2_strict_json_no_result(monkeypatch):
     # monkeypatch v1 vision service to simulate strict_json failure
     import app.api.v1.vision as v1vision
 
-    async def fake_understand(req):
-        return VisionResponse(success=False, result=None, error="no_result", model_used="mock", processing_time_ms=1.0)
+    # 创建一个mock服务类，understand是实例方法
+    class MockVisionService:
+        async def understand(self, req):
+            return VisionResponse(success=False, result=None, error="no_result", model_used="mock", processing_time_ms=1.0)
 
-    monkeypatch.setattr(v1vision, "vision_service", type("VS", (), {"understand": fake_understand})())
+    monkeypatch.setattr(v1vision, "vision_service", MockVisionService())
 
     body = {
         "source": {"type": "base64", "data": "Zm9v", "mime": "image/png"},

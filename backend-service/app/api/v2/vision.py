@@ -45,8 +45,17 @@ async def understand(payload: dict):
         resp = await vision_service.understand(req)
 
         if strict_json and not resp.success:
-            # Phase 1：strict_json 失败时返回 no_result
-            return APIResponse(success=False, error={"code": "no_result", "message": resp.error or "no_result"}, meta={"timestamp": datetime.now().isoformat(), "version": "2.0.0"})
+            # Phase 1：strict_json 失败时返回 no_result（增加 details 便于前端友好提示）
+            guidance = "识别失败：未得到严格JSON结构。请确保截图包含右侧详情/信息面板，避免左侧边栏或中部患者列表后重试。"
+            return APIResponse(
+                success=False,
+                error={
+                    "code": "no_result",
+                    "message": resp.error or "no_result",
+                    "details": {"guidance": guidance},
+                },
+                meta={"timestamp": datetime.now().isoformat(), "version": "2.0.0"},
+            )
 
         data = None
         if resp.success and resp.result:
@@ -66,4 +75,3 @@ async def understand(payload: dict):
     except Exception as e:
         logger.error(f"v2/vision/understand error: {e}")
         raise HTTPException(status_code=500, detail="internal_error")
-

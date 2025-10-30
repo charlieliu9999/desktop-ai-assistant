@@ -24,29 +24,29 @@ router = APIRouter(prefix="/ai")
 @router.post("/chat", response_model=APIResponse)
 async def chat(request: ChatRequest, scene: str | None = Query(default=None, description="业务场景标识，如 ai_chat")):
     """
-    AI对话 - 标准模式
+    AI对话 - 标准模式 (v1 API - 使用统一响应格式)
 
     Args:
         request: 对话请求
 
     Returns:
-        对话响应
+        对话响应 (统一格式: {success, data, meta})
 
     Raises:
-        HTTPException: 请求失败时抛出异常
+        HTTPException: 请求失败时抛出异常(会被全局处理器转换为统一格式)
     """
+    request_id = str(uuid.uuid4())
+    start_time = datetime.now()
+
+    logger.info(f"[{request_id}] AI chat request, messages: {len(request.messages)}")
+
+    # 验证消息
+    if not request.messages:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Messages cannot be empty"
+        )
+
     try:
-        request_id = str(uuid.uuid4())
-        start_time = datetime.now()
-
-        logger.info(f"[{request_id}] AI chat request, messages: {len(request.messages)}")
-
-        # 验证消息
-        if not request.messages:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST, detail="Messages cannot be empty"
-            )
-
         # 若指定场景，则解析并应用统一的提示词与参数
         effective_req = request
         if scene:
@@ -77,6 +77,7 @@ async def chat(request: ChatRequest, scene: str | None = Query(default=None, des
             f"time: {processing_time_ms:.2f}ms"
         )
 
+        # v1 API: 返回统一的APIResponse格式
         return APIResponse(
             success=True,
             data={
@@ -90,12 +91,9 @@ async def chat(request: ChatRequest, scene: str | None = Query(default=None, des
                 "request_id": request_id,
                 "timestamp": datetime.now().isoformat(),
                 "processing_time_ms": processing_time_ms,
-                "version": "1.1.0",
             },
         )
 
-    except HTTPException:
-        raise
     except Exception as e:
         # 输出更详细的错误上下文，便于排查 provider/base/model 等问题
         try:
