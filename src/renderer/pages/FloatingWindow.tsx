@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { X, Minimize2, Settings, Mic, Camera, MessageSquare } from 'lucide-react';
 import { useConfigStore } from '../stores/configStore';
 import { useFloatingGlassEffect } from '../hooks/useFloatingGlassEffect';
+import { useThemeStore } from '../stores/themeStore';
 import { toast } from 'sonner';
 
 interface FloatingWindowProps {
@@ -10,6 +11,7 @@ interface FloatingWindowProps {
 
 const FloatingWindow: React.FC<FloatingWindowProps> = () => {
   const { config } = useConfigStore();
+  const { mode: themeMode } = useThemeStore();
   const [isMinimized, setIsMinimized] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -218,7 +220,7 @@ const FloatingWindow: React.FC<FloatingWindowProps> = () => {
     );
   }
 
-  const isGlass = config.theme === 'glass' || config.windows?.floating?.glassEffect?.enabled;
+  const isGlass = themeMode === 'glass' || config.theme === 'glass' || config.windows?.floating?.glassEffect?.enabled;
 
   // Full floating window
   return (

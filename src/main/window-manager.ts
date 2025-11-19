@@ -70,7 +70,7 @@ export class WindowManager {
       frame: false, // 无边框
       titleBarStyle: 'hidden',
       trafficLightPosition: { x: 16, y: 16 },
-      transparent: isGlass, // 仅玻璃主题启用透明
+      transparent: true, // 始终允许窗口透明，由页面背景控制是否显示玻璃效果
       // 不设置 backgroundColor，让它完全透明
       // 移除 vibrancy 和 visualEffectState，它们可能与 CSS backdrop-filter 冲突
       hasShadow: true,
@@ -146,7 +146,7 @@ export class WindowManager {
       show: false,
       frame: false,
       titleBarStyle: 'hidden',
-      transparent: isGlass ? (typeof floatingConfig.transparent === 'boolean' ? floatingConfig.transparent : true) : false,
+      transparent: true,
       // 不设置 backgroundColor，让它完全透明
       // 移除 vibrancy 和 visualEffectState，它们可能与 CSS backdrop-filter 冲突
       hasShadow: true,

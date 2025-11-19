@@ -87,8 +87,18 @@ sleep 1
 
 # 启动Electron
 echo -e "${BLUE}🖥️  启动Electron应用...${NC}"
-electron-builder install-app-deps > /dev/null 2>&1
-electron . &
+
+# 确保本地可执行文件可用（使用 npx 调用项目内依赖）
+# 设置开发环境变量，指向 Vite 渲染进程地址
+export NODE_ENV=development
+export ELECTRON_RENDERER_URL="http://127.0.0.1:${VITE_PORT}"
+export VITE_PORT
+
+# 安装 Electron 运行所需的本地依赖（静默）
+npx electron-builder install-app-deps > /dev/null 2>&1
+
+# 使用本地 Electron 启动应用
+npx electron . &
 ELECTRON_PID=$!
 echo -e "${GREEN}✅ Electron已启动 (PID: $ELECTRON_PID)${NC}"
 
@@ -117,4 +127,3 @@ echo ""
 echo -e "${YELLOW}🧹 清理进程...${NC}"
 kill $VITE_PID 2>/dev/null || true
 echo -e "${GREEN}✅ 已停止${NC}"
-

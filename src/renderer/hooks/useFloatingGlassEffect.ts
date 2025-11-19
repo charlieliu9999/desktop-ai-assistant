@@ -1,31 +1,45 @@
 import { useEffect } from 'react';
 import { useConfigStore } from '../stores/configStore';
+import { useThemeStore } from '../stores/themeStore';
 
 export const useFloatingGlassEffect = () => {
   const { config } = useConfigStore();
 
+  const { mode: themeMode } = useThemeStore();
+
   useEffect(() => {
     const glass = config?.windows?.floating?.glassEffect;
+    const isGlassTheme = (config?.theme === 'glass') || (themeMode === 'glass');
+    const enableGlass = isGlassTheme || !!glass?.enabled;
 
-    if (!glass?.enabled) {
+    if (!enableGlass) {
       document.documentElement.style.removeProperty('--glass-opacity');
       document.documentElement.style.removeProperty('--glass-blur');
       document.documentElement.style.removeProperty('--glass-saturation');
       document.documentElement.style.removeProperty('--glass-tint');
+      // 恢复默认背景
+      document.body.style.backgroundColor = '';
+      document.documentElement.style.backgroundColor = '';
       return;
     }
 
-    const opacity = glass.opacity ?? 0.15;
-    const blur = glass.blur ?? 25;
-    const saturation = glass.saturation ?? 180;
-    const tintColor = glass.tintColor ?? '#000000';
-    const tintOpacity = glass.tintOpacity ?? 0;
+    // 使页面背景真正透明，配合透明窗口实现毛玻璃
+    document.body.style.backgroundColor = 'transparent';
+    document.documentElement.style.backgroundColor = 'transparent';
+
+    const opacity = glass?.opacity ?? 0.15;
+    const blur = glass?.blur ?? 25;
+    const saturation = glass?.saturation ?? 180;
+    const tintColor = glass?.tintColor ?? '#000000';
+    const tintOpacity = glass?.tintOpacity ?? 0;
 
     document.documentElement.style.setProperty('--glass-opacity', String(opacity));
     document.documentElement.style.setProperty('--glass-blur', `${blur}px`);
     document.documentElement.style.setProperty('--glass-saturation', `${saturation}%`);
     document.documentElement.style.setProperty('--glass-tint', hexToRgba(tintColor, clamp01(tintOpacity)));
   }, [
+    config?.theme,
+    themeMode,
     config?.windows?.floating?.glassEffect?.enabled,
     config?.windows?.floating?.glassEffect?.opacity,
     config?.windows?.floating?.glassEffect?.blur,
@@ -53,4 +67,3 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } {
 }
 
 export default useFloatingGlassEffect;
-

@@ -6,6 +6,7 @@ import MedicalSystem from './MedicalSystem';
 import SettingsPanel from './SettingsPanel';
 import AgentService from '../pages/AgentService';
 import { useConfigStore } from '../stores/configStore';
+import { useThemeStore } from '../stores/themeStore';
 
 type TabType = 'chat' | 'desktop' | 'medical' | 'agent' | 'settings';
 
@@ -19,6 +20,7 @@ const MainWindow: React.FC<MainWindowProps> = ({ onClose, onMinimize, onMaximize
   const [activeTab, setActiveTab] = useState<TabType>('chat');
   const [isMaximized, setIsMaximized] = useState(false);
   const { config } = useConfigStore();
+  const { mode: themeMode } = useThemeStore();
 
   // Handle window controls
   const handleClose = () => {
@@ -124,7 +126,7 @@ const MainWindow: React.FC<MainWindowProps> = ({ onClose, onMinimize, onMaximize
     }
   };
 
-  const isGlass = config.theme === 'glass' || config.windows?.main?.glassEffect?.enabled;
+  const isGlass = themeMode === 'glass' || config.theme === 'glass' || config.windows?.main?.glassEffect?.enabled;
 
   return (
     <div className={`flex flex-col h-screen ${isGlass ? 'bg-transparent' : 'bg-gray-50 dark:bg-gray-900'}`}>
